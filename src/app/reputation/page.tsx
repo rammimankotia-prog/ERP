@@ -492,7 +492,7 @@ function DashboardView({ mix, mentions, theme, strengths, weaknesses, avgRating 
             {mentions.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#64748b', padding: '2rem' }}>No mentions detected yet. Trigger a sync in Profiles.</p>
             ) : (
-              mentions.map(m => (
+              mentions.map((m: any) => (
                 <MentionRow key={m.id} mention={m} theme={theme} />
               ))
             )}

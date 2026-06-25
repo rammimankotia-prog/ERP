@@ -32,6 +32,14 @@ export default function InventoryPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
 
+  const shiftDate = (days: number) => {
+    setCurrentDate(prev => {
+      const next = new Date(prev);
+      next.setDate(next.getDate() + days);
+      return next;
+    });
+  };
+
   const roomData = useMemo(() => {
     return ALL_ROOM_DATA.filter(r => r.property === selectedProperty);
   }, [selectedProperty]);
@@ -116,7 +124,7 @@ export default function InventoryPage() {
                 BULK UPDATE <span>▶</span>
               </button>
               {showBulkMenu && (
-                <div style={dropdownStyle}>
+                <div style={dropdownStyle(theme)}>
                   <div className="dropdown-item" onClick={() => { setShowUpdateModal(true); setShowBulkMenu(false); }}>Inventory</div>
                   <div className="dropdown-item">Rates</div>
                   <div className="dropdown-item">Restrictions</div>
@@ -211,7 +219,7 @@ export default function InventoryPage() {
 
             <div style={{ marginBottom: '2rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '1rem', marginBottom: '1rem' }}>
-                Select Stay Dates <span style={infoIconStyle}>?</span>
+                Select Stay Dates <span style={infoIconStyle(theme)}>?</span>
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div style={{ ...modalInputWrapper, background: theme === 'light' ? 'white' : '#1e293b', borderColor: theme === 'light' ? '#cbd5e1' : '#334155' }}>
@@ -224,7 +232,7 @@ export default function InventoryPage() {
 
             <div style={{ marginBottom: '2rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '1rem', marginBottom: '1rem' }}>
-                Room Inventory <span style={infoIconStyle}>?</span>
+                Room Inventory <span style={infoIconStyle(theme)}>?</span>
               </label>
               <div>
                 <p style={{ fontSize: '0.8rem', color: theme === 'light' ? '#475569' : '#94a3b8', marginBottom: '0.5rem', fontWeight: 600 }}>Number of rooms to sell</p>
