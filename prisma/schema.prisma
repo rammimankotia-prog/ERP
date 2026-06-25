@@ -1,0 +1,291 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  AGENT
+  TOUR_MANAGER
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  HOLD
+  ACCEPTED
+  REJECTED
+}
+
+enum InvoiceType {
+  PROFORMA
+  TAX
+}
+
+enum TransactionType {
+  DEBIT
+  CREDIT
+}
+
+enum EntityType {
+  GUEST
+  AGENT
+  SUPPLIER
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  QUESTIONED
+}
+
+model User {
+  id               String        @id @default(uuid())
+  name             String
+  email            String        @unique
+  passwordHash     String
+  role             Role          @default(STAFF)
+  agent            Agent?
+  managedExpenses  TourExpense[] @relation("ManagerExpenses")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model AgentTier {
+  id                 String  @id @default(uuid())
+  name               String  @unique // SILVER, GOLD, PLATINUM
+  discountPercentage Float   // 10.0, 15.0, 20.0
+  agents             Agent[]
+}
+
+model Agent {
+  id          String      @id @default(uuid())
+  userId      String      @unique
+  user        User        @relation(fields: [userId], references: [id])
+  tierId      String
+  tier        AgentTier   @relation(fields: [tierId], references: [id])
+  companyName String
+  gstNumber   String?
+  quotations  Quotation[]
+}
+
+model Property {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  address   String
+  rooms     RoomType[]
+}
+
+model RoomType {
+  id             String            @id @default(uuid())
+  propertyId     String
+  property       Property          @relation(fields: [propertyId], references: [id])
+  name           String
+  baseB2cPrice   Float
+  totalRooms     Int
+  inventory      Inventory[]
+  quotationRooms QuotationRoom[]
+}
+
+model Inventory {
+  id             String   @id @default(uuid())
+  roomTypeId     String
+  roomType       RoomType @relation(fields: [roomTypeId], references: [id])
+  date           DateTime @db.Date
+  totalAvailable Int
+  blockedCount   Int      @default(0)
+  bookedCount    Int      @default(0)
+}
+
+model Quotation {
+  id             String               @id @default(uuid())
+  quoteNumber    String               @unique
+  agentId        String?
+  agent          Agent?               @relation(fields: [agentId], references: [id])
+  guestName      String
+  guestEmail     String?
+  status         QuoteStatus          @default(DRAFT)
+  cutOffDate     DateTime?
+  totalB2cPrice  Float
+  totalB2bPrice  Float
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  rooms          QuotationRoom[]
+  inclusions     QuotationInclusion[]
+  exclusions     QuotationExclusion[]
+  tours          QuotationTour[]
+  salesOrder     SalesOrder?
+}
+
+model QuotationRoom {
+  id           String    @id @default(uuid())
+  quotationId  String
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  roomTypeId   String
+  roomType     RoomType  @relation(fields: [roomTypeId], references: [id])
+  checkIn      DateTime  @db.Date
+  checkOut     DateTime  @db.Date
+  quantity     Int
+  b2cRate      Float
+  b2bRate      Float
+}
+
+model Inclusion {
+  id                   String               @id @default(uuid())
+  name                 String
+  type                 String
+  quotationInclusions  QuotationInclusion[]
+}
+
+model QuotationInclusion {
+  id          String    @id @default(uuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  inclusionId String
+  inclusion   Inclusion @relation(fields: [inclusionId], references: [id])
+}
+
+model QuotationExclusion {
+  id          String    @id @default(uuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  text        String
+}
+
+model FleetCategory {
+  id             String          @id @default(uuid())
+  name           String
+  perDayRate     Float
+  perKmRate      Float
+  quotationTours QuotationTour[]
+}
+
+model TourPackage {
+  id             String          @id @default(uuid())
+  name           String
+  description    String?
+  basePrice      Float
+  itineraries    Itinerary[]
+  quotationTours QuotationTour[]
+}
+
+model Itinerary {
+  id            String      @id @default(uuid())
+  tourPackageId String
+  tourPackage   TourPackage @relation(fields: [tourPackageId], references: [id], onDelete: Cascade)
+  dayNumber     Int
+  title         String
+  description   String?
+}
+
+model QuotationTour {
+  id              String        @id @default(uuid())
+  quotationId     String
+  quotation       Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  tourPackageId   String?
+  tourPackage     TourPackage?  @relation(fields: [tourPackageId], references: [id])
+  fleetCategoryId String?
+  fleetCategory   FleetCategory?@relation(fields: [fleetCategoryId], references: [id])
+  startDate       DateTime      @db.Date
+  endDate         DateTime      @db.Date
+  expense         TourExpense?
+}
+
+model TourExpense {
+  id              String         @id @default(uuid())
+  quotationTourId String         @unique
+  quotationTour   QuotationTour  @relation(fields: [quotationTourId], references: [id])
+  managerId       String
+  manager         User           @relation("ManagerExpenses", fields: [managerId], references: [id])
+  status          ExpenseStatus  @default(DRAFT)
+  adminRemark     String?
+  managerReply    String?
+  dailyExpenses   DailyExpense[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model DailyExpense {
+  id              String      @id @default(uuid())
+  tourExpenseId   String
+  tourExpense     TourExpense @relation(fields: [tourExpenseId], references: [id], onDelete: Cascade)
+  dayNumber       Int
+  hotelExpense    Float       @default(0)
+  fleetExpense    Float       @default(0)
+  monumentExpense Float       @default(0)
+  otherExpense    Float       @default(0)
+  description     String?
+}
+
+model SalesOrder {
+  id          String    @id @default(uuid())
+  quotationId String    @unique
+  quotation   Quotation @relation(fields: [quotationId], references: [id])
+  soNumber    String    @unique
+  subTotal    Float
+  gstAmount   Float
+  grandTotal  Float
+  createdAt   DateTime  @default(now())
+  invoices    Invoice[]
+}
+
+model Invoice {
+  id            String      @id @default(uuid())
+  salesOrderId  String
+  salesOrder    SalesOrder  @relation(fields: [salesOrderId], references: [id])
+  invoiceNumber String      @unique
+  type          InvoiceType
+  issueDate     DateTime    @db.Date
+  dueDate       DateTime    @db.Date
+  status        String
+}
+
+model Ledger {
+  id              String          @id @default(uuid())
+  entityType      EntityType
+  entityId        String
+  transactionType TransactionType
+  amount          Float
+  referenceId     String?
+  description     String?
+  createdAt       DateTime        @default(now())
+}
+
+model Supplier {
+  id          String   @id @default(uuid())
+  name        String
+  serviceType String
+  contact     String?
+}
+
+
+model ReputationProfile {
+  id          String   @id @default(uuid())
+  hotelId     String
+  platform    String   // Booking.com, Agoda, Google, etc.
+  url         String
+  lastSync    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  mentions    ReputationMention[]
+}
+
+model ReputationMention {
+  id          String   @id @default(uuid())
+  profileId   String
+  profile     ReputationProfile @relation(fields: [profileId], references: [id])
+  author      String?
+  rating      Float?
+  content     String
+  sentiment   String   // POSITIVE, NEGATIVE, NEUTRAL
+  themes      String[] // Array of themes like ["Service", "Food"]
+  url         String
+  date        DateTime @default(now())
+}
