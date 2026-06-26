@@ -1,0 +1,6 @@
+# Enable URL rewriting
+RewriteEngine On
+
+# Forward all requests to the local Node.js server running on port 3000
+# (If your Next.js application runs on a different port, change 3000 below to that port)
+RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
