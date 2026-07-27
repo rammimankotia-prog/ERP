@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 import Sidebar from "@/components/Sidebar";
 import ChatAssistant from "@/components/ChatAssistant";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "Godwin ERP | Hotel & Tour Management",
@@ -30,9 +31,11 @@ export default function RootLayout({
     <html lang="en">
       <body className="dashboard-container">
         <ThemeProvider>
-          <Sidebar />
-          {children}
-          <ChatAssistant />
+          <AuthProvider>
+            <Sidebar />
+            {children}
+            <ChatAssistant />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

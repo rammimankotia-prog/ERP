@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
+import Link from 'next/link';
 
 const pulseStyle = `
   @keyframes pulse {
@@ -338,6 +339,64 @@ export default function SettingsPage() {
 
       <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '3rem' }}>
         
+        {/* User Management & Security Portal Card */}
+        <section className="card" style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '2.5rem', borderRadius: '2rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05)', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '48px', height: '48px', background: theme === 'light' ? '#fffbeb' : 'rgba(245, 158, 11, 0.15)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>👥</div>
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: theme === 'light' ? '#1e293b' : '#f1f5f9' }}>Access &amp; Security</h3>
+              </div>
+              <div style={{ 
+                padding: '0.4rem 0.8rem', 
+                borderRadius: '20px', 
+                fontSize: '0.75rem', 
+                fontWeight: 800,
+                background: '#f0fdf4',
+                color: '#16a34a',
+                border: '1px solid #bcf0da'
+              }}>
+                👑 PROTECTED
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.95rem', color: theme === 'light' ? '#64748b' : '#94a3b8', marginBottom: '2rem', lineHeight: '1.6' }}>
+              Manage executive accounts, role permissions, and staff login credentials. Control who has access to Hotel Grand Godwin &amp; Hotel Godwin Deluxe ERP terminals.
+            </p>
+
+            <div style={{ background: theme === 'light' ? '#f8fafc' : '#1e293b', padding: '1.25rem', borderRadius: '14px', marginBottom: '2rem', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #334155' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '1.1rem' }}>🛡️</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: theme === 'light' ? '#0f172a' : 'white' }}>Primary Root Administrator</span>
+              </div>
+              <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+                Username: <strong style={{ color: '#f59e0b', fontFamily: 'monospace' }}>Godwinhotels</strong> | Recovery: <strong style={{ color: '#3b82f6' }}>mail@godwinhotels.com</strong>
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href="/users"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              padding: '1rem',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              color: 'white',
+              textDecoration: 'none',
+              fontWeight: 800,
+              fontSize: '1rem',
+              boxShadow: '0 10px 15px -3px rgba(217, 119, 6, 0.3)',
+              transition: 'transform 0.2s'
+            }}
+          >
+            <span>🚀</span> Launch User Management Portal ➔
+          </Link>
+        </section>
+
         {/* AI Assistant Config */}
         <section className="card" style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '2.5rem', borderRadius: '2rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05)', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>

@@ -3,10 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
+import { useAuth } from '@/components/AuthProvider';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const { user, logout } = useAuth();
+
+  if (!user || pathname === '/login') return null;
 
   return (
     <aside className="sidebar no-print" style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '1.5rem 1.25rem', background: theme === 'light' ? '#f8fafc' : '#0f172a', borderRight: theme === 'light' ? '1px solid #e2e8f0' : 'none' }}>
@@ -30,6 +34,7 @@ export default function Sidebar() {
         <NavLink href="/operations" icon="🏃" label="Tour Operations" active={pathname.startsWith('/operations')} theme={theme} />
         <NavLink href="/leads" icon="🧠" label="AI Leads" active={pathname === '/leads'} theme={theme} />
         <NavLink href="/reputation" icon="🛡️" label="ORM & Reputation" active={pathname === '/reputation'} theme={theme} />
+        <NavLink href="/users" icon="👥" label="User Access" active={pathname === '/users'} theme={theme} />
         <NavLink href="/settings" icon="⚙️" label="Settings" active={pathname === '/settings'} theme={theme} />
         <NavLink href="/tours" icon="🌍" label="Tour Packages" active={pathname === '/tours'} theme={theme} />
         <NavLink href="/reports" icon="📈" label="Reports" active={pathname === '/reports'} theme={theme} />
@@ -59,12 +64,36 @@ export default function Sidebar() {
         </button>
 
         <div style={{ paddingTop: '1.25rem', borderTop: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800, color: 'white' }}>AD</div>
-            <div style={{ overflow: 'hidden' }}>
-              <p style={{ color: theme === 'light' ? '#1e293b' : 'white', fontSize: '0.85rem', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>Admin User</p>
-              <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>Senior Manager</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800, color: 'white', flexShrink: 0 }}>
+                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'GH'}
+              </div>
+              <div style={{ overflow: 'hidden' }}>
+                <p style={{ color: theme === 'light' ? '#1e293b' : 'white', fontSize: '0.85rem', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{user?.name || 'Godwin Admin'}</p>
+                <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>{user?.role || 'Admin'}</p>
+              </div>
             </div>
+            <button
+              onClick={logout}
+              title="Log out of Godwin ERP"
+              style={{
+                background: theme === 'light' ? '#fee2e2' : 'rgba(239, 68, 68, 0.15)',
+                color: '#ef4444',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0.45rem',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+                flexShrink: 0
+              }}
+            >
+              🚪
+            </button>
           </div>
         </div>
       </div>

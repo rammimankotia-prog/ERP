@@ -2,9 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
+import { useAuth } from '@/components/AuthProvider';
+import { usePathname } from 'next/navigation';
 
 export default function ChatAssistant() {
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [aiSettings, setAiSettings] = useState({
     botName: 'Godwin AI',
@@ -72,6 +76,8 @@ export default function ChatAssistant() {
       setIsLoading(false);
     }
   };
+
+  if (!user || pathname === '/login') return null;
 
   return (
     <div className="no-print" style={{ position: 'fixed', bottom: '2rem', left: '2rem', zIndex: 1000 }}>
