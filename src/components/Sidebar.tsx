@@ -64,37 +64,39 @@ export default function Sidebar() {
         </button>
 
         <div style={{ paddingTop: '1.25rem', borderTop: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 800, color: 'white', flexShrink: 0 }}>
-                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'GH'}
-              </div>
-              <div style={{ overflow: 'hidden' }}>
-                <p style={{ color: theme === 'light' ? '#1e293b' : 'white', fontSize: '0.85rem', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{user?.name || 'Godwin Admin'}</p>
-                <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>{user?.role || 'Admin'}</p>
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', marginBottom: '0.75rem' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800, color: 'white', flexShrink: 0 }}>
+              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'GH'}
             </div>
-            <button
-              onClick={logout}
-              title="Log out of Godwin ERP"
-              style={{
-                background: theme === 'light' ? '#fee2e2' : 'rgba(239, 68, 68, 0.15)',
-                color: '#ef4444',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '0.45rem',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
-                flexShrink: 0
-              }}
-            >
-              🚪
-            </button>
+            <div style={{ overflow: 'hidden' }}>
+              <p style={{ color: theme === 'light' ? '#1e293b' : 'white', fontSize: '0.85rem', fontWeight: 700, margin: 0, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{user?.name || 'Godwin Admin'}</p>
+              <p style={{ fontSize: '0.7rem', color: '#64748b', margin: 0 }}>{user?.role || 'Admin'}</p>
+            </div>
           </div>
+
+          <button
+            onClick={logout}
+            title="Log out of Godwin ERP Admin Session"
+            style={{
+              width: '100%',
+              background: theme === 'light' ? '#fee2e2' : 'rgba(239, 68, 68, 0.15)',
+              color: '#ef4444',
+              border: theme === 'light' ? '1px solid #fca5a5' : '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '10px',
+              padding: '0.65rem 1rem',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s',
+              boxShadow: '0 2px 6px rgba(239, 68, 68, 0.1)'
+            }}
+          >
+            <span>🚪</span> Admin Log Out
+          </button>
         </div>
       </div>
 

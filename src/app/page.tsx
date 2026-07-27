@@ -39,10 +39,31 @@ export default function Dashboard() {
             <h1 style={{ color: theme === 'light' ? '#0f172a' : '#f8fafc' }}>Executive Dashboard</h1>
             <p style={{ color: theme === 'light' ? '#64748b' : '#94a3b8' }}>Welcome back, Admin. Here's a real-time look at your operations.</p>
           </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <Link href="/quotations/new">
               <button className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', borderRadius: '10px' }}>+ New Quotation</button>
             </Link>
+            <a
+              href="/logout"
+              style={{
+                background: theme === 'light' ? '#fee2e2' : 'rgba(239, 68, 68, 0.15)',
+                color: '#ef4444',
+                border: theme === 'light' ? '1px solid #fca5a5' : '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '10px',
+                padding: '0.75rem 1.25rem',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                textDecoration: 'none',
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.15)'
+              }}
+            >
+              <span>🚪</span> Admin Log Out
+            </a>
           </div>
         </header>
 
