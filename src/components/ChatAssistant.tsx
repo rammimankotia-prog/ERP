@@ -77,7 +77,7 @@ export default function ChatAssistant() {
     }
   };
 
-  if (!user || pathname === '/login') return null;
+  if (!user || pathname === '/login' || pathname === '/logout') return null;
 
   return (
     <div className="no-print" style={{ position: 'fixed', bottom: '2rem', left: '2rem', zIndex: 1000 }}>

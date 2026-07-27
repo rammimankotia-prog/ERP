@@ -10,7 +10,7 @@ export default function Sidebar() {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
 
-  if (!user || pathname === '/login') return null;
+  if (!user || pathname === '/login' || pathname === '/logout') return null;
 
   return (
     <aside className="sidebar no-print" style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '1.5rem 1.25rem', background: theme === 'light' ? '#f8fafc' : '#0f172a', borderRight: theme === 'light' ? '1px solid #e2e8f0' : 'none' }}>
