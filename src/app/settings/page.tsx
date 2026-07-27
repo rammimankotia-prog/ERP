@@ -330,33 +330,10 @@ export default function SettingsPage() {
   return (
     <main className="main-content" style={{ background: theme === 'light' ? '#f8fafc' : '#020617', minHeight: '100vh', padding: '2rem', transition: 'background 0.3s ease' }}>
       <style dangerouslySetInnerHTML={{ __html: pulseStyle }} />
-      <header className="header" style={{ marginBottom: '3rem', borderBottom: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', paddingBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <header className="header" style={{ marginBottom: '3rem', borderBottom: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', paddingBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '2.5rem', fontWeight: 900, color: theme === 'light' ? '#0f172a' : '#f8fafc', letterSpacing: '-0.025em' }}>Global Settings</h1>
           <p style={{ color: theme === 'light' ? '#64748b' : '#94a3b8', fontSize: '1.1rem', marginTop: '0.5rem' }}>Control your ERP core logic, AI intelligence, and property global variables.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <a
-            href="/logout"
-            style={{
-              background: theme === 'light' ? '#fee2e2' : 'rgba(239, 68, 68, 0.15)',
-              color: '#ef4444',
-              border: theme === 'light' ? '1px solid #fca5a5' : '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: '14px',
-              padding: '0.85rem 1.5rem',
-              fontSize: '0.95rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.6rem',
-              textDecoration: 'none',
-              transition: 'all 0.2s',
-              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
-            }}
-          >
-            <span>🚪</span> Admin Log Out
-          </a>
         </div>
       </header>
 

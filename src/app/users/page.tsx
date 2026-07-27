@@ -210,50 +210,26 @@ export default function UsersManagementPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <button
-            onClick={handleAddOpen}
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '14px',
-              padding: '0.85rem 1.5rem',
-              fontSize: '0.95rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.6rem',
-              boxShadow: '0 10px 15px -3px rgba(217, 119, 6, 0.3)',
-              transition: 'transform 0.2s, box-shadow 0.2s'
-            }}
-          >
-            <span>➕</span> Create New User
-          </button>
-
-          <a
-            href="/logout"
-            style={{
-              background: theme === 'light' ? '#fee2e2' : 'rgba(239, 68, 68, 0.15)',
-              color: '#ef4444',
-              border: theme === 'light' ? '1px solid #fca5a5' : '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: '14px',
-              padding: '0.85rem 1.25rem',
-              fontSize: '0.95rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.6rem',
-              textDecoration: 'none',
-              transition: 'all 0.2s',
-              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
-            }}
-          >
-            <span>🚪</span> Admin Log Out
-          </a>
-        </div>
+        <button
+          onClick={handleAddOpen}
+          style={{
+            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '14px',
+            padding: '0.85rem 1.5rem',
+            fontSize: '0.95rem',
+            fontWeight: 800,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            boxShadow: '0 10px 15px -3px rgba(217, 119, 6, 0.3)',
+            transition: 'transform 0.2s, box-shadow 0.2s'
+          }}
+        >
+          <span>➕</span> Create New User
+        </button>
       </header>
 
       {/* Summary Stats Cards */}

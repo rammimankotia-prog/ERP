@@ -153,28 +153,6 @@ export default function InventoryPage() {
                 </div>
               )}
             </div>
-
-            <a
-              href="/logout"
-              style={{
-                background: theme === 'light' ? '#fee2e2' : 'rgba(239, 68, 68, 0.15)',
-                color: '#ef4444',
-                border: theme === 'light' ? '1px solid #fca5a5' : '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: '10px',
-                padding: '0.55rem 1rem',
-                fontSize: '0.85rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                textDecoration: 'none',
-                transition: 'all 0.2s',
-                boxShadow: '0 2px 6px rgba(239, 68, 68, 0.15)'
-              }}
-            >
-              <span>🚪</span> Admin Log Out
-            </a>
           </div>
         </div>
 

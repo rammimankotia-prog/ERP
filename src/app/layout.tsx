@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 import Sidebar from "@/components/Sidebar";
+import TopNavbar from "@/components/TopNavbar";
 import ChatAssistant from "@/components/ChatAssistant";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -33,7 +34,12 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <Sidebar />
-            {children}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
+              <TopNavbar />
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                {children}
+              </div>
+            </div>
             <ChatAssistant />
           </AuthProvider>
         </ThemeProvider>
