@@ -33,6 +33,11 @@ const calculateDynamicTotal = (q: any) => {
 export default function Dashboard() {
   const { theme } = useTheme();
   const [recentQuotes, setRecentQuotes] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState([
+    { id: 1, text: "Quote #1024 auto-released (Cut-off reached)", time: "2h ago" },
+    { id: 2, text: "New B2B registration: Global Tours", time: "5h ago" },
+    { id: 3, text: "Payment received: ₹15,000 for #1012", time: "Yesterday" }
+  ]);
   const [stats, setStats] = useState({
     revenue: '₹ 0',
     active: '0',
@@ -136,11 +141,25 @@ export default function Dashboard() {
           </section>
 
           <section className="card" style={{ background: theme === 'light' ? '#fff' : '#0f172a', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }}>
-            <h3 style={{ marginBottom: '1.5rem', color: theme === 'light' ? '#1e293b' : '#f1f5f9' }}>Notifications</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, color: theme === 'light' ? '#1e293b' : '#f1f5f9' }}>Notifications</h3>
+              {notifications.length > 0 && (
+                <button 
+                  onClick={() => setNotifications([])}
+                  style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <NotificationItem theme={theme} text="Quote #1024 auto-released (Cut-off reached)" time="2h ago" />
-              <NotificationItem theme={theme} text="New B2B registration: Global Tours" time="5h ago" />
-              <NotificationItem theme={theme} text="Payment received: ₹15,000 for #1012" time="Yesterday" />
+              {notifications.length > 0 ? (
+                notifications.map(n => (
+                  <NotificationItem key={n.id} theme={theme} text={n.text} time={n.time} />
+                ))
+              ) : (
+                <div style={{ color: '#64748b', fontSize: '0.875rem', textAlign: 'center', padding: '1rem' }}>No new notifications</div>
+              )}
             </div>
           </section>
         </div>
