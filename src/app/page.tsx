@@ -10,15 +10,15 @@ const calculateDynamicTotal = (q: any) => {
   let total = q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || q.amount || 0;
   
   // Fallback to calculating from raw room data if total is 0 but we have rooms
-  if (total === 0 && q.rooms && Array.isArray(q.rooms)) {
+  if (!total && q.rooms && Array.isArray(q.rooms)) {
     let calcTotal = 0;
-    const nights = q.stay?.nights || 1;
-    const effectiveNights = nights === 0 ? 1 : nights;
+    const nights = q.stay?.nights;
+    const effectiveNights = (!nights || nights === 0) ? 1 : nights;
     
     q.rooms.forEach((r: any) => {
-       calcTotal += (Number(r.tariff) || 0) * (r.count || 1) * effectiveNights;
-       if (r.extraBed?.status === 'Charged') calcTotal += (Number(r.extraBed.rate) || 0) * (r.extraBed.count || 0) * (r.count || 1) * effectiveNights;
-       if (r.extraChild?.status === 'Charged') calcTotal += (Number(r.extraChild.rate) || 0) * (r.extraChild.count || 0) * (r.count || 1) * effectiveNights;
+       calcTotal += (Number(r.tariff) || 0) * (Number(r.count) || 1) * effectiveNights;
+       if (r.extraBed?.status === 'Charged') calcTotal += (Number(r.extraBed.rate) || 0) * (Number(r.extraBed.count) || 0) * (Number(r.count) || 1) * effectiveNights;
+       if (r.extraChild?.status === 'Charged') calcTotal += (Number(r.extraChild.rate) || 0) * (Number(r.extraChild.count) || 0) * (Number(r.count) || 1) * effectiveNights;
     });
     
     if (calcTotal > 0) {
@@ -27,7 +27,7 @@ const calculateDynamicTotal = (q: any) => {
     }
   }
   
-  return total;
+  return total || 0;
 };
 
 export default function Dashboard() {
