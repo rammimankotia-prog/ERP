@@ -31,6 +31,29 @@ export default function InventoryPage() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const [quotations, setQuotations] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadQuotes = () => {
+      const saved = localStorage.getItem('godwin_quotations');
+      if (saved) setQuotations(JSON.parse(saved));
+    };
+    loadQuotes();
+    window.addEventListener('storage', loadQuotes);
+    return () => window.removeEventListener('storage', loadQuotes);
+  }, []);
+
+  const getQuotesCountForDate = (date: Date) => {
+    // Format date as YYYY-MM-DD
+    const tzOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+    const localISOTime = (new Date(date.getTime() - tzOffset)).toISOString().split('T')[0];
+    
+    return quotations.filter(q => 
+      q.hotel === selectedProperty && 
+      q.stay?.checkIn === localISOTime &&
+      q.status !== 'DRAFT'
+    ).length;
+  };
 
   const shiftDate = (days: number) => {
     setCurrentDate(prev => {
@@ -180,11 +203,17 @@ export default function InventoryPage() {
                 </th>
                 {days.map((date, idx) => {
                   const { day, d, month } = formatDate(date);
+                  const quotesCount = getQuotesCountForDate(date);
                   return (
-                    <th key={idx} style={{ padding: '0.5rem', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #334155', textAlign: 'center', width: '120px', background: theme === 'light' ? '#f8fafc' : '#1e293b' }}>
+                    <th key={idx} style={{ padding: '0.5rem', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #334155', textAlign: 'center', width: '120px', background: theme === 'light' ? '#f8fafc' : '#1e293b', position: 'relative' }}>
                       <div style={{ color: '#3b82f6', fontSize: '0.65rem', fontWeight: 800 }}>{day}</div>
                       <div style={{ fontSize: '1.5rem', fontWeight: 700, color: theme === 'light' ? '#475569' : '#f1f5f9', lineHeight: 1 }}>{d}</div>
                       <div style={{ color: theme === 'light' ? '#94a3b8' : '#64748b', fontSize: '0.65rem', fontWeight: 700 }}>{month}</div>
+                      {quotesCount > 0 && (
+                        <div style={{ marginTop: '4px', fontSize: '0.65rem', fontWeight: 800, color: '#e45d25', background: theme === 'light' ? '#fff1f2' : 'rgba(228, 93, 37, 0.1)', padding: '2px 6px', borderRadius: '10px', display: 'inline-block', border: `1px solid ${theme === 'light' ? '#fecdd3' : 'rgba(228, 93, 37, 0.3)'}` }}>
+                          {quotesCount} Quote{quotesCount > 1 ? 's' : ''}
+                        </div>
+                      )}
                     </th>
                   );
                 })}

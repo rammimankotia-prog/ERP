@@ -293,7 +293,7 @@ export default function QuotationsPage() {
                         </div>
                       )}
                     </td>
-                    <td onClick={() => handleRowClick(q.id)} style={{ padding: '1.5rem', fontSize: '1.1rem', fontWeight: 900, color: theme === 'light' ? '#0f172a' : '#f8fafc' }}>{formatCurrency(q.pricing?.grandTotal || 0)}</td>
+                    <td onClick={() => handleRowClick(q.id)} style={{ padding: '1.5rem', fontSize: '1.1rem', fontWeight: 900, color: theme === 'light' ? '#0f172a' : '#f8fafc' }}>{formatCurrency(q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || 0)}</td>
                     <td style={{ padding: '1.5rem', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                         <button 

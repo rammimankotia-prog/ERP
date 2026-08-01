@@ -22,7 +22,7 @@ export default function Dashboard() {
       setRecentQuotes(allQuotes.slice(0, 5));
       
       // Calculate basic stats
-      const totalRev = allQuotes.reduce((acc: number, q: any) => acc + (q.pricing?.grandTotal || 0), 0);
+      const totalRev = allQuotes.reduce((acc: number, q: any) => acc + (q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || 0), 0);
       setStats({
         revenue: new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(totalRev),
         active: allQuotes.filter((q: any) => q.status === 'HOLD' || q.status === 'SENT').length.toString(),
@@ -80,7 +80,7 @@ export default function Dashboard() {
                         <span className={`badge ${q.statusClass || 'badge-silver'}`} style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}>{q.status}</span>
                       </td>
                       <td style={{ padding: '1rem 0', fontSize: '0.875rem', fontWeight: 700, color: theme === 'light' ? '#0f172a' : '#f8fafc', textAlign: 'right' }}>
-                        {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(q.pricing?.grandTotal || 0)}
+                        {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || 0)}
                       </td>
                     </tr>
                   ))
