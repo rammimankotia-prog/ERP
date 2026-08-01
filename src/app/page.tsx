@@ -79,8 +79,21 @@ export default function Dashboard() {
                       <td style={{ padding: '1rem 0' }}>
                         <span className={`badge ${q.statusClass || 'badge-silver'}`} style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem' }}>{q.status}</span>
                       </td>
-                      <td style={{ padding: '1rem 0', fontSize: '0.875rem', fontWeight: 700, color: theme === 'light' ? '#0f172a' : '#f8fafc', textAlign: 'right' }}>
-                        {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || 0)}
+                      <td style={{ padding: '1rem 0', textAlign: 'right' }}>
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: theme === 'light' ? '#f1f5f9' : '#1e293b',
+                          color: theme === 'light' ? '#0f172a' : '#f8fafc',
+                          padding: '0.3rem 0.8rem',
+                          borderRadius: '9999px',
+                          fontSize: '0.85rem',
+                          fontWeight: 800,
+                          border: `1px solid ${theme === 'light' ? '#e2e8f0' : '#334155'}`
+                        }}>
+                          {q.docType === 'RATE_SHEET' ? 'Contract' : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || 0)}
+                        </div>
                       </td>
                     </tr>
                   ))

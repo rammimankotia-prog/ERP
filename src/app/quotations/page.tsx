@@ -293,7 +293,23 @@ export default function QuotationsPage() {
                         </div>
                       )}
                     </td>
-                    <td onClick={() => handleRowClick(q.id)} style={{ padding: '1.5rem', fontSize: '1.1rem', fontWeight: 900, color: theme === 'light' ? '#0f172a' : '#f8fafc' }}>{formatCurrency(q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || 0)}</td>
+                    <td onClick={() => handleRowClick(q.id)} style={{ padding: '1.5rem', textAlign: 'left' }}>
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: theme === 'light' ? '#f1f5f9' : '#1e293b',
+                        color: theme === 'light' ? '#0f172a' : '#f8fafc',
+                        padding: '0.4rem 1rem',
+                        borderRadius: '9999px',
+                        fontSize: '1.05rem',
+                        fontWeight: 900,
+                        border: `1px solid ${theme === 'light' ? '#e2e8f0' : '#334155'}`,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                      }}>
+                        {q.docType === 'RATE_SHEET' ? 'Contract' : formatCurrency(q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || 0)}
+                      </div>
+                    </td>
                     <td style={{ padding: '1.5rem', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                         <button 
