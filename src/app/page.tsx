@@ -4,6 +4,32 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 
+const calculateDynamicTotal = (q: any) => {
+  if (q.docType === 'RATE_SHEET') return 'Contract';
+  
+  let total = q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || q.amount || 0;
+  
+  // Fallback to calculating from raw room data if total is 0 but we have rooms
+  if (total === 0 && q.rooms && Array.isArray(q.rooms)) {
+    let calcTotal = 0;
+    const nights = q.stay?.nights || 1;
+    const effectiveNights = nights === 0 ? 1 : nights;
+    
+    q.rooms.forEach((r: any) => {
+       calcTotal += (Number(r.tariff) || 0) * (r.count || 1) * effectiveNights;
+       if (r.extraBed?.status === 'Charged') calcTotal += (Number(r.extraBed.rate) || 0) * (r.extraBed.count || 0) * (r.count || 1) * effectiveNights;
+       if (r.extraChild?.status === 'Charged') calcTotal += (Number(r.extraChild.rate) || 0) * (r.extraChild.count || 0) * (r.count || 1) * effectiveNights;
+    });
+    
+    if (calcTotal > 0) {
+      const discount = q.discountPercent || 0;
+      total = calcTotal - (calcTotal * discount / 100);
+    }
+  }
+  
+  return total;
+};
+
 export default function Dashboard() {
   const { theme } = useTheme();
   const [recentQuotes, setRecentQuotes] = useState<any[]>([]);
@@ -22,7 +48,10 @@ export default function Dashboard() {
       setRecentQuotes(allQuotes.slice(0, 5));
       
       // Calculate basic stats
-      const totalRev = allQuotes.reduce((acc: number, q: any) => acc + (q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || 0), 0);
+      const totalRev = allQuotes.reduce((acc: number, q: any) => {
+        const val = calculateDynamicTotal(q);
+        return acc + (typeof val === 'number' ? val : 0);
+      }, 0);
       setStats({
         revenue: new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(totalRev),
         active: allQuotes.filter((q: any) => q.status === 'HOLD' || q.status === 'SENT').length.toString(),
@@ -92,7 +121,7 @@ export default function Dashboard() {
                           fontWeight: 800,
                           border: `1px solid ${theme === 'light' ? '#e2e8f0' : '#334155'}`
                         }}>
-                          {q.docType === 'RATE_SHEET' ? 'Contract' : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(q.financials?.grandTotal || q.totalAmount || q.pricing?.grandTotal || 0)}
+                          {q.docType === 'RATE_SHEET' ? 'Contract' : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(calculateDynamicTotal(q))}
                         </div>
                       </td>
                     </tr>

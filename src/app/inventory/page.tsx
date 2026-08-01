@@ -25,7 +25,7 @@ const ALL_ROOM_DATA = [
 export default function InventoryPage() {
   const { theme } = useTheme();
   const [selectedProperty, setSelectedProperty] = useState('Hotel Grand Godwin');
-  const [currentDate, setCurrentDate] = useState(new Date('2026-05-04'));
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [expandedRooms, setExpandedRooms] = useState<string[]>([]);
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
