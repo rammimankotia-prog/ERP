@@ -43,6 +43,7 @@ export default function QuotationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showMailSettings, setShowMailSettings] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
   const [mailSettings, setMailSettings] = useState({
     smtp: { host: '', port: '465', user: '', pass: '', fromName: '' },
     pop: { host: '', port: '995', user: '', pass: '' }
@@ -166,6 +167,97 @@ export default function QuotationsPage() {
 
   const handleRowClick = (id: string) => {
     router.push(`/quotations/${id}`);
+  };
+
+  useEffect(() => {
+    const closeMenu = () => setActionMenuOpen(null);
+    window.addEventListener('click', closeMenu);
+    return () => window.removeEventListener('click', closeMenu);
+  }, []);
+
+  const handleDuplicate = (id: string) => {
+    const qToCopy = quotes.find(q => String(q.id) === String(id));
+    if (qToCopy) {
+      const newId = `QT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const duplicated = {
+        ...qToCopy,
+        id: newId,
+        quotationId: newId,
+        status: 'DRAFT',
+        statusClass: 'badge-silver',
+        createdAt: new Date().toISOString()
+      };
+      const updated = [duplicated, ...quotes];
+      setQuotes(updated);
+      localStorage.setItem('godwin_quotations', JSON.stringify(updated));
+      alert(`✅ Quotation duplicated successfully as ${newId}`);
+    }
+  };
+
+  const handleMarkAccepted = (id: string) => {
+    const updated = quotes.map(q => 
+      String(q.id) === String(id) ? { ...q, status: 'ACCEPTED', statusClass: 'badge-platinum' } : q
+    );
+    setQuotes(updated);
+    localStorage.setItem('godwin_quotations', JSON.stringify(updated));
+    alert('✅ Quotation marked as ACCEPTED.');
+  };
+
+  const handleSendEmail = async (id: string) => {
+    const q = quotes.find(x => String(x.id) === String(id));
+    if (!q) return;
+
+    if (!mailSettings.smtp.user || !mailSettings.smtp.pass) {
+      alert('⚙️ Please configure SMTP settings (Gear icon) before sending.');
+      setShowMailSettings(true);
+      return;
+    }
+
+    if (!q.guest?.email) {
+      alert('⚠️ This quotation does not have a guest email address associated with it.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: q.guest.email,
+          subject: `Your Stay Quotation: ${q.quotationId || q.id} - ${q.hotel}`,
+          smtpSettings: mailSettings.smtp,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+              <h2 style="color: #1d4ed8;">${q.hotel}</h2>
+              <p>Dear ${q.guest.firstName} ${q.guest.lastName},</p>
+              <p>Please find the summary of your quotation <strong>#${q.quotationId || q.id}</strong> below:</p>
+              <ul>
+                <li><strong>Check-in:</strong> ${q.stay?.checkIn || 'N/A'}</li>
+                <li><strong>Check-out:</strong> ${q.stay?.checkOut || 'N/A'}</li>
+                <li><strong>Status:</strong> ${q.status}</li>
+                <li><strong>Total Amount:</strong> ${formatCurrency(calculateDynamicTotal(q))}</li>
+              </ul>
+              <p>For full details, please contact us or reply to this email.</p>
+              <p>Thank you,<br/>Godwin Hotels Group</p>
+            </div>
+          `
+        })
+      });
+      if (res.ok) {
+        alert('🚀 Email sent successfully to ' + q.guest.email);
+        const updated = quotes.map(x => String(x.id) === String(id) ? { ...x, status: 'SENT', statusClass: 'badge-gold' } : x);
+        setQuotes(updated);
+        localStorage.setItem('godwin_quotations', JSON.stringify(updated));
+      } else {
+        const err = await res.json();
+        alert(`❌ Error: ${err.error}`);
+      }
+    } catch (e) {
+      alert('❌ Error sending email.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isLoading) return <div style={{ padding: '4rem', textAlign: 'center', color: '#64748b' }}>Initializing Dashboard...</div>;
@@ -354,13 +446,28 @@ export default function QuotationsPage() {
                         >
                           🗑️
                         </button>
-                        <button 
-                          className="btn-action more-btn"
-                          style={{ padding: '0.6rem', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#475569' : '#cbd5e1', borderRadius: '10px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          onClick={(e) => { e.stopPropagation(); alert('Advanced: Duplicate, Send to Email, or Mark as Accepted for #' + q.id); }}
-                        >
-                          ⋮
-                        </button>
+                        <div style={{ position: 'relative' }}>
+                          <button 
+                            className="btn-action more-btn"
+                            style={{ padding: '0.6rem', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#475569' : '#cbd5e1', borderRadius: '10px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            onClick={(e) => { e.stopPropagation(); setActionMenuOpen(actionMenuOpen === q.id ? null : q.id); }}
+                          >
+                            ⋮
+                          </button>
+                          {actionMenuOpen === q.id && (
+                            <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: '0.5rem', background: theme === 'light' ? '#fff' : '#1e293b', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #334155', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 50, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: '160px' }}>
+                              <button onClick={(e) => { e.stopPropagation(); setActionMenuOpen(null); handleDuplicate(q.id); }} className="table-row-hover" style={{ padding: '0.75rem 1rem', textAlign: 'left', background: 'transparent', border: 'none', borderBottom: theme === 'light' ? '1px solid #f1f5f9' : '1px solid #334155', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: theme === 'light' ? '#1e293b' : '#f8fafc' }}>
+                                📑 Duplicate
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); setActionMenuOpen(null); handleSendEmail(q.id); }} className="table-row-hover" style={{ padding: '0.75rem 1rem', textAlign: 'left', background: 'transparent', border: 'none', borderBottom: theme === 'light' ? '1px solid #f1f5f9' : '1px solid #334155', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: '#3b82f6' }}>
+                                ✉️ Send to Email
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); setActionMenuOpen(null); handleMarkAccepted(q.id); }} className="table-row-hover" style={{ padding: '0.75rem 1rem', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: '#10b981' }}>
+                                ✓ Mark as Accepted
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
