@@ -439,6 +439,14 @@ export default function QuotationsPage() {
                           👁️
                         </button>
                         <button 
+                          className="btn-action edit-btn"
+                          style={{ padding: '0.6rem', background: '#fdf4ff', color: '#c026d3', borderRadius: '10px', border: '1px solid #fae8ff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={(e) => { e.stopPropagation(); router.push(`/quotations/edit/${q.id}`); }}
+                          title="Edit Quotation"
+                        >
+                          ✏️
+                        </button>
+                        <button 
                           className="btn-action delete-btn"
                           style={{ padding: '0.6rem', background: '#fff1f2', color: '#e11d48', borderRadius: '10px', border: '1px solid #fecdd3', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={(e) => { e.stopPropagation(); setDeleteConfirm(q.id); }}
@@ -619,6 +627,7 @@ export default function QuotationsPage() {
           pointer-events: none;
         }
         .view-btn:hover { border-color: #3b82f6; color: #1d4ed8; }
+        .edit-btn:hover { border-color: #d946ef; color: #a21caf; }
         .delete-btn:hover { border-color: #f43f5e; color: #be123c; }
       `}</style>
     </main>
