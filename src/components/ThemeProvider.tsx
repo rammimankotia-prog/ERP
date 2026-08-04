@@ -17,27 +17,32 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem('GODWIN_ERP_THEME') as Theme;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-      document.documentElement.classList.toggle('light', savedTheme === 'light');
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
-      document.documentElement.classList.add('dark');
+    try {
+      const savedTheme = localStorage.getItem('GODWIN_ERP_THEME') as Theme;
+      if (savedTheme) {
+        setTheme(savedTheme);
+        document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+        document.documentElement.classList.toggle('light', savedTheme === 'light');
+      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        setTheme('dark');
+        document.documentElement.classList.add('dark');
+      }
+    } catch (e) {
+      console.warn('Could not read theme from storage', e);
     }
   }, []);
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
-    localStorage.setItem('GODWIN_ERP_THEME', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    document.documentElement.classList.toggle('light', newTheme === 'light');
-    
-    // Also sync with the legacy theme key used in QuotationForm if needed, 
-    // though we should eventually migrate it.
-    localStorage.setItem('GODWIN_THEME', newTheme);
+    try {
+      localStorage.setItem('GODWIN_ERP_THEME', newTheme);
+      document.documentElement.classList.toggle('dark', newTheme === 'dark');
+      document.documentElement.classList.toggle('light', newTheme === 'light');
+      localStorage.setItem('GODWIN_THEME', newTheme);
+    } catch (e) {
+      console.warn('Could not save theme to storage', e);
+    }
   };
 
   return (
