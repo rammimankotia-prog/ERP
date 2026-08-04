@@ -46,6 +46,10 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
+    let activeQuotesCount = '0';
+    let revenueVal = '₹ 0';
+    let occupancyPercent = '0%';
+
     const saved = localStorage.getItem('godwin_quotations');
     if (saved) {
       const allQuotes = JSON.parse(saved);
@@ -57,13 +61,55 @@ export default function Dashboard() {
         const val = calculateDynamicTotal(q);
         return acc + (typeof val === 'number' ? val : 0);
       }, 0);
-      setStats({
-        revenue: new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(totalRev),
-        active: allQuotes.filter((q: any) => q.status === 'HOLD' || q.status === 'SENT').length.toString(),
-        occupancy: '82%', // Keeping mock for now as inventory is separate
-        tours: '12' // Keeping mock for now
+      
+      revenueVal = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(totalRev);
+      activeQuotesCount = allQuotes.filter((q: any) => q.status === 'HOLD' || q.status === 'SENT').length.toString();
+
+      // Calculate real occupancy for today
+      let totalRoomsBookedToday = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      allQuotes.forEach((q: any) => {
+        if (q.status === 'ACCEPTED' || q.status === 'CONFIRMED') {
+          if (q.stay?.checkIn && q.stay?.checkOut) {
+            const checkIn = new Date(q.stay.checkIn);
+            const checkOut = new Date(q.stay.checkOut);
+            checkIn.setHours(0, 0, 0, 0);
+            checkOut.setHours(0, 0, 0, 0);
+            
+            if (today >= checkIn && today < checkOut) {
+              if (q.rooms && Array.isArray(q.rooms)) {
+                totalRoomsBookedToday += q.rooms.reduce((acc: number, r: any) => acc + (Number(r.count) || 1), 0);
+              } else {
+                totalRoomsBookedToday += 1;
+              }
+            }
+          }
+        }
       });
+
+      const totalInventory = 70; // Grand Godwin: 34, Godwin Deluxe: 36
+      const occupancyCalc = totalInventory > 0 ? Math.round((totalRoomsBookedToday / totalInventory) * 100) : 0;
+      occupancyPercent = `${occupancyCalc}%`;
     }
+
+    setStats(prev => ({
+      ...prev,
+      revenue: revenueVal,
+      active: activeQuotesCount,
+      occupancy: occupancyPercent,
+    }));
+
+    // Fetch actual tours
+    fetch('/api/operations')
+      .then(res => res.json())
+      .then(tours => {
+        if (Array.isArray(tours)) {
+          setStats(prev => ({ ...prev, tours: tours.length.toString() }));
+        }
+      })
+      .catch(err => console.error('Failed to fetch tours', err));
   }, []);
 
   return (
