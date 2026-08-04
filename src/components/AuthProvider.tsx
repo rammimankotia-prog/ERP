@@ -33,19 +33,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const saved = localStorage.getItem('GODWIN_LOGGED_IN_USER') || sessionStorage.getItem('GODWIN_LOGGED_IN_USER');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.username) {
-          setUser(parsed);
+    try {
+      const saved = localStorage.getItem('GODWIN_LOGGED_IN_USER') || sessionStorage.getItem('GODWIN_LOGGED_IN_USER');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.username) {
+            setUser(parsed);
+          }
+        } catch (e) {
+          localStorage.removeItem('GODWIN_LOGGED_IN_USER');
+          sessionStorage.removeItem('GODWIN_LOGGED_IN_USER');
         }
-      } catch (e) {
-        localStorage.removeItem('GODWIN_LOGGED_IN_USER');
-        sessionStorage.removeItem('GODWIN_LOGGED_IN_USER');
       }
+    } catch (err) {
+      console.warn("Storage access failed", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
