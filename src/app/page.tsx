@@ -33,11 +33,7 @@ const calculateDynamicTotal = (q: any) => {
 export default function Dashboard() {
   const { theme } = useTheme();
   const [recentQuotes, setRecentQuotes] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: "Quote #1024 auto-released (Cut-off reached)", time: "2h ago" },
-    { id: 2, text: "New B2B registration: Global Tours", time: "5h ago" },
-    { id: 3, text: "Payment received: ₹15,000 for #1012", time: "Yesterday" }
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [stats, setStats] = useState({
     revenue: '₹ 0',
     revenueChange: '0%',
