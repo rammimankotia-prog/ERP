@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/ThemeProvider';
 
@@ -9,15 +9,59 @@ export default function FinancePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('ALL');
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   
-  const [transactions, setTransactions] = useState([
-    { id: 't1', date: '2026-04-18', entity: 'Travel Guru (Agent)', type: 'CREDIT', amount: 45000, status: 'PAID' },
-    { id: 't2', date: '2026-04-17', entity: 'Private Tour Delhi (Supplier)', type: 'DEBIT', amount: 12000, status: 'PENDING' },
-    { id: 't3', date: '2026-04-16', entity: 'John Doe (Guest)', type: 'CREDIT', amount: 12500, status: 'PAID' },
-    { id: 't4', date: '2026-04-15', entity: 'Clean Express (Supplier)', type: 'DEBIT', amount: 5000, status: 'PAID' },
-    { id: 't5', date: '2026-04-14', entity: 'Agoda Bookings', type: 'CREDIT', amount: 85000, status: 'PAID' },
-    { id: 't6', date: '2026-04-13', entity: 'Shell Fuel Station', type: 'DEBIT', amount: 4500, status: 'PAID' },
-  ]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+
+  // Form State
+  const [newEntity, setNewEntity] = useState('');
+  const [newAmount, setNewAmount] = useState('');
+  const [newType, setNewType] = useState('CREDIT');
+  const [newMethod, setNewMethod] = useState('Bank Transfer / NEFT');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('finance_ledger');
+    if (saved) {
+      setTransactions(JSON.parse(saved));
+    }
+    setIsLoaded(true);
+  }, []);
+
+  const handleSavePayment = () => {
+    if (!newEntity || !newAmount) {
+      alert('Please fill out the entity name and amount.');
+      return;
+    }
+    const newTx = {
+      id: 'tx-' + Math.random().toString(36).substr(2, 6).toLowerCase(),
+      date: new Date().toISOString().split('T')[0],
+      entity: newEntity,
+      type: newType,
+      amount: parseFloat(newAmount),
+      status: 'PAID',
+      method: newMethod
+    };
+
+    setTransactions(prev => {
+      const updated = [newTx, ...prev];
+      localStorage.setItem('finance_ledger', JSON.stringify(updated));
+      return updated;
+    });
+
+    setNewEntity('');
+    setNewAmount('');
+    setIsAddPaymentOpen(false);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to void this transaction?')) {
+      setTransactions(prev => {
+        const updated = prev.filter(t => t.id !== id);
+        localStorage.setItem('finance_ledger', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  };
 
   const stats = useMemo(() => {
     const credit = transactions.filter(t => t.type === 'CREDIT').reduce((acc, t) => acc + t.amount, 0);
@@ -31,6 +75,8 @@ export default function FinancePage() {
     const matchesType = filterType === 'ALL' || t.type === filterType;
     return matchesSearch && matchesType;
   });
+
+  if (!isLoaded) return null;
 
   return (
     <main className="main-content animate-in">
@@ -130,7 +176,7 @@ export default function FinancePage() {
                   </td>
                   <td>
                     <div style={{ fontWeight: 700, fontSize: '1rem' }}>{t.entity}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Payment via Bank Transfer</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Payment via {t.method || 'Bank Transfer'}</div>
                   </td>
                   <td>
                     <span className="badge" style={{ 
@@ -155,9 +201,7 @@ export default function FinancePage() {
                   </td>
                   <td style={{ textAlign: 'right', paddingRight: '2rem' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button className="btn-action" title="View Voucher">📄</button>
-                      <button className="btn-action" title="Edit Entry">✏️</button>
-                      <button className="btn-action btn-delete" title="Void Entry">🚫</button>
+                      <button className="btn-action btn-delete" title="Void Entry" onClick={() => handleDelete(t.id)}>🚫</button>
                     </div>
                   </td>
                 </tr>
@@ -185,16 +229,32 @@ export default function FinancePage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div className="form-group">
                 <label className="form-label-premium">Entity Name / Description</label>
-                <input type="text" className="input-premium" placeholder="e.g. Travel Agent or Supplier" />
+                <input 
+                  type="text" 
+                  className="input-premium" 
+                  placeholder="e.g. Travel Agent or Supplier" 
+                  value={newEntity}
+                  onChange={(e) => setNewEntity(e.target.value)}
+                />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label className="form-label-premium">Amount (₹)</label>
-                  <input type="number" className="input-premium" placeholder="0.00" />
+                  <input 
+                    type="number" 
+                    className="input-premium" 
+                    placeholder="0.00" 
+                    value={newAmount}
+                    onChange={(e) => setNewAmount(e.target.value)}
+                  />
                 </div>
                 <div className="form-group">
                   <label className="form-label-premium">Type</label>
-                  <select className="input-premium">
+                  <select 
+                    className="input-premium"
+                    value={newType}
+                    onChange={(e) => setNewType(e.target.value)}
+                  >
                     <option value="CREDIT">Credit (Income)</option>
                     <option value="DEBIT">Debit (Expense)</option>
                   </select>
@@ -202,17 +262,21 @@ export default function FinancePage() {
               </div>
               <div className="form-group">
                 <label className="form-label-premium">Payment Method</label>
-                <select className="input-premium">
-                  <option>Bank Transfer / NEFT</option>
-                  <option>UPI / GPay</option>
-                  <option>Cash</option>
-                  <option>Cheque</option>
+                <select 
+                  className="input-premium"
+                  value={newMethod}
+                  onChange={(e) => setNewMethod(e.target.value)}
+                >
+                  <option value="Bank Transfer / NEFT">Bank Transfer / NEFT</option>
+                  <option value="UPI / GPay">UPI / GPay</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Cheque">Cheque</option>
                 </select>
               </div>
             </div>
             <div style={{ marginTop: '2.5rem', display: 'flex', gap: '1rem' }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setIsAddPaymentOpen(false)}>Cancel</button>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => { setIsAddPaymentOpen(false); alert("Feature coming soon: Entry recorded (Simulated)"); }}>Save Entry</button>
+              <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSavePayment}>Save Entry</button>
             </div>
           </div>
         </div>

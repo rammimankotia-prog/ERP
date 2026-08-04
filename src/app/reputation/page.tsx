@@ -507,21 +507,21 @@ function DashboardView({ mix, mentions, theme, strengths, weaknesses, avgRating 
           <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.25rem' }}>🧠</span> AI Insights
           </h3>
-          <p style={{ fontSize: '0.85rem', lineHeight: '1.6', opacity: 0.9, marginBottom: '1.25rem' }}>
-            Your rating on <strong>Agoda</strong> is 0.4 points lower than Google. This is primarily due to complaints about Wi-Fi signal strength in corridor segments.
-          </p>
-          <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', fontSize: '0.8rem' }}>
-            <strong style={{ display: 'block', marginBottom: '0.4rem', color: '#fbbf24' }}>ACTION REQUIRED:</strong>
-            Install a Wi-Fi repeater in the 3rd floor north corridor and perform a linen audit on all Deluxe rooms.
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '1.5rem', background: isLight ? 'white' : '#0f172a', borderRadius: '1.5rem', border: isLight ? '1px solid #e2e8f0' : '1px solid #1e293b' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 800, color: isLight ? '#1e293b' : 'white', marginBottom: '1rem' }}>Competitor Benchmarking</h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <CompetitorRow name="Hotel Bloom" score={4.5} status="OUTPERFORMING" theme={theme} />
-            <CompetitorRow name="Hotel City Star" score={4.1} status="LAGGING" theme={theme} />
-          </div>
+          {mentions.length > 5 ? (
+            <>
+              <p style={{ fontSize: '0.85rem', lineHeight: '1.6', opacity: 0.9, marginBottom: '1.25rem' }}>
+                Based on recent live reviews, guests are consistently praising <strong>{strengths[0] || 'Service'}</strong> and <strong>{strengths[1] || 'Location'}</strong>. However, there are some concerns regarding <strong>{weaknesses[0] || 'Amenities'}</strong>.
+              </p>
+              <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', fontSize: '0.8rem' }}>
+                <strong style={{ display: 'block', marginBottom: '0.4rem', color: '#fbbf24' }}>RECOMMENDATION:</strong>
+                Monitor the feedback on {weaknesses[0] || 'Amenities'} closely and ensure proactive checks are in place.
+              </div>
+            </>
+          ) : (
+             <p style={{ fontSize: '0.85rem', lineHeight: '1.6', opacity: 0.9 }}>
+              Insufficient live data to generate AI Insights. Please sync more profiles to activate AI recommendations.
+             </p>
+          )}
         </div>
       </div>
     </div>

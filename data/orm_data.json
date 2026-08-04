@@ -5,22 +5,8 @@
       "hotelId": "godwin-group",
       "platform": "Booking.com",
       "url": "https://www.booking.com/hotel/in/grand-godwin-new-delhi.en-gb.html#tab-reviews",
-      "lastSync": "2026-04-22T12:00:00Z",
-      "mentions": [
-        {
-          "id": "m_1",
-          "author": "Sushma",
-          "rating": 5,
-          "content": "Excellent hospitality and very safe for solo travellers.",
-          "sentiment": "POSITIVE",
-          "themes": [
-            "Safety",
-            "Service"
-          ],
-          "url": "https://www.booking.com/hotel/in/grand-godwin-new-delhi.en-gb.html",
-          "date": "2026-04-22T10:00:00Z"
-        }
-      ],
+      "lastSync": null,
+      "mentions": [],
       "createdAt": "2026-04-22T10:46:47.908Z"
     },
     {
@@ -28,22 +14,8 @@
       "hotelId": "godwin-group",
       "platform": "TripAdvisor",
       "url": "https://www.tripadvisor.in/Hotel_Review-g304551-d592998-Reviews-Hotel_Grand_Godwin-New_Delhi_National_Capital_Territory_of_Delhi.html",
-      "lastSync": "2026-04-22T12:00:00Z",
-      "mentions": [
-        {
-          "id": "m_2",
-          "author": "Rahul",
-          "rating": 4,
-          "content": "Good rooms but Wi-Fi was slow in the corridor.",
-          "sentiment": "NEUTRAL",
-          "themes": [
-            "Cleanliness",
-            "Wi-Fi"
-          ],
-          "url": "https://www.tripadvisor.in",
-          "date": "2026-04-22T09:00:00Z"
-        }
-      ],
+      "lastSync": null,
+      "mentions": [],
       "createdAt": "2026-04-22T10:50:25.335Z"
     },
     {
@@ -55,5 +27,6 @@
       "mentions": [],
       "createdAt": "2026-04-22T13:17:11.987Z"
     }
-  ]
+  ],
+  "settings": {}
 }

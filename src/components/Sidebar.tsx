@@ -31,7 +31,6 @@ export default function Sidebar() {
         <div style={{ margin: '1.5rem 0.5rem', borderTop: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }} />
         
         <NavLink href="/agent" icon="🤝" label="Agent Portal" active={pathname === '/agent'} theme={theme} />
-        <NavLink href="/operations" icon="🏃" label="Tour Operations" active={pathname.startsWith('/operations')} theme={theme} />
         <NavLink href="/leads" icon="🧠" label="AI Leads" active={pathname === '/leads'} theme={theme} />
         <NavLink href="/reputation" icon="🛡️" label="ORM & Reputation" active={pathname === '/reputation'} theme={theme} />
         <NavLink href="/users" icon="👥" label="User Access" active={pathname === '/users'} theme={theme} />
