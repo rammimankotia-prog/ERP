@@ -384,7 +384,9 @@ export default function QuotationForm({ editId }: { editId?: string }) {
         ["Room Rent Total", "", "", "", "", roomRentTotal],
         ["Extra Bed Charges", "", "", "", "", extraBedTotal],
         ["Extra Child Charges", "", "", "", "", extraChildTotal],
-        ["Other Services", "", "", "", "", servicesTotal],
+        ...(Number(earlyCheckInFee) > 0 ? [["Early Check-in Charges", "", "", "", "", Number(earlyCheckInFee)]] : []),
+        ...(Number(lateCheckOutFee) > 0 ? [["Late Check-out Charges", "", "", "", "", Number(lateCheckOutFee)]] : []),
+        ["Other Services", "", "", "", "", servicesTotal - Number(earlyCheckInFee) - Number(lateCheckOutFee)],
         ["Discount Applied", "", "", "", `${discountPercent}%`, `-${discountAmount}`],
         ["GRAND TOTAL (Tax Incl.)", "", "", "", "", grandTotal],
         ["GST Breakdown (5%)", "", "", "", "", `CGST: ${cgst} | SGST: ${sgst}`],
@@ -480,6 +482,16 @@ export default function QuotationForm({ editId }: { editId?: string }) {
                         <span style="color: #64748b; font-size: 14px;">Meal Plan</span>
                         <span style="color: #1e293b; font-size: 14px; font-weight: 800; color: #1e3a8a;">${mealPlanInfo}</span>
                       </div>
+                      ${Number(earlyCheckInFee) > 0 ? `
+                      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #eef2f6; padding-bottom: 12px; padding-top: 12px;">
+                        <span style="color: #64748b; font-size: 14px;">Early Check-in</span>
+                        <span style="color: #1e293b; font-size: 14px; font-weight: 700;">${formatCurrency(Number(earlyCheckInFee))}</span>
+                      </div>` : ''}
+                      ${Number(lateCheckOutFee) > 0 ? `
+                      <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #eef2f6; padding-bottom: 12px; padding-top: 12px;">
+                        <span style="color: #64748b; font-size: 14px;">Late Check-out</span>
+                        <span style="color: #1e293b; font-size: 14px; font-weight: 700;">${formatCurrency(Number(lateCheckOutFee))}</span>
+                      </div>` : ''}
                       <div style="display: flex; justify-content: space-between; padding-top: 15px; margin-top: 5px;">
                         <span style="color: #1e293b; font-size: 22px; font-weight: 900;">Total Amount</span>
                         <span style="color: #1d4ed8; font-size: 22px; font-weight: 900;">${formatCurrency(grandTotal)}</span>
@@ -853,6 +865,18 @@ export default function QuotationForm({ editId }: { editId?: string }) {
                         <span>Extra Child</span>
                         <span>{formatCurrency(extraChildTotal)}</span>
                      </div>
+                     {Number(earlyCheckInFee) > 0 && (
+                       <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 1, color: '#ffffff', fontWeight: 600 }}>
+                          <span>Early Check-in</span>
+                          <span>{formatCurrency(Number(earlyCheckInFee))}</span>
+                       </div>
+                     )}
+                     {Number(lateCheckOutFee) > 0 && (
+                       <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 1, color: '#ffffff', fontWeight: 600 }}>
+                          <span>Late Check-out</span>
+                          <span>{formatCurrency(Number(lateCheckOutFee))}</span>
+                       </div>
+                     )}
                      <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 1, color: '#ffffff', fontWeight: 600, alignItems: 'center' }}>
                         <span>Discount ({discountPercent}%)</span>
                         <input type="number" value={discountPercent} onChange={e => setDiscountPercent(Number(e.target.value))} style={{ width: '60px', padding: '0.3rem', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: '6px', textAlign: 'center', fontWeight: 800 }} />
@@ -1037,10 +1061,22 @@ export default function QuotationForm({ editId }: { editId?: string }) {
                          <span>{formatCurrency(extraBedTotal + extraChildTotal)}</span>
                       </div>
                    )}
-                   {servicesTotal > 0 && (
+                   {Number(earlyCheckInFee) > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '14px', opacity: 0.8 }}>
-                         <span>Add-on Services</span>
-                         <span>{formatCurrency(servicesTotal)}</span>
+                         <span>Early Check-in Charge</span>
+                         <span>{formatCurrency(Number(earlyCheckInFee))}</span>
+                      </div>
+                   )}
+                   {Number(lateCheckOutFee) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '14px', opacity: 0.8 }}>
+                         <span>Late Check-out Charge</span>
+                         <span>{formatCurrency(Number(lateCheckOutFee))}</span>
+                      </div>
+                   )}
+                   {(servicesTotal - Number(earlyCheckInFee) - Number(lateCheckOutFee)) > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '14px', opacity: 0.8 }}>
+                         <span>Other Services</span>
+                         <span>{formatCurrency(servicesTotal - Number(earlyCheckInFee) - Number(lateCheckOutFee))}</span>
                       </div>
                    )}
                    {discountPercent > 0 && (
