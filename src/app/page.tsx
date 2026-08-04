@@ -40,15 +40,22 @@ export default function Dashboard() {
   ]);
   const [stats, setStats] = useState({
     revenue: '₹ 0',
+    revenueChange: '0%',
     active: '0',
+    activeChange: '+0 today',
     occupancy: '0%',
-    tours: '0'
+    occupancyChange: '0%',
+    tours: '0',
+    toursChange: '+0'
   });
 
   useEffect(() => {
     let activeQuotesCount = '0';
+    let activeQuotesChangeStr = '+0 today';
     let revenueVal = '₹ 0';
+    let revenueChangeStr = '0%';
     let occupancyPercent = '0%';
+    let occupancyChangeStr = '0%';
 
     const saved = localStorage.getItem('godwin_quotations');
     if (saved) {
@@ -65,10 +72,53 @@ export default function Dashboard() {
       revenueVal = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(totalRev);
       activeQuotesCount = allQuotes.filter((q: any) => q.status === 'HOLD' || q.status === 'SENT').length.toString();
 
-      // Calculate real occupancy for today
+      // Calculate Revenue Change (Last 30 vs Prev 30)
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      const sixtyDaysAgo = new Date(now);
+      sixtyDaysAgo.setDate(now.getDate() - 60);
+
+      let revLast30 = 0;
+      let revPrev30 = 0;
+
+      allQuotes.forEach((q: any) => {
+        const val = typeof calculateDynamicTotal(q) === 'number' ? calculateDynamicTotal(q) : 0;
+        const qDate = new Date(q.createdAt || now);
+        if (qDate >= thirtyDaysAgo) {
+          revLast30 += val;
+        } else if (qDate >= sixtyDaysAgo && qDate < thirtyDaysAgo) {
+          revPrev30 += val;
+        }
+      });
+
+      if (revPrev30 > 0) {
+        const pct = ((revLast30 - revPrev30) / revPrev30) * 100;
+        revenueChangeStr = pct >= 0 ? `+${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`;
+      } else {
+        revenueChangeStr = revLast30 > 0 ? '+100%' : '0%';
+      }
+
+      // Calculate Active Quotes Change
+      const todayStart = new Date();
+      todayStart.setHours(0,0,0,0);
+      let activeAddedToday = 0;
+      allQuotes.forEach((q: any) => {
+        if (q.status === 'HOLD' || q.status === 'SENT') {
+           const qDate = new Date(q.createdAt || now);
+           if (qDate >= todayStart) {
+             activeAddedToday++;
+           }
+        }
+      });
+      activeQuotesChangeStr = `+${activeAddedToday} today`;
+
+      // Calculate real occupancy for today vs yesterday
       let totalRoomsBookedToday = 0;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      let totalRoomsBookedYesterday = 0;
+      
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
 
       allQuotes.forEach((q: any) => {
         if (q.status === 'ACCEPTED' || q.status === 'CONFIRMED') {
@@ -78,27 +128,38 @@ export default function Dashboard() {
             checkIn.setHours(0, 0, 0, 0);
             checkOut.setHours(0, 0, 0, 0);
             
-            if (today >= checkIn && today < checkOut) {
-              if (q.rooms && Array.isArray(q.rooms)) {
-                totalRoomsBookedToday += q.rooms.reduce((acc: number, r: any) => acc + (Number(r.count) || 1), 0);
-              } else {
-                totalRoomsBookedToday += 1;
-              }
+            let roomsCount = 1;
+            if (q.rooms && Array.isArray(q.rooms)) {
+               roomsCount = q.rooms.reduce((acc: number, r: any) => acc + (Number(r.count) || 1), 0);
+            }
+
+            if (todayStart >= checkIn && todayStart < checkOut) {
+              totalRoomsBookedToday += roomsCount;
+            }
+            if (yesterdayStart >= checkIn && yesterdayStart < checkOut) {
+              totalRoomsBookedYesterday += roomsCount;
             }
           }
         }
       });
 
       const totalInventory = 70; // Grand Godwin: 34, Godwin Deluxe: 36
-      const occupancyCalc = totalInventory > 0 ? Math.round((totalRoomsBookedToday / totalInventory) * 100) : 0;
-      occupancyPercent = `${occupancyCalc}%`;
+      const occupancyCalcToday = totalInventory > 0 ? Math.round((totalRoomsBookedToday / totalInventory) * 100) : 0;
+      const occupancyCalcYesterday = totalInventory > 0 ? Math.round((totalRoomsBookedYesterday / totalInventory) * 100) : 0;
+      
+      occupancyPercent = `${occupancyCalcToday}%`;
+      const occDiff = occupancyCalcToday - occupancyCalcYesterday;
+      occupancyChangeStr = occDiff >= 0 ? `+${occDiff}%` : `${occDiff}%`;
     }
 
     setStats(prev => ({
       ...prev,
       revenue: revenueVal,
+      revenueChange: revenueChangeStr,
       active: activeQuotesCount,
+      activeChange: activeQuotesChangeStr,
       occupancy: occupancyPercent,
+      occupancyChange: occupancyChangeStr,
     }));
 
     // Fetch actual tours
@@ -106,7 +167,19 @@ export default function Dashboard() {
       .then(res => res.json())
       .then(tours => {
         if (Array.isArray(tours)) {
-          setStats(prev => ({ ...prev, tours: tours.length.toString() }));
+          const todayStart = new Date();
+          todayStart.setHours(0,0,0,0);
+          let toursAddedToday = 0;
+          tours.forEach((t: any) => {
+            const tDate = new Date(t.createdAt || t.startDate || new Date());
+            if (tDate >= todayStart) toursAddedToday++;
+          });
+
+          setStats(prev => ({ 
+            ...prev, 
+            tours: tours.length.toString(),
+            toursChange: `+${toursAddedToday}`
+          }));
         }
       })
       .catch(err => console.error('Failed to fetch tours', err));
@@ -127,10 +200,10 @@ export default function Dashboard() {
         </header>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
-          <StatCard theme={theme} title="Total Pipeline" value={stats.revenue} change="+12.5%" icon="💰" />
-          <StatCard theme={theme} title="Active Quotes" value={stats.active} change="+4 today" icon="📝" />
-          <StatCard theme={theme} title="Room Occupancy" value={stats.occupancy} icon="🏨" change="-3%" />
-          <StatCard theme={theme} title="Tour Bookings" value={stats.tours} icon="🗺️" change="+2" />
+          <StatCard theme={theme} title="Total Pipeline" value={stats.revenue} change={stats.revenueChange} icon="💰" />
+          <StatCard theme={theme} title="Active Quotes" value={stats.active} change={stats.activeChange} icon="📝" />
+          <StatCard theme={theme} title="Room Occupancy" value={stats.occupancy} change={stats.occupancyChange} icon="🏨" />
+          <StatCard theme={theme} title="Tour Bookings" value={stats.tours} change={stats.toursChange} icon="🗺️" />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
