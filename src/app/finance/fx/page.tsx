@@ -124,15 +124,39 @@ export default function FXTerminalPage() {
   });
 
   useEffect(() => {
-    const pair = `${fromCurrency}_${toCurrency}`;
-    if (rates[pair]) {
-      setMarketRate(rates[pair]);
-    } else if (fromCurrency === toCurrency) {
+    if (fromCurrency === toCurrency) {
       setMarketRate(1);
-    } else {
-      setMarketRate(83.50); 
+      setLastUpdate(new Date().toLocaleTimeString());
+      return;
     }
-    setLastUpdate(new Date().toLocaleTimeString());
+
+    const autoFetchRate = async () => {
+      setIsFetching(true);
+      try {
+        const res = await fetch(`/api/fx?from=${fromCurrency}&to=${toCurrency}`);
+        const data = await res.json();
+        
+        if (data && data.rate) {
+          setMarketRate(data.rate);
+          setLastUpdate(`Market Live (${data.source}): ${new Date().toLocaleTimeString()}`);
+        } else {
+          // Fallback to mock rates if API fails
+          const pair = `${fromCurrency}_${toCurrency}`;
+          setMarketRate(rates[pair] || 83.50);
+          setLastUpdate(`Fallback Rate: ${new Date().toLocaleTimeString()}`);
+        }
+      } catch (e) {
+        // Fallback to mock rates if network fails
+        const pair = `${fromCurrency}_${toCurrency}`;
+        setMarketRate(rates[pair] || 83.50);
+        setLastUpdate(`Fallback Rate: ${new Date().toLocaleTimeString()}`);
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    autoFetchRate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromCurrency, toCurrency]);
 
   const sellRate = marketRate + margin;
