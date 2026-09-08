@@ -24,19 +24,18 @@ export default function Sidebar() {
         <NavLink href="/quotations" icon="📝" label="Quotations" active={pathname.startsWith('/quotations')} theme={theme} />
         <NavLink href="/inventory" icon="🏨" label="Room Inventory" active={pathname === '/inventory'} theme={theme} />
         <NavLink href="/fleet" icon="🚗" label="Fleet Manager" active={pathname === '/fleet'} theme={theme} />
-        <NavLink href="/itinerary" icon="🗺️" label="Itinerary Builder" active={pathname === '/itinerary'} theme={theme} />
-        <NavLink href="/finance" icon="💰" label="Financial Ledger" active={pathname === '/finance'} theme={theme} />
+
         <NavLink href="/finance/fx" icon="💱" label="FX Terminal" active={pathname === '/finance/fx'} theme={theme} />
         
         <div style={{ margin: '1.5rem 0.5rem', borderTop: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }} />
         
-        <NavLink href="/agent" icon="🤝" label="Agent Portal" active={pathname === '/agent'} theme={theme} />
+
         <NavLink href="/leads" icon="🧠" label="AI Leads" active={pathname === '/leads'} theme={theme} />
         <NavLink href="/reputation" icon="🛡️" label="ORM & Reputation" active={pathname === '/reputation'} theme={theme} />
         <NavLink href="/hr/employees" icon="👔" label="HR & Attendance" active={pathname.startsWith('/hr')} theme={theme} />
         <NavLink href="/users" icon="👥" label="User Access" active={pathname === '/users'} theme={theme} />
         <NavLink href="/settings" icon="⚙️" label="Settings" active={pathname === '/settings'} theme={theme} />
-        <NavLink href="/tours" icon="🌍" label="Tour Packages" active={pathname === '/tours'} theme={theme} />
+
         <NavLink href="/reports" icon="📈" label="Reports" active={pathname === '/reports'} theme={theme} />
       </nav>
 
