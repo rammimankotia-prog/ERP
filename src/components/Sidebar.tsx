@@ -20,7 +20,7 @@ export default function Sidebar() {
       </div>
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 }}>
-        <NavLink href="/" icon="📊" label="Dashboard" active={pathname === '/'} theme={theme} />
+
         <NavLink href="/hr/employees" icon="👔" label="HR & Attendance" active={pathname.startsWith('/hr')} theme={theme} />
         <NavLink href="/quotations" icon="📝" label="Quotations" active={pathname.startsWith('/quotations')} theme={theme} />
 
