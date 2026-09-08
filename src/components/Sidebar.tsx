@@ -32,7 +32,7 @@ export default function Sidebar() {
         
 
 
-        <NavLink href="/reputation" icon="🛡️" label="ORM & Reputation" active={pathname === '/reputation'} theme={theme} />
+
         <NavLink href="/users" icon="👥" label="User Access" active={pathname === '/users'} theme={theme} />
         <NavLink href="/settings" icon="⚙️" label="Settings" active={pathname === '/settings'} theme={theme} />
 
