@@ -3,8 +3,12 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+export async function PUT(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params
+
   const role = req.headers.get('x-user-role')
   if (role && !['ADMIN', 'HR_MANAGER', 'HOD'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -28,14 +32,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Deduct from leave balance
     await prisma.leaveBalance.updateMany({
-      where: { employeeId: leaveRequest.employeeId, leaveTypeId: leaveRequest.leaveTypeId, year: new Date().getFullYear() },
+      where: {
+        employeeId: leaveRequest.employeeId,
+        leaveTypeId: leaveRequest.leaveTypeId,
+        year: new Date().getFullYear()
+      },
       data: {
         usedDays: { increment: leaveRequest.totalDays },
         remainingDays: { decrement: leaveRequest.totalDays }
       }
     }).catch(() => {})
 
-    // Create attendance ON_LEAVE records for the approved dates
+    // Create attendance ON_LEAVE records for approved date range
     const from = new Date(leaveRequest.fromDate)
     const to = new Date(leaveRequest.toDate)
     for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
