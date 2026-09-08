@@ -14,6 +14,9 @@ enum Role {
   STAFF
   AGENT
   TOUR_MANAGER
+  HR_MANAGER
+  HOD
+  EMPLOYEE
 }
 
 enum QuoteStatus {
@@ -290,3 +293,89 @@ model ReputationMention {
   url         String
   date        DateTime @default(now())
 }
+
+// ------------------------------------------------------
+// HR & ATTENDANCE MODULE
+// ------------------------------------------------------
+
+enum EmploymentType {
+  PERMANENT
+  CONTRACT
+  TRAINEE
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  RESIGNED
+  TERMINATED
+}
+
+model Branch {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  address     String?
+  prefix      String       @unique // e.g., GG, GD
+  departments Department[]
+  employees   Employee[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Department {
+  id          String     @id @default(uuid())
+  name        String
+  branchId    String
+  branch      Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employees   Employee[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([name, branchId])
+}
+
+model Employee {
+  id              String         @id @default(uuid())
+  employeeId      String         @unique // Branch-prefixed ID
+  userId          String?        @unique // Optional link to User for login
+  // We can't directly use User since it's already defined, let's link it manually if needed, or define relation if possible.
+  // Actually, wait, let's just use the scalar userId for now, or define the relation:
+  // user User? @relation(fields: [userId], references: [id])
+
+  firstName       String
+  lastName        String
+  photo           String?
+  dob             DateTime?      @db.Date
+  gender          String?
+  contactNo       String
+  emergencyContact String?
+  address         String?
+
+  branchId        String
+  branch          Branch         @relation(fields: [branchId], references: [id])
+  departmentId    String
+  department      Department     @relation(fields: [departmentId], references: [id])
+  designation     String
+  doj             DateTime       @db.Date
+  employmentType  EmploymentType @default(PERMANENT)
+  reportingToId   String?        // Self-relation
+  reportingTo     Employee?      @relation("ReportingManager", fields: [reportingToId], references: [id])
+  subordinates    Employee[]     @relation("ReportingManager")
+
+  status          EmployeeStatus @default(ACTIVE)
+
+  documents       EmployeeDocument[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model EmployeeDocument {
+  id           String   @id @default(uuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  documentType String   // Aadhar, PAN, Offer Letter, Bank Details, etc.
+  url          String
+  createdAt    DateTime @default(now())
+}
+
