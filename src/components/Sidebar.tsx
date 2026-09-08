@@ -36,7 +36,7 @@ export default function Sidebar() {
         <NavLink href="/users" icon="👥" label="User Access" active={pathname === '/users'} theme={theme} />
         <NavLink href="/settings" icon="⚙️" label="Settings" active={pathname === '/settings'} theme={theme} />
 
-        <NavLink href="/reports" icon="📈" label="Reports" active={pathname === '/reports'} theme={theme} />
+
       </nav>
 
       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
