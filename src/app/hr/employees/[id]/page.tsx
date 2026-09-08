@@ -2,10 +2,12 @@ import { getBranches, getDepartments, getEmployeeById } from "../../actions";
 import { notFound } from "next/navigation";
 import EditEmployeeForm from "./EditEmployeeForm";
 
-export default async function EditEmployeePage({ params }: { params: { id: string } }) {
+export default async function EditEmployeePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const branches = await getBranches().catch(() => []);
   const departments = await getDepartments().catch(() => []);
-  const employee = await getEmployeeById(params.id).catch(() => null);
+  const employee = await getEmployeeById(id).catch(() => null);
+
 
   if (!employee) {
     notFound();
