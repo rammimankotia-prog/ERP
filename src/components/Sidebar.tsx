@@ -21,6 +21,7 @@ export default function Sidebar() {
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 }}>
         <NavLink href="/" icon="📊" label="Dashboard" active={pathname === '/'} theme={theme} />
+        <NavLink href="/hr/employees" icon="👔" label="HR & Attendance" active={pathname.startsWith('/hr')} theme={theme} />
         <NavLink href="/quotations" icon="📝" label="Quotations" active={pathname.startsWith('/quotations')} theme={theme} />
 
         <NavLink href="/fleet" icon="🚗" label="Fleet Manager" active={pathname === '/fleet'} theme={theme} />
@@ -32,7 +33,6 @@ export default function Sidebar() {
 
         <NavLink href="/leads" icon="🧠" label="AI Leads" active={pathname === '/leads'} theme={theme} />
         <NavLink href="/reputation" icon="🛡️" label="ORM & Reputation" active={pathname === '/reputation'} theme={theme} />
-        <NavLink href="/hr/employees" icon="👔" label="HR & Attendance" active={pathname.startsWith('/hr')} theme={theme} />
         <NavLink href="/users" icon="👥" label="User Access" active={pathname === '/users'} theme={theme} />
         <NavLink href="/settings" icon="⚙️" label="Settings" active={pathname === '/settings'} theme={theme} />
 
