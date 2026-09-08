@@ -22,17 +22,16 @@ export default function Sidebar() {
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 }}>
 
         <NavLink href="/hr/employees" icon="👔" label="HR & Attendance" active={pathname.startsWith('/hr')} theme={theme} />
-        {pathname.startsWith('/hr') && (
-          <div style={{ marginLeft: '1rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', borderLeft: '2px solid rgba(37, 99, 235, 0.3)', paddingLeft: '0.75rem' }}>
-            <SubLink href="/hr/employees" label="Employees" active={pathname === '/hr/employees' || pathname.startsWith('/hr/employees')} theme={theme} />
-            <SubLink href="/hr/attendance" label="Attendance" active={pathname.startsWith('/hr/attendance')} theme={theme} />
-            <SubLink href="/hr/shifts" label="Shift Manager" active={pathname.startsWith('/hr/shifts')} theme={theme} />
-            <SubLink href="/hr/leave" label="Leave" active={pathname.startsWith('/hr/leave')} theme={theme} />
-            <SubLink href="/hr/payroll" label="Payroll" active={pathname.startsWith('/hr/payroll')} theme={theme} />
-            <SubLink href="/hr/reports" label="Reports" active={pathname.startsWith('/hr/reports')} theme={theme} />
-          </div>
-        )}
+        <div style={{ marginLeft: '1rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', borderLeft: '2px solid rgba(37, 99, 235, 0.3)', paddingLeft: '0.75rem' }}>
+          <SubLink href="/hr/employees" label="Employees" active={pathname === '/hr/employees' || pathname.startsWith('/hr/employees')} theme={theme} />
+          <SubLink href="/hr/attendance" label="Attendance" active={pathname.startsWith('/hr/attendance')} theme={theme} />
+          <SubLink href="/hr/shifts" label="Shift Manager" active={pathname.startsWith('/hr/shifts')} theme={theme} />
+          <SubLink href="/hr/leave" label="Leave" active={pathname.startsWith('/hr/leave')} theme={theme} />
+          <SubLink href="/hr/payroll" label="Payroll" active={pathname.startsWith('/hr/payroll')} theme={theme} />
+          <SubLink href="/hr/reports" label="Reports" active={pathname.startsWith('/hr/reports')} theme={theme} />
+        </div>
         <NavLink href="/quotations" icon="📝" label="Quotations" active={pathname.startsWith('/quotations')} theme={theme} />
+
 
 
         <NavLink href="/fleet" icon="🚗" label="Fleet Manager" active={pathname === '/fleet'} theme={theme} />
