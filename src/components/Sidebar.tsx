@@ -33,6 +33,7 @@ export default function Sidebar() {
         <NavLink href="/agent" icon="🤝" label="Agent Portal" active={pathname === '/agent'} theme={theme} />
         <NavLink href="/leads" icon="🧠" label="AI Leads" active={pathname === '/leads'} theme={theme} />
         <NavLink href="/reputation" icon="🛡️" label="ORM & Reputation" active={pathname === '/reputation'} theme={theme} />
+        <NavLink href="/hr/employees" icon="👔" label="HR & Attendance" active={pathname.startsWith('/hr')} theme={theme} />
         <NavLink href="/users" icon="👥" label="User Access" active={pathname === '/users'} theme={theme} />
         <NavLink href="/settings" icon="⚙️" label="Settings" active={pathname === '/settings'} theme={theme} />
         <NavLink href="/tours" icon="🌍" label="Tour Packages" active={pathname === '/tours'} theme={theme} />
