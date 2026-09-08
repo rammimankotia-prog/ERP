@@ -381,3 +381,169 @@ model EmployeeDocument {
   createdAt    DateTime @default(now())
 }
 
+// ------------------------------------------------------
+// ATTENDANCE & SHIFT MANAGEMENT MODULE
+// ------------------------------------------------------
+
+enum ShiftType {
+  FIXED
+  ROTATING
+  NIGHT
+}
+
+enum PunchMode {
+  WEB
+  GEO
+  BIOMETRIC
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  ON_LEAVE
+  HOLIDAY
+}
+
+enum LeaveCategory {
+  CASUAL
+  SICK
+  EARNED
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AuditAction {
+  PUNCH_IN
+  PUNCH_OUT
+  LEAVE_APPLY
+  LEAVE_APPROVE
+  LEAVE_REJECT
+  SHIFT_ASSIGN
+  MANUAL_OVERRIDE
+}
+
+model Shift {
+  id              String           @id @default(uuid())
+  name            String           // e.g. "Morning Shift", "Night Shift"
+  type            ShiftType        @default(FIXED)
+  startTime       String           // "09:00"
+  endTime         String           // "18:00"
+  graceMinutes    Int              @default(15)
+  branchId        String
+  assignments     ShiftAssignment[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model ShiftAssignment {
+  id          String   @id @default(uuid())
+  employeeId  String
+  shiftId     String
+  shift       Shift    @relation(fields: [shiftId], references: [id])
+  startDate   DateTime @db.Date
+  endDate     DateTime? @db.Date
+  createdAt   DateTime @default(now())
+
+  @@index([employeeId, startDate])
+}
+
+model AttendanceLog {
+  id              String           @id @default(uuid())
+  employeeId      String
+  date            DateTime         @db.Date
+  punchIn         DateTime?
+  punchOut        DateTime?
+  punchInMode     PunchMode        @default(WEB)
+  punchOutMode    PunchMode?
+  punchInLat      Float?
+  punchInLng      Float?
+  punchOutLat     Float?
+  punchOutLng     Float?
+  status          AttendanceStatus @default(PRESENT)
+  totalMinutes    Int?             // computed on punch-out
+  overtimeMinutes Int?             @default(0)
+  notes           String?
+  isManualOverride Boolean         @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([employeeId, date])
+}
+
+model LeaveType {
+  id          String          @id @default(uuid())
+  name        String          @unique
+  category    LeaveCategory
+  maxDaysPerYear Int          @default(12)
+  isCarryForward Boolean      @default(false)
+  balances    LeaveBalance[]
+  requests    LeaveRequest[]
+}
+
+model LeaveBalance {
+  id          String    @id @default(uuid())
+  employeeId  String
+  leaveTypeId String
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year        Int
+  totalDays   Int       @default(0)
+  usedDays    Int       @default(0)
+  remainingDays Int     @default(0)
+
+  @@unique([employeeId, leaveTypeId, year])
+}
+
+model LeaveRequest {
+  id            String      @id @default(uuid())
+  employeeId    String
+  leaveTypeId   String
+  leaveType     LeaveType   @relation(fields: [leaveTypeId], references: [id])
+  fromDate      DateTime    @db.Date
+  toDate        DateTime    @db.Date
+  totalDays     Int
+  reason        String
+  status        LeaveStatus @default(PENDING)
+  approverId    String?     // HR or Manager userId
+  approverNote  String?
+  approvedAt    DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([employeeId, status])
+}
+
+model OvertimeRecord {
+  id              String   @id @default(uuid())
+  employeeId      String
+  date            DateTime @db.Date
+  regularMinutes  Int      @default(0)
+  overtimeMinutes Int      @default(0)
+  multiplier      Float    @default(1.5)
+  approved        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@unique([employeeId, date])
+}
+
+model AuditTrail {
+  id         String      @id @default(uuid())
+  actorId    String      // userId performing action
+  targetId   String?     // employeeId or resourceId affected
+  action     AuditAction
+  details    String?     // JSON stringified diff
+  ipAddress  String?
+  createdAt  DateTime    @default(now())
+
+  @@index([actorId, createdAt])
+}
+
+
