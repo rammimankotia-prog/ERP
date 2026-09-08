@@ -26,7 +26,7 @@ export default function Sidebar() {
 
         <NavLink href="/fleet" icon="🚗" label="Fleet Manager" active={pathname === '/fleet'} theme={theme} />
 
-        <NavLink href="/finance/fx" icon="💱" label="FX Terminal" active={pathname === '/finance/fx'} theme={theme} />
+
         
         <div style={{ margin: '1.5rem 0.5rem', borderTop: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }} />
         
