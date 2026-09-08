@@ -22,7 +22,7 @@ export default function Sidebar() {
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 }}>
         <NavLink href="/" icon="📊" label="Dashboard" active={pathname === '/'} theme={theme} />
         <NavLink href="/quotations" icon="📝" label="Quotations" active={pathname.startsWith('/quotations')} theme={theme} />
-        <NavLink href="/inventory" icon="🏨" label="Room Inventory" active={pathname === '/inventory'} theme={theme} />
+
         <NavLink href="/fleet" icon="🚗" label="Fleet Manager" active={pathname === '/fleet'} theme={theme} />
 
         <NavLink href="/finance/fx" icon="💱" label="FX Terminal" active={pathname === '/finance/fx'} theme={theme} />
