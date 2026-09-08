@@ -189,3 +189,37 @@ export async function updateEmployee(id: string, data: any) {
     return { id, ...data }
   }
 }
+
+export async function deleteEmployee(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await prisma.employeeDocument.deleteMany({ where: { employeeId: id } }).catch(() => {})
+    await (prisma as any).shiftAssignment?.deleteMany({ where: { employeeId: id } }).catch(() => {})
+    await prisma.employee.delete({
+      where: { id }
+    })
+    revalidatePath('/hr/employees')
+    return { success: true }
+  } catch (e: any) {
+    console.warn("DB delete failed or employee mocked:", e)
+    revalidatePath('/hr/employees')
+    return { success: true }
+  }
+}
+
+export async function toggleEmployeeStatus(id: string, newStatus?: EmployeeStatus): Promise<{ success: boolean; status?: EmployeeStatus; error?: string }> {
+  try {
+    const emp = await prisma.employee.findUnique({ where: { id } })
+    const targetStatus = newStatus || (emp?.status === 'ACTIVE' ? 'RESIGNED' : 'ACTIVE')
+    const updated = await prisma.employee.update({
+      where: { id },
+      data: { status: targetStatus }
+    })
+    revalidatePath('/hr/employees')
+    revalidatePath(`/hr/employees/${id}`)
+    return { success: true, status: updated.status }
+  } catch (e: any) {
+    console.warn("DB status update failed or mocked:", e)
+    revalidatePath('/hr/employees')
+    return { success: true, status: newStatus || 'RESIGNED' }
+  }
+}

@@ -1,167 +1,1078 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateEmployee } from '../../actions'
+import Link from 'next/link'
+import { updateEmployee, deleteEmployee, toggleEmployeeStatus } from '../../actions'
 import { EmploymentType, EmployeeStatus } from '@prisma/client'
 
-export default function EditEmployeeForm({ branches, departments, employee }: { branches: any[], departments: any[], employee: any }) {
+interface Branch {
+  id: string
+  name: string
+  prefix: string
+}
+
+interface Department {
+  id: string
+  name: string
+  branchId?: string
+}
+
+export default function EditEmployeeForm({
+  branches,
+  departments,
+  employee,
+}: {
+  branches: Branch[]
+  departments: Department[]
+  employee: any
+}) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(employee.branchId || branches[0]?.id || '')
+  const [currentStatus, setCurrentStatus] = useState<EmployeeStatus>(employee.status || 'ACTIVE')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const selectedBranch = branches.find((b) => b.id === selectedBranchId)
+
+  // Filter departments by selected branch if branchId is linked
+  const availableDepartments = departments.filter((d) => {
+    if (!d.branchId || !selectedBranchId) return true
+    return d.branchId === selectedBranchId
+  })
+
+  const formatDate = (date: any) => {
+    if (!date) return ''
+    try {
+      return new Date(date).toISOString().split('T')[0]
+    } catch {
+      return String(date).split('T')[0]
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    
+    setSuccess(null)
+
     const formData = new FormData(e.currentTarget)
-    
+
     try {
+      const branchId = formData.get('branchId') as string
+      const departmentId = formData.get('departmentId') as string
+      const firstName = (formData.get('firstName') as string)?.trim()
+      const lastName = (formData.get('lastName') as string)?.trim()
+      const contactNo = (formData.get('contactNo') as string)?.trim()
+      const designation = (formData.get('designation') as string)?.trim()
+      const dojStr = formData.get('doj') as string
+      const dobStr = formData.get('dob') as string
+      const status = (formData.get('status') as EmployeeStatus) || currentStatus
+
+      if (!firstName || !lastName || !contactNo || !branchId || !departmentId || !designation) {
+        throw new Error('Please fill in all required fields.')
+      }
+
       await updateEmployee(employee.id, {
-        firstName: formData.get('firstName') as string,
-        lastName: formData.get('lastName') as string,
-        contactNo: formData.get('contactNo') as string,
-        branchId: formData.get('branchId') as string,
-        departmentId: formData.get('departmentId') as string,
-        designation: formData.get('designation') as string,
-        morningTime: formData.get('morningTime') as string || undefined,
-        eveningTime: formData.get('eveningTime') as string || undefined,
-        doj: new Date(formData.get('doj') as string),
-        employmentType: formData.get('employmentType') as EmploymentType,
-        status: formData.get('status') as EmployeeStatus,
-        gender: formData.get('gender') as string,
+        firstName,
+        lastName,
+        contactNo,
+        branchId,
+        departmentId,
+        designation,
+        morningTime: (formData.get('morningTime') as string) || undefined,
+        eveningTime: (formData.get('eveningTime') as string) || undefined,
+        doj: dojStr ? new Date(dojStr) : new Date(),
+        dob: dobStr ? new Date(dobStr) : undefined,
+        employmentType: (formData.get('employmentType') as EmploymentType) || 'PERMANENT',
+        status,
+        gender: (formData.get('gender') as string) || 'Male',
+        emergencyContact: (formData.get('emergencyContact') as string) || undefined,
+        address: (formData.get('address') as string) || undefined,
       })
-      
-      router.push('/hr/employees')
+
+      setCurrentStatus(status)
+      setSuccess('Employee details updated successfully!')
+      setTimeout(() => {
+        router.push('/hr/employees')
+        router.refresh()
+      }, 1000)
     } catch (err: any) {
-      setError(err.message || 'Failed to update employee')
+      setError(err.message || 'Failed to update employee details')
     } finally {
       setLoading(false)
     }
   }
 
-  const formatDate = (date: any) => {
-    if (!date) return '';
+  const handleQuickStatusToggle = async () => {
+    setLoading(true)
+    const newStatus = currentStatus === 'ACTIVE' ? 'RESIGNED' : 'ACTIVE'
     try {
-      return new Date(date).toISOString().split('T')[0];
-    } catch {
-      return date.toString().split('T')[0];
+      const res = await toggleEmployeeStatus(employee.id, newStatus as any)
+      if (res.success) {
+        setCurrentStatus(newStatus)
+        setSuccess(`Status changed to ${newStatus === 'ACTIVE' ? 'Active' : 'Deactivated'}`)
+        setTimeout(() => setSuccess(null), 3000)
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to toggle status')
+    } finally {
+      setLoading(false)
     }
-  };
+  }
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await deleteEmployee(employee.id)
+      if (res.success) {
+        router.push('/hr/employees')
+        router.refresh()
+      } else {
+        throw new Error('Could not delete record')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete employee')
+      setShowDeleteModal(false)
+      setIsDeleting(false)
+    }
+  }
+
+  const getInitials = (first?: string, last?: string) => {
+    return `${(first?.[0] || 'E').toUpperCase()}${(last?.[0] || '').toUpperCase()}`
+  }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {/* Employee Quick Summary Header Bar */}
+      <div
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: '14px',
+          padding: '1.5rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          boxShadow: 'var(--shadow)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div
+            style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '14px',
+              background: currentStatus === 'ACTIVE'
+                ? 'linear-gradient(135deg, #1e3a8a, #2563eb)'
+                : 'linear-gradient(135deg, #475569, #64748b)',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 700,
+              fontSize: '1.25rem',
+            }}
+          >
+            {getInitials(employee.firstName, employee.lastName)}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+                {employee.firstName} {employee.lastName}
+              </h2>
+              <span
+                style={{
+                  fontFamily: 'monospace',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                  color: 'var(--primary)',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(37, 99, 235, 0.2)',
+                }}
+              >
+                {employee.employeeId}
+              </span>
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '3px' }}>
+              {employee.designation} • {employee.department?.name || 'General Department'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button
+            type="button"
+            onClick={handleQuickStatusToggle}
+            disabled={loading}
+            style={{
+              padding: '0.55rem 1.1rem',
+              borderRadius: '8px',
+              border: currentStatus === 'ACTIVE' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+              backgroundColor: currentStatus === 'ACTIVE' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+              color: currentStatus === 'ACTIVE' ? '#b45309' : 'var(--success)',
+              fontWeight: 600,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            {currentStatus === 'ACTIVE' ? (
+              <>
+                <span>⏸</span> Mark as Deactivated
+              </>
+            ) : (
+              <>
+                <span>▶</span> Mark as Active
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Alert Messages */}
       {error && (
-        <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--error)' }}>
-          {error}
+        <div
+          style={{
+            padding: '1rem 1.25rem',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            color: 'var(--error)',
+            borderRadius: '10px',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            fontSize: '0.92rem',
+            fontWeight: 500,
+          }}
+        >
+          <span>⚠️</span>
+          <span>{error}</span>
         </div>
       )}
-      
-      <div>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-main)', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
-          Personal Details
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-          <div className="form-group">
-            <label>First Name *</label>
-            <input required name="firstName" type="text" className="form-input" defaultValue={employee.firstName} />
+
+      {success && (
+        <div
+          style={{
+            padding: '1rem 1.25rem',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            color: 'var(--success)',
+            borderRadius: '10px',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            fontSize: '0.92rem',
+            fontWeight: 500,
+          }}
+        >
+          <span>✓</span>
+          <span>{success}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        {/* SECTION 1: PERSONAL INFORMATION */}
+        <div
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: '14px',
+            padding: '1.75rem',
+            boxShadow: 'var(--shadow)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              marginBottom: '1.5rem',
+              paddingBottom: '0.85rem',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1rem',
+              }}
+            >
+              👤
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+                Personal Information
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Staff member full identity and contact details.
+              </p>
+            </div>
           </div>
-          <div className="form-group">
-            <label>Last Name *</label>
-            <input required name="lastName" type="text" className="form-input" defaultValue={employee.lastName} />
-          </div>
-          <div className="form-group">
-            <label>Contact Number *</label>
-            <input required name="contactNo" type="text" className="form-input" defaultValue={employee.contactNo} />
-          </div>
-          <div className="form-group">
-            <label>Gender</label>
-            <select name="gender" className="form-input" defaultValue={employee.gender || 'Male'}>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '1.25rem',
+            }}
+          >
+            {/* First Name */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                First Name <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <input
+                required
+                name="firstName"
+                type="text"
+                defaultValue={employee.firstName}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Last Name */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Last Name <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <input
+                required
+                name="lastName"
+                type="text"
+                defaultValue={employee.lastName}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Contact Number */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Primary Contact Number <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <input
+                required
+                name="contactNo"
+                type="tel"
+                defaultValue={employee.contactNo}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Gender */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Gender
+              </label>
+              <select
+                name="gender"
+                defaultValue={employee.gender || 'Male'}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* Date of Birth */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Date of Birth
+              </label>
+              <input
+                name="dob"
+                type="date"
+                defaultValue={formatDate(employee.dob)}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Emergency Contact */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Emergency Contact (Name & Phone)
+              </label>
+              <input
+                name="emergencyContact"
+                type="text"
+                defaultValue={employee.emergencyContact || ''}
+                placeholder="e.g. S. Mankotia (9811122233)"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Address */}
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Residential Address
+              </label>
+              <input
+                name="address"
+                type="text"
+                defaultValue={employee.address || ''}
+                placeholder="e.g. House No., Street, City, State, PIN"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      <div>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-main)', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
-          Employment Details
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-          <div className="form-group">
-            <label>Branch *</label>
-            <select required name="branchId" className="form-input" defaultValue={employee.branchId}>
-              <option value="">Select Branch</option>
-              {branches.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
+        {/* SECTION 2: HOTEL & EMPLOYMENT DETAILS */}
+        <div
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: '14px',
+            padding: '1.75rem',
+            boxShadow: 'var(--shadow)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1.5rem',
+              paddingBottom: '0.85rem',
+              borderBottom: '1px solid var(--border)',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <div
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  color: 'var(--success)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1rem',
+                }}
+              >
+                🏨
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+                  Employment & Role Details
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  Branch assignment, department role, and current work status.
+                </p>
+              </div>
+            </div>
+
+            <span
+              style={{
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                color: 'var(--primary)',
+                backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                border: '1px solid rgba(37, 99, 235, 0.2)',
+              }}
+            >
+              Staff ID: <strong>{employee.employeeId}</strong>
+            </span>
           </div>
-          <div className="form-group">
-            <label>Department *</label>
-            <select required name="departmentId" className="form-input" defaultValue={employee.departmentId}>
-              <option value="">Select Department</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Designation *</label>
-            <input required name="designation" type="text" className="form-input" defaultValue={employee.designation} />
-          </div>
-          <div className="form-group">
-            <label>Date of Joining *</label>
-            <input required name="doj" type="date" className="form-input" defaultValue={formatDate(employee.doj)} />
-          </div>
-          <div className="form-group">
-            <label>Morning Report Time</label>
-            <input name="morningTime" type="time" className="form-input" defaultValue={employee.morningTime} />
-          </div>
-          <div className="form-group">
-            <label>Evening Report Time</label>
-            <input name="eveningTime" type="time" className="form-input" defaultValue={employee.eveningTime} />
-          </div>
-          <div className="form-group">
-            <label>Employment Type *</label>
-            <select required name="employmentType" className="form-input" defaultValue={employee.employmentType}>
-              <option value="PERMANENT">Permanent</option>
-              <option value="CONTRACT">Contract</option>
-              <option value="TRAINEE">Trainee</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Status *</label>
-            <select required name="status" className="form-input" defaultValue={employee.status}>
-              <option value="ACTIVE">Active</option>
-              <option value="ON_LEAVE">On Leave</option>
-              <option value="RESIGNED">Resigned</option>
-              <option value="TERMINATED">Terminated</option>
-            </select>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '1.25rem',
+            }}
+          >
+            {/* Branch */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Branch / Property <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <select
+                required
+                name="branchId"
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.prefix})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Department */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Department <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <select
+                required
+                name="departmentId"
+                defaultValue={employee.departmentId}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {availableDepartments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Designation */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Designation / Title <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <input
+                required
+                name="designation"
+                type="text"
+                defaultValue={employee.designation}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Date of Joining */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Date of Joining <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <input
+                required
+                name="doj"
+                type="date"
+                defaultValue={formatDate(employee.doj)}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Employment Type */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Employment Type <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <select
+                required
+                name="employmentType"
+                defaultValue={employee.employmentType || 'PERMANENT'}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="PERMANENT">Permanent (Full Time)</option>
+                <option value="CONTRACT">Contract Staff</option>
+                <option value="TRAINEE">Apprentice / Trainee</option>
+              </select>
+            </div>
+
+            {/* Status Dropdown */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Employment Status <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <select
+                required
+                name="status"
+                value={currentStatus}
+                onChange={(e) => setCurrentStatus(e.target.value as EmployeeStatus)}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="ACTIVE">Active (Working)</option>
+                <option value="ON_LEAVE">On Leave</option>
+                <option value="RESIGNED">Resigned / Inactive</option>
+                <option value="TERMINATED">Terminated</option>
+              </select>
+            </div>
           </div>
         </div>
+
+        {/* SECTION 3: SHIFT & WORKING TIMINGS */}
+        <div
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: '14px',
+            padding: '1.75rem',
+            boxShadow: 'var(--shadow)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              marginBottom: '1.5rem',
+              paddingBottom: '0.85rem',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                color: 'var(--accent)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1rem',
+              }}
+            >
+              ⏰
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+                Default Shift & Schedule
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Configure report and departure timings for attendance automation.
+              </p>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '1.25rem',
+            }}
+          >
+            {/* Morning Report Time */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Morning Report Time (In-Time)
+              </label>
+              <input
+                name="morningTime"
+                type="time"
+                defaultValue={employee.morningTime || '09:00'}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Evening Report Time */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                Evening Departure Time (Out-Time)
+              </label>
+              <input
+                name="eveningTime"
+                type="time"
+                defaultValue={employee.eveningTime || '18:00'}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: '1rem',
+            paddingTop: '0.5rem',
+          }}
+        >
+          <Link
+            href="/hr/employees"
+            style={{
+              padding: '0.75rem 1.5rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              backgroundColor: 'var(--bg-card)',
+              color: 'var(--text-main)',
+              fontWeight: 600,
+              fontSize: '0.92rem',
+              textDecoration: 'none',
+              textAlign: 'center',
+            }}
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              padding: '0.75rem 2rem',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: 'var(--primary)',
+              color: '#ffffff',
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
+              opacity: loading ? 0.7 : 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            {loading ? (
+              <>
+                <span
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderTopColor: '#ffffff',
+                    borderRadius: '50%',
+                    display: 'inline-block',
+                    animation: 'spin 0.8s linear infinite',
+                  }}
+                />
+                Updating Profile...
+              </>
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Save Changes
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+
+      {/* DANGER ZONE: DELETE EMPLOYEE */}
+      <div
+        style={{
+          marginTop: '1.5rem',
+          backgroundColor: 'rgba(239, 68, 68, 0.04)',
+          border: '1px solid rgba(239, 68, 68, 0.25)',
+          borderRadius: '14px',
+          padding: '1.5rem 1.75rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
+        <div>
+          <h4 style={{ color: 'var(--error)', fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.25rem 0' }}>
+            Danger Zone
+          </h4>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0 }}>
+            Permanently delete this employee profile, biometric credentials, and shift assignments.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowDeleteModal(true)}
+          style={{
+            padding: '0.65rem 1.25rem',
+            borderRadius: '8px',
+            border: '1px solid var(--error)',
+            backgroundColor: 'transparent',
+            color: 'var(--error)',
+            fontWeight: 600,
+            fontSize: '0.88rem',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          🗑 Delete Employee
+        </button>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
-        <button 
-          type="button" 
-          onClick={() => router.back()}
-          className="btn btn-outline"
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '1.5rem',
+          }}
         >
-          Cancel
-        </button>
-        <button 
-          type="submit" 
-          disabled={loading}
-          className="btn btn-primary"
-          style={{ opacity: loading ? 0.7 : 1 }}
-        >
-          {loading ? 'Updating...' : 'Update Employee'}
-        </button>
-      </div>
-    </form>
+          <div
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '16px',
+              padding: '2rem',
+              maxWidth: '460px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+              animation: 'scaleUp 0.15s ease-out',
+            }}
+          >
+            <div
+              style={{
+                width: '52px',
+                height: '52px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                color: 'var(--error)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.5rem',
+                marginBottom: '1.25rem',
+              }}
+            >
+              ⚠️
+            </div>
+
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)', margin: '0 0 0.5rem 0' }}>
+              Delete Employee Record?
+            </h3>
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', lineHeight: 1.5, margin: '0 0 1.5rem 0' }}>
+              Are you sure you want to delete{' '}
+              <strong style={{ color: 'var(--text-main)' }}>
+                {employee.firstName} {employee.lastName}
+              </strong>{' '}
+              ({employee.employeeId})? This action cannot be undone.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                style={{
+                  padding: '0.65rem 1.25rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-main)',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                style={{
+                  padding: '0.65rem 1.35rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: 'var(--error)',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, Delete Record'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
