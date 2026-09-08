@@ -71,6 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  // Prevent hydration mismatch by returning a simple empty state during SSR
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
   if (loading) {
     return (
       <div style={{
@@ -86,15 +91,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         zIndex: 99999
       }}>
         <div className="auth-spinner" style={{
-          width: '50px',
-          height: '50px',
-          border: '4px solid rgba(255,255,255,0.1)',
+          width: '40px',
+          height: '40px',
+          border: '3px solid rgba(255,255,255,0.1)',
           borderTopColor: '#d97706',
           borderRadius: '50%',
           animation: 'spin 1s linear infinite'
         }} />
-        <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-          Initializing Enterprise Security...
+        <p style={{ fontSize: '0.9rem', fontWeight: 500, color: '#94a3b8' }}>
+          Loading...
         </p>
         <style jsx>{`
           @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -103,37 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If not logged in and not currently on the /login page, display redirect screen
   if (!user && pathname !== '/login') {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0, left: 0, right: 0, bottom: 0,
-        background: '#020617',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '1rem',
-        color: 'white',
-        zIndex: 99999
-      }}>
-        <div className="auth-spinner" style={{
-          width: '50px',
-          height: '50px',
-          border: '4px solid rgba(255,255,255,0.1)',
-          borderTopColor: '#f59e0b',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
-        }} />
-        <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-          🔒 Redirecting to Secure Executive Login...
-        </p>
-        <style jsx>{`
-          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        `}</style>
-      </div>
-    );
+    return null; // The useEffect will handle the redirect, no need to show a blocking UI
   }
 
   return (
