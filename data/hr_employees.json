@@ -1,0 +1,29 @@
+[
+  {
+    "id": "mock-emp-1",
+    "employeeId": "GG-1001",
+    "firstName": "Raman",
+    "lastName": "Mankotia",
+    "designation": "General Manager",
+    "contactNo": "9876543210",
+    "branchId": "mock-1",
+    "branch": {
+      "id": "mock-1",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "departmentId": "dept-1",
+    "department": {
+      "id": "dept-1",
+      "name": "Front Office"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-01-15T00:00:00.000Z",
+    "morningTime": "09:00",
+    "eveningTime": "18:00",
+    "gender": "Male",
+    "createdAt": "2024-01-15T00:00:00.000Z",
+    "updatedAt": "2024-01-15T00:00:00.000Z"
+  }
+]
