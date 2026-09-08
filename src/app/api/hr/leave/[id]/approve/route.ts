@@ -49,7 +49,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     await prisma.auditTrail.create({
-      data: { actorId: approverId || 'system', targetId: params.id, action: 'LEAVE_APPROVE' }
+      data: { actorId: approverId || 'system', targetId: id, action: 'LEAVE_APPROVE' }
     }).catch(() => {})
 
     return NextResponse.json({ updated })
