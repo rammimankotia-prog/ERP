@@ -356,6 +356,8 @@ model Employee {
   departmentId    String
   department      Department     @relation(fields: [departmentId], references: [id])
   designation     String
+  morningTime     String?        // e.g. "09:00"
+  eveningTime     String?        // e.g. "18:00"
   doj             DateTime       @db.Date
   employmentType  EmploymentType @default(PERMANENT)
   reportingToId   String?        // Self-relation

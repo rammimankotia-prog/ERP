@@ -25,6 +25,8 @@ export default function AddEmployeeForm({ branches, departments }: { branches: a
         branchId: formData.get('branchId') as string,
         departmentId: formData.get('departmentId') as string,
         designation: formData.get('designation') as string,
+        morningTime: formData.get('morningTime') as string || undefined,
+        eveningTime: formData.get('eveningTime') as string || undefined,
         doj: new Date(formData.get('doj') as string),
         employmentType: formData.get('employmentType') as EmploymentType,
       })
@@ -103,6 +105,14 @@ export default function AddEmployeeForm({ branches, departments }: { branches: a
           <div className="form-group">
             <label>Date of Joining *</label>
             <input required name="doj" type="date" className="form-input" />
+          </div>
+          <div className="form-group">
+            <label>Morning Report Time</label>
+            <input name="morningTime" type="time" className="form-input" />
+          </div>
+          <div className="form-group">
+            <label>Evening Report Time</label>
+            <input name="eveningTime" type="time" className="form-input" />
           </div>
           <div className="form-group">
             <label>Employment Type *</label>
