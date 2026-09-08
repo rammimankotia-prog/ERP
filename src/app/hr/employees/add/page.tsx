@@ -6,15 +6,15 @@ export default async function AddEmployeePage() {
   const departments = await getDepartments().catch(() => []);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto w-full">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Add New Employee</h1>
-        <p className="text-muted-foreground mt-1 text-sm text-gray-500">
-          Enter the personal and employment details for the new staff member.
-        </p>
+    <div style={{ padding: '2rem', maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+      <div className="header">
+        <div>
+          <h1 style={{ color: 'var(--text-main)', marginBottom: '0.25rem' }}>Add New Employee</h1>
+          <p>Enter the personal and employment details for the new staff member.</p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border p-6">
+      <div className="card">
         <AddEmployeeForm branches={branches} departments={departments} />
       </div>
     </div>

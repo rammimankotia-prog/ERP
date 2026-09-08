@@ -38,27 +38,33 @@ export default function AddEmployeeForm({ branches, departments }: { branches: a
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-md">{error}</div>}
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+      {error && (
+        <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--error)' }}>
+          {error}
+        </div>
+      )}
       
       <div>
-        <h2 className="text-lg font-medium text-gray-900 border-b pb-2 mb-4">Personal Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-            <input required name="firstName" type="text" className="w-full border rounded-md px-3 py-2" />
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-main)', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
+          Personal Details
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+          <div className="form-group">
+            <label>First Name *</label>
+            <input required name="firstName" type="text" className="form-input" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-            <input required name="lastName" type="text" className="w-full border rounded-md px-3 py-2" />
+          <div className="form-group">
+            <label>Last Name *</label>
+            <input required name="lastName" type="text" className="form-input" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number *</label>
-            <input required name="contactNo" type="text" className="w-full border rounded-md px-3 py-2" />
+          <div className="form-group">
+            <label>Contact Number *</label>
+            <input required name="contactNo" type="text" className="form-input" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-            <select name="gender" className="w-full border rounded-md px-3 py-2">
+          <div className="form-group">
+            <label>Gender</label>
+            <select name="gender" className="form-input">
               <option value="Male">Male</option>
               <option value="Female">Female</option>
               <option value="Other">Other</option>
@@ -68,37 +74,39 @@ export default function AddEmployeeForm({ branches, departments }: { branches: a
       </div>
 
       <div>
-        <h2 className="text-lg font-medium text-gray-900 border-b pb-2 mb-4">Employment Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Branch *</label>
-            <select required name="branchId" className="w-full border rounded-md px-3 py-2">
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-main)', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
+          Employment Details
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+          <div className="form-group">
+            <label>Branch *</label>
+            <select required name="branchId" className="form-input">
               <option value="">Select Branch</option>
               {branches.map(b => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department *</label>
-            <select required name="departmentId" className="w-full border rounded-md px-3 py-2">
+          <div className="form-group">
+            <label>Department *</label>
+            <select required name="departmentId" className="form-input">
               <option value="">Select Department</option>
               {departments.map(d => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Designation *</label>
-            <input required name="designation" type="text" className="w-full border rounded-md px-3 py-2" placeholder="e.g. Front Desk Manager" />
+          <div className="form-group">
+            <label>Designation *</label>
+            <input required name="designation" type="text" className="form-input" placeholder="e.g. Front Desk Manager" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Joining *</label>
-            <input required name="doj" type="date" className="w-full border rounded-md px-3 py-2" />
+          <div className="form-group">
+            <label>Date of Joining *</label>
+            <input required name="doj" type="date" className="form-input" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type *</label>
-            <select required name="employmentType" className="w-full border rounded-md px-3 py-2">
+          <div className="form-group">
+            <label>Employment Type *</label>
+            <select required name="employmentType" className="form-input">
               <option value="PERMANENT">Permanent</option>
               <option value="CONTRACT">Contract</option>
               <option value="TRAINEE">Trainee</option>
@@ -107,18 +115,19 @@ export default function AddEmployeeForm({ branches, departments }: { branches: a
         </div>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
         <button 
           type="button" 
           onClick={() => router.back()}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="btn btn-outline"
         >
           Cancel
         </button>
         <button 
           type="submit" 
           disabled={loading}
-          className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          className="btn btn-primary"
+          style={{ opacity: loading ? 0.7 : 1 }}
         >
           {loading ? 'Saving...' : 'Save Employee'}
         </button>

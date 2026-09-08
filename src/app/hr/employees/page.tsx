@@ -7,104 +7,103 @@ export default async function EmployeeListPage() {
   const departments = await getDepartments().catch(() => []);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto w-full">
-      <div className="flex justify-between items-center mb-8">
+    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+      <div className="header">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Employee Directory</h1>
-          <p className="text-muted-foreground mt-1 text-sm text-gray-500">
-            Manage your hotel staff, roles, and branch assignments.
-          </p>
+          <h1 style={{ color: 'var(--text-main)', marginBottom: '0.25rem' }}>Employee Directory</h1>
+          <p>Manage your hotel staff, roles, and branch assignments.</p>
         </div>
-        <Link 
-          href="/hr/employees/add" 
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors shadow-sm"
-        >
-          + Add Employee
+        <Link href="/hr/employees/add" className="btn btn-primary">
+          <span style={{ marginRight: '0.5rem' }}>+</span> Add Employee
         </Link>
       </div>
 
-      {/* Filters (Prototype) */}
-      <div className="flex gap-4 mb-6 bg-white p-4 rounded-lg shadow-sm border">
-        <select className="border rounded px-3 py-2 text-sm flex-1">
+      {/* Filters */}
+      <div className="card" style={{ marginBottom: '2rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <select className="form-input" style={{ flex: 1, minHeight: '42px' }}>
           <option value="">All Branches</option>
           {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
-        <select className="border rounded px-3 py-2 text-sm flex-1">
+        <select className="form-input" style={{ flex: 1, minHeight: '42px' }}>
           <option value="">All Departments</option>
           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
-        <select className="border rounded px-3 py-2 text-sm flex-1">
+        <select className="form-input" style={{ flex: 1, minHeight: '42px' }}>
           <option value="">All Statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="ON_LEAVE">On Leave</option>
         </select>
-        <button className="bg-gray-100 px-4 py-2 rounded text-sm font-medium hover:bg-gray-200 transition">
+        <button className="btn btn-outline" style={{ minHeight: '42px', padding: '0 2rem' }}>
           Filter
         </button>
       </div>
 
       {/* Employee Table */}
-      <div className="bg-white rounded-lg shadow border overflow-hidden">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-gray-50 border-b">
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead style={{ backgroundColor: 'var(--bg-main)', borderBottom: '1px solid var(--border)' }}>
             <tr>
-              <th className="px-6 py-3 font-semibold text-gray-600">Employee</th>
-              <th className="px-6 py-3 font-semibold text-gray-600">ID</th>
-              <th className="px-6 py-3 font-semibold text-gray-600">Branch</th>
-              <th className="px-6 py-3 font-semibold text-gray-600">Department & Role</th>
-              <th className="px-6 py-3 font-semibold text-gray-600">Contact</th>
-              <th className="px-6 py-3 font-semibold text-gray-600">Status</th>
-              <th className="px-6 py-3 font-semibold text-gray-600 text-right">Actions</th>
+              <th style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--text-muted)' }}>Employee</th>
+              <th style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--text-muted)' }}>ID</th>
+              <th style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--text-muted)' }}>Branch</th>
+              <th style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--text-muted)' }}>Department & Role</th>
+              <th style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--text-muted)' }}>Contact</th>
+              <th style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--text-muted)' }}>Status</th>
+              <th style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--text-muted)', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {employees.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                  <div className="flex flex-col items-center">
-                    <svg className="w-12 h-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <p className="text-lg font-medium text-gray-900 mb-1">No employees found</p>
-                    <p className="text-sm">Get started by creating a new employee record.</p>
+                <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ fontSize: '3rem' }}>👥</span>
+                    <div>
+                      <h3 style={{ color: 'var(--text-main)' }}>No employees found</h3>
+                      <p>Get started by creating a new employee record.</p>
+                    </div>
                   </div>
                 </td>
               </tr>
             ) : (
               employees.map((emp) => (
-                <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
+                <tr key={emp.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '1rem 1.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ 
+                        width: '36px', height: '36px', borderRadius: '50%', 
+                        backgroundColor: 'var(--ring)', color: 'var(--primary)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 'bold', fontSize: '0.8rem'
+                      }}>
                         {emp.firstName.charAt(0)}{emp.lastName.charAt(0)}
                       </div>
-                      <div>
-                        <div className="font-medium text-gray-900">{emp.firstName} {emp.lastName}</div>
+                      <div style={{ fontWeight: 500, color: 'var(--text-main)' }}>
+                        {emp.firstName} {emp.lastName}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-gray-600">{emp.employeeId}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-700">
-                      {emp.branch?.name || "N/A"}
-                    </span>
+                  <td style={{ padding: '1rem 1.5rem', color: 'var(--text-muted)', fontWeight: 500 }}>{emp.employeeId}</td>
+                  <td style={{ padding: '1rem 1.5rem' }}>
+                    <span className="badge badge-silver">{emp.branch?.name || "N/A"}</span>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-gray-900">{emp.designation}</div>
-                    <div className="text-gray-500 text-xs mt-0.5">{emp.department?.name || "N/A"}</div>
+                  <td style={{ padding: '1rem 1.5rem' }}>
+                    <div style={{ color: 'var(--text-main)', fontWeight: 500 }}>{emp.designation}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.25rem' }}>{emp.department?.name || "N/A"}</div>
                   </td>
-                  <td className="px-6 py-4 text-gray-600">{emp.contactNo}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      emp.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                      emp.status === 'ON_LEAVE' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
+                  <td style={{ padding: '1rem 1.5rem', color: 'var(--text-muted)' }}>{emp.contactNo}</td>
+                  <td style={{ padding: '1rem 1.5rem' }}>
+                    <span className="badge" style={{ 
+                      backgroundColor: emp.status === 'ACTIVE' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                      color: emp.status === 'ACTIVE' ? 'var(--success)' : 'var(--error)'
+                    }}>
                       {emp.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right text-sm font-medium">
-                    <Link href={`/hr/employees/${emp.id}`} className="text-blue-600 hover:text-blue-900 mr-4">Edit</Link>
+                  <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
+                    <Link href={`/hr/employees/${emp.id}`} style={{ color: 'var(--primary)', fontWeight: 500, textDecoration: 'none' }}>
+                      Edit
+                    </Link>
                   </td>
                 </tr>
               ))
