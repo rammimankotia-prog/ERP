@@ -32,6 +32,8 @@ type PayrollRecord = {
   paymentDate?: string | null
 }
 
+type ReportFilterType = 'ALL' | 'PRESENT' | 'ABSENT' | 'LATE' | 'OVERTIME' | 'PAID' | 'PENDING'
+
 function formatMinutes(mins: number) {
   if (!mins) return '0h'
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
@@ -45,7 +47,7 @@ function formatCurrency(amount: number) {
   }).format(amount)
 }
 
-function downloadCSV(data: PayrollRecord[], month: string, year: number) {
+function downloadCSV(data: PayrollRecord[], month: string, year: number, filterName: string) {
   const headers = [
     'Sr No',
     'Employee ID',
@@ -97,7 +99,7 @@ function downloadCSV(data: PayrollRecord[], month: string, year: number) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `Godwin-Salary-Register-${month}-${year}.csv`
+  a.download = `Godwin-Payroll-${filterName}-${month}-${year}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -109,6 +111,8 @@ export default function PayrollSummary() {
   const [branchFilter, setBranchFilter] = useState('ALL')
   const [deptFilter, setDeptFilter] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
+  const [reportFilter, setReportFilter] = useState<ReportFilterType>('ALL')
+  const [metricViewMode, setMetricViewMode] = useState<'ATTENDANCE' | 'SALARY' | 'ALL'>('ATTENDANCE')
   const [records, setRecords] = useState<PayrollRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollRecord | null>(null)
@@ -157,19 +161,85 @@ export default function PayrollSummary() {
     showToast('All employees marked as PAID for this pay period')
   }
 
-  // Filter records by search query
-  const filteredRecords = useMemo(() => {
-    if (!searchQuery.trim()) return records
-    const q = searchQuery.toLowerCase()
-    return records.filter(r =>
-      r.employeeName.toLowerCase().includes(q) ||
-      r.employeeId.toLowerCase().includes(q) ||
-      r.designation.toLowerCase().includes(q) ||
-      r.department.toLowerCase().includes(q)
-    )
-  }, [records, searchQuery])
+  // Overall totals across all unfiltered records in period
+  const overallTotals = useMemo(() => {
+    return records.reduce((acc, r) => ({
+      baseSalary: acc.baseSalary + (r.baseSalary || 0),
+      netSalary: acc.netSalary + (r.netSalary || 0),
+      present: acc.present + r.presentDays,
+      absent: acc.absent + r.absentDays,
+      leave: acc.leave + r.leaveDays,
+      halfDays: acc.halfDays + (r.halfDays || 0),
+      late: acc.late + r.lateDays,
+      payableDays: acc.payableDays + r.payableDays,
+      totalMins: acc.totalMins + r.totalMinutes,
+      otMins: acc.otMins + r.overtimeMinutes,
+      otAmount: acc.otAmount + (r.overtimeAmount || 0),
+      deductions: acc.deductions + (r.deductions || 0),
+      presentCount: acc.presentCount + (r.presentDays > 0 ? 1 : 0),
+      absentCount: acc.absentCount + (r.absentDays > 0 ? 1 : 0),
+      lateCount: acc.lateCount + (r.lateDays > 0 ? 1 : 0),
+      otCount: acc.otCount + (r.overtimeMinutes > 0 ? 1 : 0),
+      paidCount: acc.paidCount + (r.paymentStatus === 'PAID' ? 1 : 0),
+      processedCount: acc.processedCount + (r.paymentStatus === 'PROCESSED' ? 1 : 0),
+      pendingCount: acc.pendingCount + (r.paymentStatus === 'PENDING' ? 1 : 0),
+    }), {
+      baseSalary: 0,
+      netSalary: 0,
+      present: 0,
+      absent: 0,
+      leave: 0,
+      halfDays: 0,
+      late: 0,
+      payableDays: 0,
+      totalMins: 0,
+      otMins: 0,
+      otAmount: 0,
+      deductions: 0,
+      presentCount: 0,
+      absentCount: 0,
+      lateCount: 0,
+      otCount: 0,
+      paidCount: 0,
+      processedCount: 0,
+      pendingCount: 0
+    })
+  }, [records])
 
-  // Calculated totals
+  // Filter records by search query AND active report metric filter
+  const filteredRecords = useMemo(() => {
+    let list = records
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      list = list.filter(r =>
+        r.employeeName.toLowerCase().includes(q) ||
+        r.employeeId.toLowerCase().includes(q) ||
+        r.designation.toLowerCase().includes(q) ||
+        r.department.toLowerCase().includes(q)
+      )
+    }
+
+    // Apply report toggle filter
+    if (reportFilter === 'PRESENT') {
+      list = list.filter(r => r.presentDays > 0)
+    } else if (reportFilter === 'ABSENT') {
+      list = list.filter(r => r.absentDays > 0)
+    } else if (reportFilter === 'LATE') {
+      list = list.filter(r => r.lateDays > 0)
+    } else if (reportFilter === 'OVERTIME') {
+      list = list.filter(r => r.overtimeMinutes > 0)
+    } else if (reportFilter === 'PAID') {
+      list = list.filter(r => r.paymentStatus === 'PAID')
+    } else if (reportFilter === 'PENDING') {
+      list = list.filter(r => r.paymentStatus === 'PENDING')
+    }
+
+    return list
+  }, [records, searchQuery, reportFilter])
+
+  // Filtered totals for bottom row
   const totals = useMemo(() => {
     return filteredRecords.reduce((acc, r) => ({
       baseSalary: acc.baseSalary + (r.baseSalary || 0),
@@ -211,6 +281,11 @@ export default function PayrollSummary() {
 
   const triggerPrint = () => {
     window.print()
+  }
+
+  // Toggle filter helper
+  const handleCardToggle = (filterType: ReportFilterType) => {
+    setReportFilter(prev => prev === filterType ? 'ALL' : filterType)
   }
 
   return (
@@ -276,7 +351,7 @@ export default function PayrollSummary() {
           .print-footer-signatures {
             display: flex !important;
             justify-content: space-between !important;
-            margin-top: 30px !important;
+            margin-top: 28px !important;
             page-break-inside: avoid !important;
           }
         }
@@ -350,7 +425,7 @@ export default function PayrollSummary() {
             </select>
           </div>
 
-          <div className="form-group" style={{ marginBottom: 0, minWidth: '200px' }}>
+          <div className="form-group" style={{ marginBottom: 0, minWidth: '190px' }}>
             <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>SEARCH EMPLOYEE</label>
             <input
               type="text"
@@ -388,7 +463,7 @@ export default function PayrollSummary() {
           >
             {showPrintPreview ? '👁️ Hide Preview' : '📋 Report Preview'}
           </button>
-          <button className="btn btn-outline" onClick={() => downloadCSV(filteredRecords, monthName, year)} disabled={filteredRecords.length === 0}>
+          <button className="btn btn-outline" onClick={() => downloadCSV(filteredRecords, monthName, year, reportFilter)} disabled={filteredRecords.length === 0}>
             ⬇️ Export CSV
           </button>
           <button
@@ -402,102 +477,352 @@ export default function PayrollSummary() {
         </div>
       </div>
 
-      {/* Top KPI Cards (Screen only) */}
-      <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
-        {/* Total Net Payroll */}
-        <div className="card" style={{
-          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.04))',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.4rem'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              TOTAL NET PAYROLL
-            </span>
-            <span style={{ fontSize: '1.25rem' }}>💰</span>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#10b981', lineHeight: 1.1 }}>
-            {formatCurrency(totals.netSalary)}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Base Cost: {formatCurrency(totals.baseSalary)}
+      {/* TOGGLE REPORT METRICS BAR */}
+      <div className="no-print" style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '0.75rem',
+        padding: '0.65rem 1rem',
+        borderRadius: 'var(--radius-sm)',
+        background: 'var(--bg-main)',
+        border: '1px solid var(--border)'
+      }}>
+        {/* Left: View Mode Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>VIEW METRICS:</span>
+          <div style={{ display: 'inline-flex', background: 'var(--bg-card)', padding: '3px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+            <button
+              onClick={() => setMetricViewMode('ATTENDANCE')}
+              style={{
+                padding: '0.35rem 0.85rem',
+                borderRadius: '4px',
+                border: 'none',
+                background: metricViewMode === 'ATTENDANCE' ? 'var(--primary)' : 'transparent',
+                color: metricViewMode === 'ATTENDANCE' ? '#ffffff' : 'var(--text-muted)',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              ⏱️ Attendance & Hours
+            </button>
+            <button
+              onClick={() => setMetricViewMode('SALARY')}
+              style={{
+                padding: '0.35rem 0.85rem',
+                borderRadius: '4px',
+                border: 'none',
+                background: metricViewMode === 'SALARY' ? 'var(--primary)' : 'transparent',
+                color: metricViewMode === 'SALARY' ? '#ffffff' : 'var(--text-muted)',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              💰 Salary & Payout
+            </button>
+            <button
+              onClick={() => setMetricViewMode('ALL')}
+              style={{
+                padding: '0.35rem 0.85rem',
+                borderRadius: '4px',
+                border: 'none',
+                background: metricViewMode === 'ALL' ? 'var(--primary)' : 'transparent',
+                color: metricViewMode === 'ALL' ? '#ffffff' : 'var(--text-muted)',
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              📊 All Metrics
+            </button>
           </div>
         </div>
 
-        {/* Total Overtime */}
-        <div className="card" style={{
-          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.04))',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.4rem'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              OVERTIME PAYOUT (1.5X)
+        {/* Right: Active Filter Pill & Quick Clear */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Filter by Report:
+          </span>
+          <span style={{
+            fontSize: '0.78rem',
+            padding: '0.25rem 0.75rem',
+            borderRadius: '99px',
+            background: reportFilter === 'ALL' ? 'rgba(255,255,255,0.08)' : 'rgba(59, 130, 246, 0.2)',
+            color: reportFilter === 'ALL' ? 'var(--text-muted)' : '#60a5fa',
+            border: reportFilter === 'ALL' ? '1px solid var(--border)' : '1px solid #3b82f6',
+            fontWeight: 800,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem'
+          }}>
+            <span>●</span>
+            <span>
+              {reportFilter === 'ALL'
+                ? 'ALL RECORDS (5)'
+                : reportFilter === 'PRESENT'
+                ? `PRESENT EMPLOYEES (${filteredRecords.length})`
+                : reportFilter === 'ABSENT'
+                ? `ABSENT / LOP EMPLOYEES (${filteredRecords.length})`
+                : reportFilter === 'LATE'
+                ? `LATE ARRIVALS (${filteredRecords.length})`
+                : reportFilter === 'OVERTIME'
+                ? `OVERTIME EMPLOYEES (${filteredRecords.length})`
+                : reportFilter === 'PAID'
+                ? `PAID EMPLOYEES (${filteredRecords.length})`
+                : `PENDING EMPLOYEES (${filteredRecords.length})`}
             </span>
-            <span style={{ fontSize: '1.25rem' }}>⏱️</span>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#3b82f6', lineHeight: 1.1 }}>
-            +{formatCurrency(totals.otAmount)}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Total OT: {formatMinutes(totals.otMins)}
-          </div>
-        </div>
+          </span>
 
-        {/* Total Deductions / LOP */}
-        <div className="card" style={{
-          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.03))',
-          border: '1px solid rgba(239, 68, 68, 0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.4rem'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              DEDUCTIONS & LOP
-            </span>
-            <span style={{ fontSize: '1.25rem' }}>📉</span>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#ef4444', lineHeight: 1.1 }}>
-            -{formatCurrency(totals.deductions)}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Absent Days: {totals.absent}d • Late: {totals.late}
-          </div>
-        </div>
-
-        {/* Disbursement Status */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              PAYMENT DISBURSEMENT
-            </span>
-            <span style={{ fontSize: '1.25rem' }}>💳</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-main)' }}>
-              {totals.paidCount}/{filteredRecords.length}
-            </span>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Disbursed</span>
-          </div>
-          <div style={{ height: '6px', borderRadius: '99px', background: 'var(--bg-main)', overflow: 'hidden', marginTop: '0.2rem' }}>
-            <div style={{
-              height: '100%',
-              borderRadius: '99px',
-              background: '#10b981',
-              width: `${filteredRecords.length > 0 ? (totals.paidCount / filteredRecords.length) * 100 : 0}%`,
-              transition: 'width 0.4s ease'
-            }} />
-          </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
-            {totals.processedCount} Processed • {totals.pendingCount} Pending
-          </div>
+          {reportFilter !== 'ALL' && (
+            <button
+              onClick={() => setReportFilter('ALL')}
+              style={{
+                padding: '0.25rem 0.6rem',
+                borderRadius: '4px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                color: '#ef4444',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              ✕ Clear Filter
+            </button>
+          )}
         </div>
       </div>
+
+      {/* 5 REPORT SUMMARY CARDS (Interactive Toggle Filters) */}
+      {(metricViewMode === 'ATTENDANCE' || metricViewMode === 'ALL') && (
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem' }}>
+          {[
+            {
+              id: 'PRESENT' as const,
+              label: 'TOTAL PRESENT',
+              value: overallTotals.present,
+              color: 'var(--success)',
+              icon: '✅',
+              subtext: `${overallTotals.presentCount} employees active`
+            },
+            {
+              id: 'ABSENT' as const,
+              label: 'TOTAL ABSENT',
+              value: overallTotals.absent,
+              color: 'var(--error)',
+              icon: '❌',
+              subtext: `${overallTotals.absentCount} employees with LOP`
+            },
+            {
+              id: 'LATE' as const,
+              label: 'LATE ARRIVALS',
+              value: overallTotals.late,
+              color: 'var(--warning)',
+              icon: '⚠️',
+              subtext: `${overallTotals.lateCount} employees flagged`
+            },
+            {
+              id: 'ALL' as const,
+              label: 'TOTAL HOURS',
+              value: formatMinutes(overallTotals.totalMins),
+              color: 'var(--primary)',
+              icon: '⏱️',
+              subtext: 'Across all shifts'
+            },
+            {
+              id: 'OVERTIME' as const,
+              label: 'OVERTIME HOURS',
+              value: formatMinutes(overallTotals.otMins),
+              color: 'var(--accent)',
+              icon: '🎯',
+              subtext: `${overallTotals.otCount} employees worked OT`
+            },
+          ].map(s => {
+            const isSelected = reportFilter === s.id && s.id !== 'ALL'
+            return (
+              <div
+                key={s.label}
+                onClick={() => handleCardToggle(s.id)}
+                className="card"
+                title={`Click to toggle filter by ${s.label}`}
+                style={{
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  border: isSelected ? '2px solid var(--primary)' : '1px solid var(--border)',
+                  background: isSelected ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-card)',
+                  boxShadow: isSelected ? '0 0 16px rgba(59, 130, 246, 0.3)' : 'none',
+                  transform: isSelected ? 'scale(1.02)' : 'none',
+                  transition: 'all 0.18s ease'
+                }}
+              >
+                {isSelected && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    fontSize: '0.62rem',
+                    fontWeight: 800,
+                    background: 'var(--primary)',
+                    color: '#ffffff',
+                    padding: '0.1rem 0.35rem',
+                    borderRadius: '4px'
+                  }}>
+                    ACTIVE
+                  </span>
+                )}
+                <div style={{ fontSize: '1.6rem' }}>{s.icon}</div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 900, color: s.color, lineHeight: 1.1 }}>
+                  {s.value}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {s.label}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: isSelected ? '#60a5fa' : 'var(--text-muted)', opacity: 0.85 }}>
+                  {s.subtext}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Salary Financial Metric Cards (Interactive Toggle Filters) */}
+      {(metricViewMode === 'SALARY' || metricViewMode === 'ALL') && (
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
+          {/* Total Net Payroll */}
+          <div
+            onClick={() => setReportFilter('ALL')}
+            className="card"
+            title="Click to view all payroll records"
+            style={{
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.04))',
+              border: reportFilter === 'ALL' ? '2px solid #10b981' : '1px solid rgba(16, 185, 129, 0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.4rem',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                TOTAL NET PAYROLL
+              </span>
+              <span style={{ fontSize: '1.25rem' }}>💰</span>
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#10b981', lineHeight: 1.1 }}>
+              {formatCurrency(overallTotals.netSalary)}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Base Cost: {formatCurrency(overallTotals.baseSalary)}
+            </div>
+          </div>
+
+          {/* Total Overtime */}
+          <div
+            onClick={() => handleCardToggle('OVERTIME')}
+            className="card"
+            title="Click to filter employees with Overtime"
+            style={{
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.04))',
+              border: reportFilter === 'OVERTIME' ? '2px solid #3b82f6' : '1px solid rgba(59, 130, 246, 0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.4rem',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                OVERTIME PAYOUT (1.5X)
+              </span>
+              <span style={{ fontSize: '1.25rem' }}>⏱️</span>
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#3b82f6', lineHeight: 1.1 }}>
+              +{formatCurrency(overallTotals.otAmount)}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Total OT: {formatMinutes(overallTotals.otMins)} ({overallTotals.otCount} staff)
+            </div>
+          </div>
+
+          {/* Total Deductions / LOP */}
+          <div
+            onClick={() => handleCardToggle('ABSENT')}
+            className="card"
+            title="Click to filter employees with Deductions/LOP"
+            style={{
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.03))',
+              border: reportFilter === 'ABSENT' ? '2px solid #ef4444' : '1px solid rgba(239, 68, 68, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.4rem',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                DEDUCTIONS & LOP
+              </span>
+              <span style={{ fontSize: '1.25rem' }}>📉</span>
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#ef4444', lineHeight: 1.1 }}>
+              -{formatCurrency(overallTotals.deductions)}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Absent Days: {overallTotals.absent}d • Late: {overallTotals.late}
+            </div>
+          </div>
+
+          {/* Disbursement Status */}
+          <div
+            onClick={() => handleCardToggle('PAID')}
+            className="card"
+            title="Click to filter Paid / Disbursed employees"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.4rem',
+              cursor: 'pointer',
+              border: reportFilter === 'PAID' ? '2px solid #10b981' : '1px solid var(--border)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                PAYMENT DISBURSEMENT
+              </span>
+              <span style={{ fontSize: '1.25rem' }}>💳</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--text-main)' }}>
+                {overallTotals.paidCount}/{records.length}
+              </span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Disbursed</span>
+            </div>
+            <div style={{ height: '6px', borderRadius: '99px', background: 'var(--bg-main)', overflow: 'hidden', marginTop: '0.2rem' }}>
+              <div style={{
+                height: '100%',
+                borderRadius: '99px',
+                background: '#10b981',
+                width: `${records.length > 0 ? (overallTotals.paidCount / records.length) * 100 : 0}%`,
+                transition: 'width 0.4s ease'
+              }} />
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+              {overallTotals.processedCount} Processed • {overallTotals.pendingCount} Pending
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Screen Interactive Table */}
       <div className="card no-print" style={{ padding: 0, overflow: 'hidden' }}>
@@ -515,20 +840,57 @@ export default function PayrollSummary() {
               Staff Payroll Summary Sheet
             </h2>
             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              {fullMonthName} {year} • Showing {filteredRecords.length} employees across {branchFilter === 'ALL' ? 'Grand Godwin & Godwin Deluxe' : branchFilter}
+              {fullMonthName} {year} • Showing {filteredRecords.length} of {records.length} employees
+              {reportFilter !== 'ALL' && <strong style={{ color: 'var(--primary)', marginLeft: '0.35rem' }}>[Filtered by: {reportFilter}]</strong>}
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontWeight: 700 }}>
+            <button
+              onClick={() => handleCardToggle('PAID')}
+              style={{
+                fontSize: '0.75rem',
+                padding: '0.25rem 0.6rem',
+                borderRadius: '4px',
+                background: reportFilter === 'PAID' ? '#10b981' : 'rgba(16, 185, 129, 0.1)',
+                color: reportFilter === 'PAID' ? '#ffffff' : '#10b981',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
               ● {totals.paidCount} Paid
-            </span>
-            <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', fontWeight: 700 }}>
-              ● {totals.processedCount} Processed
-            </span>
-            <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24', fontWeight: 700 }}>
+            </button>
+            <button
+              onClick={() => handleCardToggle('PENDING')}
+              style={{
+                fontSize: '0.75rem',
+                padding: '0.25rem 0.6rem',
+                borderRadius: '4px',
+                background: reportFilter === 'PENDING' ? '#fbbf24' : 'rgba(245, 158, 11, 0.1)',
+                color: reportFilter === 'PENDING' ? '#0f172a' : '#fbbf24',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
               ● {totals.pendingCount} Pending
-            </span>
+            </button>
+            <button
+              onClick={() => setReportFilter('ALL')}
+              style={{
+                fontSize: '0.75rem',
+                padding: '0.25rem 0.6rem',
+                borderRadius: '4px',
+                background: reportFilter === 'ALL' ? 'var(--primary)' : 'var(--bg-main)',
+                color: reportFilter === 'ALL' ? '#ffffff' : 'var(--text-muted)',
+                fontWeight: 700,
+                border: '1px solid var(--border)',
+                cursor: 'pointer'
+              }}
+            >
+              All ({records.length})
+            </button>
           </div>
         </div>
 
@@ -574,7 +936,12 @@ export default function PayrollSummary() {
               ) : filteredRecords.length === 0 ? (
                 <tr>
                   <td colSpan={11} style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    No payroll data found for the selected month and filters.
+                    No employees match the active report filter (<strong>{reportFilter}</strong>).
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <button onClick={() => setReportFilter('ALL')} className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem' }}>
+                        Reset Filter
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -786,7 +1153,7 @@ export default function PayrollSummary() {
         </div>
       </div>
 
-      {/* On-Screen Report Preview Card (When user clicks 'Report Preview') */}
+      {/* On-Screen Report Preview Card */}
       {showPrintPreview && (
         <div className="card no-print" style={{ border: '2px dashed var(--primary)', background: '#ffffff', color: '#0f172a', padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #cbd5e1', paddingBottom: '0.75rem' }}>
@@ -796,6 +1163,7 @@ export default function PayrollSummary() {
               </span>
               <h3 style={{ margin: '0.2rem 0 0 0', color: '#0f172a', fontSize: '1.1rem' }}>
                 Complete Hotel Salary & Attendance Register
+                {reportFilter !== 'ALL' && <span style={{ color: '#2563eb', marginLeft: '0.5rem' }}>({reportFilter} FILTERED)</span>}
               </h3>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -808,14 +1176,14 @@ export default function PayrollSummary() {
             </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            {renderPrintRegister(filteredRecords, fullMonthName, year, branchFilter, totals)}
+            {renderPrintRegister(filteredRecords, fullMonthName, year, branchFilter, totals, reportFilter)}
           </div>
         </div>
       )}
 
       {/* DEDICATED PRINTABLE CONTAINER (Visible ONLY during print/PDF generation) */}
       <div className="print-sheet">
-        {renderPrintRegister(filteredRecords, fullMonthName, year, branchFilter, totals)}
+        {renderPrintRegister(filteredRecords, fullMonthName, year, branchFilter, totals, reportFilter)}
       </div>
 
       {/* PAYSLIP MODAL DIALOG */}
@@ -1011,7 +1379,8 @@ function renderPrintRegister(
   monthName: string,
   year: number,
   branchFilter: string,
-  totals: any
+  totals: any,
+  reportFilter: string = 'ALL'
 ) {
   const branchLabel =
     branchFilter === 'GG'
@@ -1042,13 +1411,14 @@ function renderPrintRegister(
             </div>
             <div style={{ fontSize: '10.5pt', fontWeight: 800, color: '#1e3a8a', marginTop: '4px' }}>
               MONTHLY SALARY REGISTER & ATTENDANCE PAYROLL REPORT — {monthName.toUpperCase()} {year}
+              {reportFilter !== 'ALL' && <span style={{ color: '#b91c1c', marginLeft: '8px', fontSize: '9pt' }}>[REPORT FILTER: {reportFilter}]</span>}
             </div>
           </div>
 
           <div style={{ textAlign: 'right', fontSize: '8pt', color: '#334155' }}>
             <div><strong>Branch:</strong> {branchLabel}</div>
             <div><strong>Generated:</strong> {printedAt}</div>
-            <div><strong>Staff Strength:</strong> {records.length} Employees</div>
+            <div><strong>Staff Strength:</strong> {records.length} Employees {reportFilter !== 'ALL' ? `(${reportFilter})` : ''}</div>
           </div>
         </div>
       </div>
@@ -1082,7 +1452,7 @@ function renderPrintRegister(
           {records.length === 0 ? (
             <tr>
               <td colSpan={19} style={{ textAlign: 'center', padding: '15px' }}>
-                No records found for this period.
+                No records found matching filter "{reportFilter}".
               </td>
             </tr>
           ) : (
@@ -1158,14 +1528,14 @@ function renderPrintRegister(
       <div className="print-footer-signatures" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '28px', paddingTop: '10px' }}>
         <div style={{ display: 'flex', gap: '30px', fontSize: '8pt', color: '#334155' }}>
           <div>
-            <strong>Summary:</strong>
+            <strong>Financial Summary:</strong>
             <div>Total Base Wage: ₹{totals.baseSalary.toLocaleString('en-IN')}</div>
             <div>Overtime Wage: +₹{totals.otAmount.toLocaleString('en-IN')}</div>
             <div>Total Deductions: -₹{totals.deductions.toLocaleString('en-IN')}</div>
             <div style={{ fontWeight: 800, color: '#047857' }}>Net Disbursed: ₹{totals.netSalary.toLocaleString('en-IN')}</div>
           </div>
           <div>
-            <strong>Attendance:</strong>
+            <strong>Attendance Summary:</strong>
             <div>Total Present: {totals.present} days</div>
             <div>Paid Leaves: {totals.leave} days</div>
             <div>Total LOP: {totals.absent} days</div>
