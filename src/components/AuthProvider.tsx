@@ -71,10 +71,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  // Prevent hydration mismatch by returning a simple empty state during SSR
+  // Prevent hydration mismatch by returning a clean loading state during initial mount
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
+  if (!mounted) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        background: '#020617',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '1rem',
+        color: 'white',
+        zIndex: 99999
+      }}>
+        <div style={{
+          width: '36px',
+          height: '36px',
+          border: '3px solid rgba(255,255,255,0.1)',
+          borderTopColor: '#3b82f6',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite'
+        }} />
+        <p style={{ fontSize: '0.85rem', fontWeight: 500, color: '#94a3b8', margin: 0 }}>
+          Godwin ERP...
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

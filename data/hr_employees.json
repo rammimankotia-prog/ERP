@@ -25,5 +25,113 @@
     "gender": "Male",
     "createdAt": "2024-01-15T00:00:00.000Z",
     "updatedAt": "2024-01-15T00:00:00.000Z"
+  },
+  {
+    "id": "mock-emp-2",
+    "employeeId": "GG-1002",
+    "firstName": "Priya",
+    "lastName": "Sharma",
+    "designation": "Front Desk Executive",
+    "contactNo": "9812345678",
+    "branchId": "mock-1",
+    "branch": {
+      "id": "mock-1",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "departmentId": "dept-1",
+    "department": {
+      "id": "dept-1",
+      "name": "Front Office"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-03-01T00:00:00.000Z",
+    "morningTime": "07:00",
+    "eveningTime": "15:30",
+    "gender": "Female",
+    "createdAt": "2024-03-01T00:00:00.000Z",
+    "updatedAt": "2024-03-01T00:00:00.000Z"
+  },
+  {
+    "id": "mock-emp-3",
+    "employeeId": "GD-1001",
+    "firstName": "Rajiv",
+    "lastName": "Kumar",
+    "designation": "Housekeeping Supervisor",
+    "contactNo": "9823456789",
+    "branchId": "mock-2",
+    "branch": {
+      "id": "mock-2",
+      "name": "Hotel Godwin Deluxe",
+      "prefix": "GD"
+    },
+    "departmentId": "dept-2",
+    "department": {
+      "id": "dept-2",
+      "name": "Housekeeping"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-02-10T00:00:00.000Z",
+    "morningTime": "08:00",
+    "eveningTime": "17:00",
+    "gender": "Male",
+    "createdAt": "2024-02-10T00:00:00.000Z",
+    "updatedAt": "2024-02-10T00:00:00.000Z"
+  },
+  {
+    "id": "mock-emp-4",
+    "employeeId": "GD-1002",
+    "firstName": "Sunita",
+    "lastName": "Verma",
+    "designation": "Security Officer",
+    "contactNo": "9834567890",
+    "branchId": "mock-2",
+    "branch": {
+      "id": "mock-2",
+      "name": "Hotel Godwin Deluxe",
+      "prefix": "GD"
+    },
+    "departmentId": "dept-3",
+    "department": {
+      "id": "dept-3",
+      "name": "Security"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-04-15T00:00:00.000Z",
+    "morningTime": "22:00",
+    "eveningTime": "06:00",
+    "gender": "Female",
+    "createdAt": "2024-04-15T00:00:00.000Z",
+    "updatedAt": "2024-04-15T00:00:00.000Z"
+  },
+  {
+    "id": "mock-emp-5",
+    "employeeId": "GG-1003",
+    "firstName": "Amit",
+    "lastName": "Singh",
+    "designation": "Accounts Executive",
+    "contactNo": "9845678901",
+    "branchId": "mock-1",
+    "branch": {
+      "id": "mock-1",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "departmentId": "dept-4",
+    "department": {
+      "id": "dept-4",
+      "name": "Accounts"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-05-01T00:00:00.000Z",
+    "morningTime": "10:00",
+    "eveningTime": "19:00",
+    "gender": "Male",
+    "createdAt": "2024-05-01T00:00:00.000Z",
+    "updatedAt": "2024-05-01T00:00:00.000Z"
   }
 ]

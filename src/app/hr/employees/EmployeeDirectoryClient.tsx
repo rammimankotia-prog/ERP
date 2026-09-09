@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toggleEmployeeStatus, deleteEmployee } from '../actions'
@@ -44,12 +44,24 @@ interface Props {
 
 export default function EmployeeDirectoryClient({ initialEmployees, branches, departments }: Props) {
   const router = useRouter()
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees)
+  const [employees, setEmployees] = useState<Employee[]>(Array.isArray(initialEmployees) && initialEmployees.length > 0 ? initialEmployees : [])
   const [search, setSearch] = useState('')
   const [selectedBranch, setSelectedBranch] = useState('')
   const [selectedDept, setSelectedDept] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('ALL')
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
+
+  // Background fetch to keep live and handle any cold-start SSR mismatch
+  useEffect(() => {
+    fetch('/api/hr/employees')
+      .then(res => res.json())
+      .then(data => {
+        if (data.employees && Array.isArray(data.employees) && data.employees.length > 0) {
+          setEmployees(data.employees)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Loading states
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
@@ -199,7 +211,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
                 width: '38px',
                 height: '38px',
                 borderRadius: '10px',
-                background: 'linear-space(135deg, #2563eb, #3b82f6)',
+                background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(59, 130, 246, 0.1))',
                 backgroundColor: 'rgba(37, 99, 235, 0.12)',
                 color: 'var(--primary)',
                 display: 'inline-flex',
