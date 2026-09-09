@@ -36,6 +36,7 @@
     "eslint-config-next": "16.2.4",
     "jest": "^30.5.1",
     "prisma": "^5.22.0",
+    "puppeteer": "^25.10.0",
     "ts-jest": "^29.4.12",
     "tsx": "^4.21.0",
     "typescript": "^5"
