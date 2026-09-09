@@ -1,8 +1,24 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useAuth } from '@/components/AuthProvider';
+import PermissionGuard from '@/components/PermissionGuard';
+
+interface PermissionSet {
+  hr?: {
+    employees?: { view?: boolean; edit?: boolean; delete?: boolean };
+    attendance?: { view?: boolean; edit?: boolean };
+    shifts?: { view?: boolean; edit?: boolean };
+    leave?: { view?: boolean; approve?: boolean };
+    payroll?: { view?: boolean; edit?: boolean };
+    reports?: { view?: boolean };
+  };
+  quotations?: { view?: boolean; edit?: boolean; delete?: boolean };
+  fleet?: { view?: boolean; edit?: boolean };
+  userAccess?: { view?: boolean; edit?: boolean };
+  settings?: { view?: boolean; edit?: boolean };
+}
 
 interface User {
   id: string;
@@ -12,32 +28,143 @@ interface User {
   role: string;
   status: string;
   createdAt?: string;
-  password?: string;
+  permissions?: PermissionSet;
+}
+
+const EMPTY_PERMISSIONS: PermissionSet = {
+  hr: {
+    employees: { view: false, edit: false, delete: false },
+    attendance: { view: false, edit: false },
+    shifts: { view: false, edit: false },
+    leave: { view: false, approve: false },
+    payroll: { view: false, edit: false },
+    reports: { view: false },
+  },
+  quotations: { view: false, edit: false, delete: false },
+  fleet: { view: false, edit: false },
+  userAccess: { view: false, edit: false },
+  settings: { view: false, edit: false },
+};
+
+const PERMISSION_MODULES = [
+  {
+    label: 'HR — Employees', key: 'hr.employees',
+    actions: [
+      { key: 'view', label: 'View' },
+      { key: 'edit', label: 'Edit' },
+      { key: 'delete', label: 'Delete' },
+    ]
+  },
+  {
+    label: 'HR — Attendance', key: 'hr.attendance',
+    actions: [
+      { key: 'view', label: 'View' },
+      { key: 'edit', label: 'Edit' },
+    ]
+  },
+  {
+    label: 'HR — Shift Manager', key: 'hr.shifts',
+    actions: [
+      { key: 'view', label: 'View' },
+      { key: 'edit', label: 'Edit' },
+    ]
+  },
+  {
+    label: 'HR — Leave', key: 'hr.leave',
+    actions: [
+      { key: 'view', label: 'View' },
+      { key: 'approve', label: 'Approve' },
+    ]
+  },
+  {
+    label: 'HR — Payroll', key: 'hr.payroll',
+    actions: [
+      { key: 'view', label: 'View' },
+      { key: 'edit', label: 'Edit' },
+    ]
+  },
+  {
+    label: 'HR — Reports', key: 'hr.reports',
+    actions: [
+      { key: 'view', label: 'View' },
+    ]
+  },
+  {
+    label: 'Quotations', key: 'quotations',
+    actions: [
+      { key: 'view', label: 'View' },
+      { key: 'edit', label: 'Edit' },
+      { key: 'delete', label: 'Delete' },
+    ]
+  },
+  {
+    label: 'Fleet Manager', key: 'fleet',
+    actions: [
+      { key: 'view', label: 'View' },
+      { key: 'edit', label: 'Edit' },
+    ]
+  },
+  {
+    label: 'User Access', key: 'userAccess',
+    actions: [
+      { key: 'view', label: 'View' },
+      { key: 'edit', label: 'Edit' },
+    ]
+  },
+  {
+    label: 'Settings', key: 'settings',
+    actions: [
+      { key: 'view', label: 'View' },
+      { key: 'edit', label: 'Edit' },
+    ]
+  },
+];
+
+function getNestedValue(obj: any, path: string): any {
+  return path.split('.').reduce((acc, key) => acc?.[key], obj);
+}
+
+function setNestedValue(obj: any, path: string, value: any): any {
+  const keys = path.split('.');
+  const result = JSON.parse(JSON.stringify(obj)); // deep clone
+  let cur = result;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!cur[keys[i]]) cur[keys[i]] = {};
+    cur = cur[keys[i]];
+  }
+  cur[keys[keys.length - 1]] = value;
+  return result;
+}
+
+function getRoleBadgeStyle(role: string, isLight: boolean) {
+  if (role === 'Master Admin') return { bg: 'rgba(124,58,237,0.12)', color: '#7c3aed' };
+  if (role === 'Manager') return { bg: 'rgba(37,99,235,0.1)', color: '#2563eb' };
+  if (role === 'Admin') return { bg: 'rgba(239,68,68,0.1)', color: '#dc2626' };
+  return { bg: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', color: isLight ? '#374151' : '#94a3b8' };
 }
 
 export default function UsersManagementPage() {
   const { theme } = useTheme();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isMasterAdmin } = useAuth();
+  const isLight = theme === 'light';
 
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState<'name' | 'role' | 'createdAt'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  // Modal States
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+  // Modal states
+  const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  // Form States
+  // Form state
   const [formData, setFormData] = useState({
-    username: '',
-    name: '',
-    email: '',
-    password: '',
-    role: 'Staff',
-    status: 'Active'
+    username: '', name: '', email: '', password: '', role: 'Staff', status: 'Active',
   });
+  const [formPermissions, setFormPermissions] = useState<PermissionSet>(EMPTY_PERMISSIONS);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,9 +174,7 @@ export default function UsersManagementPage() {
     try {
       const res = await fetch('/api/auth/users');
       const data = await res.json();
-      if (res.ok && data.users) {
-        setUsers(data.users);
-      }
+      if (res.ok && data.users) setUsers(data.users);
     } catch (err) {
       console.error('Failed to load users:', err);
     } finally {
@@ -57,569 +182,440 @@ export default function UsersManagementPage() {
     }
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  useEffect(() => { fetchUsers(); }, []);
 
-  const handleAddOpen = () => {
-    setFormData({
-      username: '',
-      name: '',
-      email: '',
-      password: '',
-      role: 'Staff',
-      status: 'Active'
-    });
-    setFormError('');
-    setFormSuccess('');
-    setShowAddModal(true);
+  const openAdd = () => {
+    setEditingUser(null);
+    setFormData({ username: '', name: '', email: '', password: '', role: 'Staff', status: 'Active' });
+    setFormPermissions(JSON.parse(JSON.stringify(EMPTY_PERMISSIONS)));
+    setFormError(''); setFormSuccess('');
+    setShowModal(true);
   };
 
-  const handleEditOpen = (u: User) => {
+  const openEdit = (u: User) => {
     setEditingUser(u);
-    setFormData({
-      username: u.username,
-      name: u.name,
-      email: u.email,
-      password: '', // blank unless changing
-      role: u.role,
-      status: u.status
+    setFormData({ username: u.username, name: u.name, email: u.email, password: '', role: u.role, status: u.status });
+    setFormPermissions(u.permissions ? JSON.parse(JSON.stringify(u.permissions)) : JSON.parse(JSON.stringify(EMPTY_PERMISSIONS)));
+    setFormError(''); setFormSuccess('');
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(''); setFormSuccess('');
+    if (!formData.name || !formData.username || !formData.email) {
+      setFormError('Name, username and email are required.');
+      return;
+    }
+    if (!editingUser && !formData.password) {
+      setFormError('Password is required for new users.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const body = editingUser
+        ? { id: editingUser.id, ...formData, permissions: formPermissions }
+        : { ...formData, permissions: formPermissions };
+      const res = await fetch('/api/auth/users', {
+        method: editingUser ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) { setFormError(data.error || 'Something went wrong.'); return; }
+      setFormSuccess(editingUser ? 'User updated successfully!' : 'User created successfully!');
+      fetchUsers();
+      setTimeout(() => setShowModal(false), 800);
+    } catch {
+      setFormError('Network error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (u: User) => {
+    if (!confirm(`Delete user "${u.name}"? This cannot be undone.`)) return;
+    const res = await fetch(`/api/auth/users?id=${u.id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (res.ok) { fetchUsers(); } else { alert(data.error || 'Failed to delete.'); }
+  };
+
+  const togglePermission = (path: string, action: string) => {
+    const fullPath = `${path}.${action}`;
+    const current = getNestedValue(formPermissions, fullPath);
+    setFormPermissions(prev => setNestedValue(prev, fullPath, !current));
+  };
+
+  const filteredUsers = useMemo(() => {
+    let list = [...users];
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(u => u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+    }
+    if (roleFilter !== 'ALL') list = list.filter(u => u.role === roleFilter);
+    if (statusFilter !== 'ALL') list = list.filter(u => u.status === statusFilter);
+    list.sort((a, b) => {
+      const va = (a as any)[sortBy] || '';
+      const vb = (b as any)[sortBy] || '';
+      return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     });
-    setFormError('');
-    setFormSuccess('');
-    setShowEditModal(true);
+    return list;
+  }, [users, searchQuery, roleFilter, statusFilter, sortBy, sortDir]);
+
+  const toggleSort = (col: typeof sortBy) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('asc'); }
   };
 
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError('');
-    setFormSuccess('');
-    setIsSubmitting(true);
-
-    try {
-      const res = await fetch('/api/auth/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setFormSuccess('User account created successfully!');
-        fetchUsers();
-        setTimeout(() => {
-          setShowAddModal(false);
-          setFormSuccess('');
-        }, 1500);
-      } else {
-        setFormError(data.error || 'Failed to create user account.');
-      }
-    } catch (err) {
-      setFormError('Network communication error.');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const card = { background: isLight ? '#fff' : '#1e293b', border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`, borderRadius: 16 };
+  const input = {
+    width: '100%', padding: '0.65rem 0.9rem', borderRadius: 10,
+    border: `1.5px solid ${isLight ? '#e2e8f0' : '#334155'}`,
+    background: isLight ? '#f8fafc' : '#0f172a',
+    color: isLight ? '#1e293b' : '#f1f5f9',
+    fontSize: '0.88rem', outline: 'none',
   };
-
-  const handleUpdateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingUser) return;
-    setFormError('');
-    setFormSuccess('');
-    setIsSubmitting(true);
-
-    try {
-      const res = await fetch('/api/auth/users', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingUser.id,
-          ...formData
-        })
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        setFormSuccess('User profile updated successfully!');
-        fetchUsers();
-        setTimeout(() => {
-          setShowEditModal(false);
-          setEditingUser(null);
-          setFormSuccess('');
-        }, 1500);
-      } else {
-        setFormError(data.error || 'Failed to update user account.');
-      }
-    } catch (err) {
-      setFormError('Network communication error.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteUser = async (u: User) => {
-    if (u.id === 'admin-001' || u.username.toLowerCase() === 'godwinhotels') {
-      alert('🚫 Security Restriction: Cannot delete the primary system administrator account (Godwinhotels).');
-      return;
-    }
-    if (!confirm(`🗑️ Are you certain you want to delete account "${u.name}" (${u.username})? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/auth/users?id=${u.id}`, { method: 'DELETE' });
-      const data = await res.json();
-
-      if (res.ok) {
-        alert('✅ User deleted successfully.');
-        fetchUsers();
-      } else {
-        alert(`❌ Error: ${data.error || 'Could not delete user.'}`);
-      }
-    } catch (err) {
-      alert('❌ Network error while deleting user.');
-    }
-  };
-
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === 'ALL' || u.role.toUpperCase() === roleFilter.toUpperCase();
-    return matchesSearch && matchesRole;
-  });
-
-  const totalAdmins = users.filter(u => u.role === 'Admin').length;
-  const activeUsers = users.filter(u => u.status === 'Active').length;
-  const inactiveUsers = users.length - activeUsers;
 
   return (
-    <main className="main-content" style={{ background: theme === 'light' ? '#f8fafc' : '#020617', minHeight: '100vh', padding: '2rem', transition: 'background 0.3s ease' }}>
-      {/* Header */}
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', borderBottom: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', paddingBottom: '1.5rem' }}>
-        <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: theme === 'light' ? '#fffbeb' : 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', padding: '0.3rem 0.8rem', borderRadius: '20px', color: '#d97706', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-            <span>👥</span> ACCESS CONTROL &amp; SECURITY
+    <PermissionGuard module="userAccess" action="view">
+      <div style={{ padding: '2rem', maxWidth: 1100, margin: '0 auto' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: isLight ? '#1e293b' : '#f1f5f9', margin: 0 }}>
+              👥 User Access
+            </h1>
+            <p style={{ color: isLight ? '#64748b' : '#94a3b8', marginTop: '0.25rem', fontSize: '0.92rem' }}>
+              Manage login credentials and module permissions for each team member
+            </p>
           </div>
-          <h1 style={{ fontSize: '2.25rem', fontWeight: 900, color: theme === 'light' ? '#0f172a' : '#f8fafc', margin: 0, letterSpacing: '-0.025em' }}>
-            User Management Portal
-          </h1>
-          <p style={{ color: theme === 'light' ? '#64748b' : '#94a3b8', fontSize: '1rem', marginTop: '0.4rem', fontWeight: 500 }}>
-            Configure executive permissions, add staff logins, and manage ERP security roles.
-          </p>
+          {isMasterAdmin && (
+            <button onClick={openAdd} style={{
+              padding: '0.7rem 1.5rem', borderRadius: 12, border: 'none', cursor: 'pointer',
+              background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+              color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
+            }}>
+              + Add New User
+            </button>
+          )}
         </div>
 
-        <button
-          onClick={handleAddOpen}
-          style={{
-            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '14px',
-            padding: '0.85rem 1.5rem',
-            fontSize: '0.95rem',
-            fontWeight: 800,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            boxShadow: '0 10px 15px -3px rgba(217, 119, 6, 0.3)',
-            transition: 'transform 0.2s, box-shadow 0.2s'
-          }}
-        >
-          <span>➕</span> Create New User
-        </button>
-      </header>
-
-      {/* Summary Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
-        <div style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '1.5rem', borderRadius: '18px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Total Registered Users</p>
-          <h3 style={{ fontSize: '2.2rem', fontWeight: 900, color: theme === 'light' ? '#0f172a' : '#f8fafc', margin: '0.5rem 0 0 0' }}>{users.length}</h3>
+        {/* Stats row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          {[
+            { label: 'Total Users', value: users.length, color: '#2563eb' },
+            { label: 'Active', value: users.filter(u => u.status === 'Active').length, color: '#10b981' },
+            { label: 'Inactive', value: users.filter(u => u.status !== 'Active').length, color: '#f59e0b' },
+            { label: 'Master Admin', value: users.filter(u => u.role === 'Master Admin').length, color: '#7c3aed' },
+          ].map(stat => (
+            <div key={stat.label} style={{ ...card, padding: '1.25rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
+              <div style={{ fontSize: '0.75rem', color: isLight ? '#64748b' : '#94a3b8', marginTop: '0.25rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{stat.label}</div>
+            </div>
+          ))}
         </div>
 
-        <div style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '1.5rem', borderRadius: '18px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Executive Administrators</p>
-          <h3 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#f59e0b', margin: '0.5rem 0 0 0' }}>{totalAdmins}</h3>
-        </div>
-
-        <div style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '1.5rem', borderRadius: '18px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Active Logins</p>
-          <h3 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#10b981', margin: '0.5rem 0 0 0' }}>{activeUsers}</h3>
-        </div>
-
-        <div style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '1.5rem', borderRadius: '18px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-          <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Suspended Accounts</p>
-          <h3 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#ef4444', margin: '0.5rem 0 0 0' }}>{inactiveUsers}</h3>
-        </div>
-      </div>
-
-      {/* Filter & Search Bar */}
-      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '2rem', background: theme === 'light' ? 'white' : '#0f172a', padding: '1rem', borderRadius: '16px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }}>
-        <div style={{ flex: 1, minWidth: '260px', display: 'flex', alignItems: 'center', gap: '0.75rem', background: theme === 'light' ? '#f1f5f9' : '#1e293b', padding: '0.65rem 1rem', borderRadius: '12px' }}>
-          <span style={{ fontSize: '1.1rem' }}>🔍</span>
+        {/* Filters */}
+        <div style={{ ...card, padding: '1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <input
-            type="text"
-            placeholder="Search by name, username, or email..."
+            placeholder="Search by name, username, email..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ border: 'none', background: 'transparent', width: '100%', outline: 'none', color: theme === 'light' ? '#0f172a' : '#f8fafc', fontSize: '0.9rem', fontWeight: 600 }}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{ ...input, width: 260, flex: 'none' }}
           />
+          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ ...input, width: 150, flex: 'none' }}>
+            <option value="ALL">All Roles</option>
+            <option value="Master Admin">Master Admin</option>
+            <option value="Manager">Manager</option>
+            <option value="Staff">Staff</option>
+          </select>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...input, width: 140, flex: 'none' }}>
+            <option value="ALL">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+            {(['name', 'role', 'createdAt'] as const).map(col => (
+              <button key={col} onClick={() => toggleSort(col)} style={{
+                padding: '0.45rem 0.85rem', borderRadius: 8, border: `1.5px solid ${isLight ? '#e2e8f0' : '#334155'}`,
+                background: sortBy === col ? (isLight ? 'rgba(37,99,235,0.08)' : 'rgba(37,99,235,0.15)') : 'transparent',
+                color: sortBy === col ? '#2563eb' : (isLight ? '#374151' : '#94a3b8'),
+                cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+              }}>
+                {col === 'createdAt' ? 'Date' : col.charAt(0).toUpperCase() + col.slice(1)}
+                {sortBy === col && (sortDir === 'asc' ? ' ↑' : ' ↓')}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          style={{
-            padding: '0.65rem 1rem',
-            borderRadius: '12px',
-            border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155',
-            background: theme === 'light' ? 'white' : '#1e293b',
-            color: theme === 'light' ? '#0f172a' : '#f8fafc',
-            fontWeight: 700,
-            fontSize: '0.85rem',
-            outline: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          <option value="ALL">All Roles</option>
-          <option value="ADMIN">Admin</option>
-          <option value="TOUR MANAGER">Tour Manager</option>
-          <option value="STAFF">Staff</option>
-          <option value="AGENT">Agent</option>
-          <option value="RECEPTION">Reception</option>
-        </select>
-      </div>
-
-      {/* Users Table */}
-      <div style={{ background: theme === 'light' ? 'white' : '#0f172a', borderRadius: '20px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.03)' }}>
-        {loading ? (
-          <div style={{ padding: '4rem', textAlign: 'center', color: '#64748b', fontWeight: 700 }}>
-            ⏳ Loading User Accounts...
-          </div>
-        ) : filteredUsers.length === 0 ? (
-          <div style={{ padding: '4rem', textAlign: 'center', color: '#64748b' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🙅‍♂️</div>
-            <p style={{ fontWeight: 700, fontSize: '1.1rem', margin: 0 }}>No matching user accounts found.</p>
-          </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: theme === 'light' ? '#f8fafc' : '#1e293b', borderBottom: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #334155', color: '#64748b', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <th style={{ padding: '1.25rem 1.5rem' }}>User Profile</th>
-                <th style={{ padding: '1.25rem 1.5rem' }}>Login Username</th>
-                <th style={{ padding: '1.25rem 1.5rem' }}>Role Permission</th>
-                <th style={{ padding: '1.25rem 1.5rem' }}>Account Status</th>
-                <th style={{ padding: '1.25rem 1.5rem' }}>Created On</th>
-                <th style={{ padding: '1.25rem 1.5rem', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((u, idx) => {
-                const isAdmin = u.role === 'Admin' || u.username.toLowerCase() === 'godwinhotels';
-                return (
-                  <tr
-                    key={u.id}
-                    style={{
-                      borderBottom: idx === filteredUsers.length - 1 ? 'none' : theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b',
-                      transition: 'background 0.15s'
-                    }}
-                  >
-                    <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{
-                          width: '42px', height: '42px', borderRadius: '12px',
-                          background: isAdmin ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: 'white', fontWeight: 800, fontSize: '0.9rem', flexShrink: 0
+        {/* User Table */}
+        <div style={{ ...card, overflow: 'hidden' }}>
+          {loading ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: isLight ? '#64748b' : '#94a3b8' }}>Loading users...</div>
+          ) : filteredUsers.length === 0 ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: isLight ? '#64748b' : '#94a3b8' }}>No users found.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: isLight ? '#f8fafc' : '#0f172a', borderBottom: `1px solid ${isLight ? '#e2e8f0' : '#334155'}` }}>
+                  {['User', 'Role', 'Status', 'Created', 'Modules', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '0.85rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 700, color: isLight ? '#64748b' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.map((u, i) => {
+                  const badge = getRoleBadgeStyle(u.role, isLight);
+                  const isMaster = u.id === 'admin-001' || u.role === 'Master Admin';
+                  const permCount = u.permissions ? countPermissions(u.permissions) : 0;
+                  return (
+                    <tr key={u.id} style={{ borderBottom: `1px solid ${isLight ? '#f1f5f9' : '#1e293b'}`, background: i % 2 === 0 ? 'transparent' : (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.015)') }}>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{
+                            width: 38, height: 38, borderRadius: '50%', background: `linear-gradient(135deg, ${isMaster ? '#7c3aed' : '#2563eb'}, ${isMaster ? '#2563eb' : '#10b981'})`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontWeight: 800, fontSize: '0.85rem', flexShrink: 0,
+                          }}>
+                            {u.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, color: isLight ? '#1e293b' : '#f1f5f9', fontSize: '0.9rem' }}>{u.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: isLight ? '#64748b' : '#94a3b8' }}>@{u.username}</div>
+                            <div style={{ fontSize: '0.72rem', color: isLight ? '#94a3b8' : '#64748b' }}>{u.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 700, background: badge.bg, color: badge.color }}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{
+                          padding: '3px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600,
+                          background: u.status === 'Active' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                          color: u.status === 'Active' ? '#10b981' : '#ef4444',
                         }}>
-                          {u.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem', color: theme === 'light' ? '#0f172a' : '#f8fafc' }}>{u.name}</p>
-                          <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>{u.email}</p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <span style={{ background: theme === 'light' ? '#f1f5f9' : '#1e293b', padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 700, color: theme === 'light' ? '#334155' : '#e2e8f0', fontFamily: 'monospace' }}>
-                        @{u.username}
-                      </span>
-                    </td>
-
-                    <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <span style={{
-                        padding: '0.35rem 0.8rem',
-                        borderRadius: '20px',
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        background: isAdmin ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                        color: isAdmin ? '#d97706' : '#3b82f6',
-                        border: isAdmin ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)'
-                      }}>
-                        {isAdmin ? '👑 ADMIN' : u.role.toUpperCase()}
-                      </span>
-                    </td>
-
-                    <td style={{ padding: '1.25rem 1.5rem' }}>
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.4rem',
-                        padding: '0.35rem 0.8rem',
-                        borderRadius: '20px',
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        background: u.status === 'Active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        color: u.status === 'Active' ? '#10b981' : '#ef4444'
-                      }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: u.status === 'Active' ? '#10b981' : '#ef4444' }} />
-                        {u.status.toUpperCase()}
-                      </span>
-                    </td>
-
-                    <td style={{ padding: '1.25rem 1.5rem', color: '#64748b', fontSize: '0.85rem', fontWeight: 600 }}>
-                      {u.createdAt || '2026-07-27'}
-                    </td>
-
-                    <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => handleEditOpen(u)}
-                          title="Edit User Profile & Permissions"
-                          style={{
-                            background: theme === 'light' ? '#eff6ff' : 'rgba(59, 130, 246, 0.15)',
-                            color: '#3b82f6',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '0.5rem 0.8rem',
-                            fontWeight: 700,
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.3rem',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          <span>✏️</span> Edit
-                        </button>
-
-                        {u.id !== 'admin-001' && u.username.toLowerCase() !== 'godwinhotels' && (
-                          <button
-                            onClick={() => handleDeleteUser(u)}
-                            title="Delete User Account"
-                            style={{
-                              background: theme === 'light' ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)',
-                              color: '#ef4444',
-                              border: 'none',
-                              borderRadius: '8px',
-                              padding: '0.5rem 0.8rem',
-                              fontWeight: 700,
-                              fontSize: '0.8rem',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.3rem',
-                              transition: 'all 0.2s'
-                            }}
-                          >
-                            <span>🗑️</span> Delete
-                          </button>
+                          {u.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem', fontSize: '0.8rem', color: isLight ? '#64748b' : '#94a3b8' }}>{u.createdAt || '—'}</td>
+                      <td style={{ padding: '1rem' }}>
+                        {isMaster ? (
+                          <span style={{ fontSize: '0.8rem', color: '#7c3aed', fontWeight: 700 }}>All Access ✓</span>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: isLight ? '#64748b' : '#94a3b8' }}>
+                            {permCount} permission{permCount !== 1 ? 's' : ''}
+                          </span>
                         )}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          {isMasterAdmin && (
+                            <button onClick={() => openEdit(u)} style={{
+                              padding: '0.4rem 0.9rem', borderRadius: 8, border: `1.5px solid ${isLight ? '#e2e8f0' : '#334155'}`,
+                              background: 'transparent', color: isLight ? '#2563eb' : '#93c5fd', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                            }}>Edit</button>
+                          )}
+                          {isMasterAdmin && !isMaster && (
+                            <button onClick={() => handleDelete(u)} style={{
+                              padding: '0.4rem 0.9rem', borderRadius: 8, border: '1.5px solid rgba(239,68,68,0.3)',
+                              background: 'rgba(239,68,68,0.05)', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                            }}>Delete</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Add/Edit Modal */}
+        {showModal && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+            backdropFilter: 'blur(4px)',
+          }} onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
+            <div style={{
+              ...card, width: '100%', maxWidth: 700, maxHeight: '90vh', overflowY: 'auto',
+              padding: '2rem', boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h2 style={{ margin: 0, fontWeight: 800, fontSize: '1.25rem', color: isLight ? '#1e293b' : '#f1f5f9' }}>
+                  {editingUser ? '✏️ Edit User' : '➕ Create New User'}
+                </h2>
+                <button onClick={() => setShowModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: isLight ? '#64748b' : '#94a3b8' }}>✕</button>
+              </div>
+
+              <form onSubmit={handleSubmit}>
+                {/* Basic Info */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Full Name *</label>
+                    <input value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Priya Sharma" style={input} required />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Username *</label>
+                    <input value={formData.username} onChange={e => setFormData(p => ({ ...p, username: e.target.value }))} placeholder="e.g. priya.sharma" style={input} required disabled={editingUser?.id === 'admin-001'} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Email *</label>
+                    <input type="email" value={formData.email} onChange={e => setFormData(p => ({ ...p, email: e.target.value }))} placeholder="email@godwinhotels.com" style={input} required />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>{editingUser ? 'New Password (leave blank to keep)' : 'Password *'}</label>
+                    <input type="password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} placeholder="••••••••" style={input} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Role</label>
+                    <select value={formData.role} onChange={e => setFormData(p => ({ ...p, role: e.target.value }))} style={input} disabled={editingUser?.id === 'admin-001'}>
+                      <option value="Staff">Staff</option>
+                      <option value="Manager">Manager</option>
+                      <option value="Master Admin">Master Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Status</label>
+                    <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} style={input} disabled={editingUser?.id === 'admin-001'}>
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Permissions Panel */}
+                {editingUser?.id !== 'admin-001' && formData.role !== 'Master Admin' && (
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h3 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: isLight ? '#1e293b' : '#f1f5f9' }}>
+                        🔐 Module Permissions
+                      </h3>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button type="button" onClick={() => setFormPermissions(JSON.parse(JSON.stringify(EMPTY_PERMISSIONS)))} style={{ padding: '0.3rem 0.75rem', borderRadius: 8, border: `1.5px solid ${isLight ? '#e2e8f0' : '#334155'}`, background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
+                          Clear All
+                        </button>
+                        <button type="button" onClick={() => {
+                          const full: any = {};
+                          PERMISSION_MODULES.forEach(mod => {
+                            const actions: any = {};
+                            mod.actions.forEach(a => { actions[a.key] = true; });
+                            setNestedValueInPlace(full, mod.key, actions);
+                          });
+                          setFormPermissions(full as PermissionSet);
+                        }} style={{ padding: '0.3rem 0.75rem', borderRadius: 8, border: `1.5px solid ${isLight ? '#e2e8f0' : '#334155'}`, background: 'transparent', color: '#10b981', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
+                          Grant All
+                        </button>
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {PERMISSION_MODULES.map(mod => (
+                        <div key={mod.key} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '0.75rem 1rem', borderRadius: 10,
+                          border: `1px solid ${isLight ? '#e2e8f0' : '#334155'}`,
+                          background: isLight ? '#f8fafc' : '#0f172a',
+                        }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isLight ? '#374151' : '#cbd5e1', minWidth: 160 }}>
+                            {mod.label}
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            {mod.actions.map(action => {
+                              const val = getNestedValue(formPermissions, `${mod.key}.${action.key}`) === true;
+                              return (
+                                <button
+                                  type="button"
+                                  key={action.key}
+                                  onClick={() => togglePermission(mod.key, action.key)}
+                                  style={{
+                                    padding: '0.3rem 0.75rem', borderRadius: 8, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+                                    border: val ? 'none' : `1.5px solid ${isLight ? '#e2e8f0' : '#334155'}`,
+                                    background: val ? (action.key === 'delete' || action.key === 'approve' ? 'rgba(239,68,68,0.12)' : 'rgba(37,99,235,0.12)') : 'transparent',
+                                    color: val ? (action.key === 'delete' || action.key === 'approve' ? '#dc2626' : '#2563eb') : (isLight ? '#94a3b8' : '#475569'),
+                                    transition: 'all 0.15s',
+                                  }}
+                                >
+                                  {val ? '✓' : '○'} {action.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {editingUser?.id === 'admin-001' && (
+                  <div style={{ padding: '0.75rem 1rem', borderRadius: 10, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', marginBottom: '1rem' }}>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#7c3aed', fontWeight: 600 }}>
+                      🛡️ Master Admin has full access to all modules by default. Permissions cannot be restricted.
+                    </p>
+                  </div>
+                )}
+
+                {formError && (
+                  <div style={{ padding: '0.75rem 1rem', borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', marginBottom: '1rem' }}>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#ef4444' }}>⚠️ {formError}</p>
+                  </div>
+                )}
+                {formSuccess && (
+                  <div style={{ padding: '0.75rem 1rem', borderRadius: 10, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', marginBottom: '1rem' }}>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#10b981' }}>✓ {formSuccess}</p>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <button type="button" onClick={() => setShowModal(false)} style={{
+                    padding: '0.65rem 1.25rem', borderRadius: 10, border: `1.5px solid ${isLight ? '#e2e8f0' : '#334155'}`,
+                    background: 'transparent', color: isLight ? '#374151' : '#94a3b8', cursor: 'pointer', fontWeight: 600, fontSize: '0.88rem',
+                  }}>
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={isSubmitting} style={{
+                    padding: '0.65rem 1.75rem', borderRadius: 10, border: 'none', cursor: 'pointer',
+                    background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                    color: '#fff', fontWeight: 700, fontSize: '0.88rem',
+                    opacity: isSubmitting ? 0.7 : 1,
+                  }}>
+                    {isSubmitting ? 'Saving...' : (editingUser ? 'Save Changes' : 'Create User')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Add User Modal */}
-      {showAddModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1.5rem' }}>
-          <div style={{ background: theme === 'light' ? 'white' : '#0f172a', width: '100%', maxWidth: '520px', borderRadius: '24px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-            <div style={{ padding: '1.5rem 2rem', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900 }}>➕ Add New User Account</h3>
-                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', opacity: 0.9 }}>Grant executive or operational permissions</p>
-              </div>
-              <button onClick={() => setShowAddModal(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: 800, fontSize: '1.1rem' }}>✕</button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {formError && <div style={{ background: 'rgba(239, 68, 68, 0.15)', borderLeft: '4px solid #ef4444', padding: '0.75rem', borderRadius: '6px', color: '#ef4444', fontSize: '0.85rem', fontWeight: 700 }}>⚠️ {formError}</div>}
-              {formSuccess && <div style={{ background: 'rgba(16, 185, 129, 0.15)', borderLeft: '4px solid #10b981', padding: '0.75rem', borderRadius: '6px', color: '#10b981', fontSize: '0.85rem', fontWeight: 700 }}>✅ {formSuccess}</div>}
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Full Name *</label>
-                <input
-                  type="text" required placeholder="e.g. Rahul Sharma"
-                  value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Username *</label>
-                  <input
-                    type="text" required placeholder="rahul.godwin"
-                    value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Email Address *</label>
-                  <input
-                    type="email" required placeholder="rahul@godwinhotels.com"
-                    value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Login Password *</label>
-                <input
-                  type="password" required placeholder="Enter secure password"
-                  value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })}
-                  style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Role Permission *</label>
-                  <select
-                    value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
-                  >
-                    <option value="Admin">Admin</option>
-                    <option value="Tour Manager">Tour Manager</option>
-                    <option value="Staff">Staff</option>
-                    <option value="Agent">Agent</option>
-                    <option value="Reception">Reception</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Status *</label>
-                  <select
-                    value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive / Suspended</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setShowAddModal(false)} style={{ padding: '0.8rem 1.5rem', borderRadius: '12px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" disabled={isSubmitting} style={{ padding: '0.8rem 2rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white', fontWeight: 800, cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: '0 4px 6px -1px rgba(217, 119, 6, 0.3)' }}>
-                  {isSubmitting ? 'Creating Account...' : '✔️ Save & Authorize'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit User Modal */}
-      {showEditModal && editingUser && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1.5rem' }}>
-          <div style={{ background: theme === 'light' ? 'white' : '#0f172a', width: '100%', maxWidth: '520px', borderRadius: '24px', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-            <div style={{ padding: '1.5rem 2rem', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900 }}>✏️ Edit Account: {editingUser.name}</h3>
-                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', opacity: 0.9 }}>Update role permissions or reset credentials</p>
-              </div>
-              <button onClick={() => setShowEditModal(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontWeight: 800, fontSize: '1.1rem' }}>✕</button>
-            </div>
-
-            <form onSubmit={handleUpdateSubmit} style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {formError && <div style={{ background: 'rgba(239, 68, 68, 0.15)', borderLeft: '4px solid #ef4444', padding: '0.75rem', borderRadius: '6px', color: '#ef4444', fontSize: '0.85rem', fontWeight: 700 }}>⚠️ {formError}</div>}
-              {formSuccess && <div style={{ background: 'rgba(16, 185, 129, 0.15)', borderLeft: '4px solid #10b981', padding: '0.75rem', borderRadius: '6px', color: '#10b981', fontSize: '0.85rem', fontWeight: 700 }}>✅ {formSuccess}</div>}
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Full Name *</label>
-                <input
-                  type="text" required placeholder="e.g. Rahul Sharma"
-                  value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Username *</label>
-                  <input
-                    type="text" required placeholder="rahul.godwin"
-                    value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Email Address *</label>
-                  <input
-                    type="email" required placeholder="rahul@godwinhotels.com"
-                    value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>New Password <span style={{ textTransform: 'none', fontWeight: 400, color: '#94a3b8' }}>(Leave blank to keep existing)</span></label>
-                <input
-                  type="password" placeholder="Enter new password if resetting"
-                  value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })}
-                  style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Role Permission *</label>
-                  <select
-                    value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
-                  >
-                    <option value="Admin">Admin</option>
-                    <option value="Tour Manager">Tour Manager</option>
-                    <option value="Staff">Staff</option>
-                    <option value="Agent">Agent</option>
-                    <option value="Reception">Reception</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: '0.4rem', textTransform: 'uppercase' }}>Status *</label>
-                  <select
-                    value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}
-                    style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '10px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: theme === 'light' ? '#f8fafc' : '#1e293b', color: theme === 'light' ? '#0f172a' : 'white', fontSize: '0.95rem', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive / Suspended</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                <button type="button" onClick={() => setShowEditModal(false)} style={{ padding: '0.8rem 1.5rem', borderRadius: '12px', border: theme === 'light' ? '1px solid #cbd5e1' : '1px solid #334155', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" disabled={isSubmitting} style={{ padding: '0.8rem 2rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: 'white', fontWeight: 800, cursor: isSubmitting ? 'not-allowed' : 'pointer', boxShadow: '0 4px 6px -1px rgba(59, 130, 246, 0.3)' }}>
-                  {isSubmitting ? 'Saving Changes...' : '✔️ Update Profile'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </main>
+    </PermissionGuard>
   );
+}
+
+// Count total active permissions
+function countPermissions(perms: PermissionSet): number {
+  let count = 0;
+  function recurse(obj: any) {
+    if (typeof obj === 'boolean') { if (obj) count++; return; }
+    if (obj && typeof obj === 'object') Object.values(obj).forEach(recurse);
+  }
+  recurse(perms);
+  return count;
+}
+
+// Helper to set nested value in-place (for Grant All)
+function setNestedValueInPlace(obj: any, path: string, value: any): void {
+  const keys = path.split('.');
+  let cur = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!cur[keys[i]]) cur[keys[i]] = {};
+    cur = cur[keys[i]];
+  }
+  cur[keys[keys.length - 1]] = value;
 }

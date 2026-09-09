@@ -1,0 +1,26 @@
+[
+  {
+    "id": "admin-001",
+    "username": "Godwinhotels",
+    "name": "Raman Mankotia",
+    "email": "mail@godwinhotels.com",
+    "password": "Godwindeluxe@99",
+    "role": "Master Admin",
+    "status": "Active",
+    "createdAt": "2024-01-01",
+    "permissions": {
+      "hr": {
+        "employees": { "view": true, "edit": true, "delete": true },
+        "attendance": { "view": true, "edit": true },
+        "shifts": { "view": true, "edit": true },
+        "leave": { "view": true, "approve": true },
+        "payroll": { "view": true, "edit": true },
+        "reports": { "view": true }
+      },
+      "quotations": { "view": true, "edit": true, "delete": true },
+      "fleet": { "view": true, "edit": true },
+      "userAccess": { "view": true, "edit": true },
+      "settings": { "view": true, "edit": true }
+    }
+  }
+]
