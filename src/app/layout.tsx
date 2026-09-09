@@ -14,7 +14,6 @@ const geistMono = Geist_Mono({
 
 import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
-import ChatAssistant from "@/components/ChatAssistant";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 
@@ -40,7 +39,6 @@ export default function RootLayout({
                 {children}
               </div>
             </div>
-            <ChatAssistant />
           </AuthProvider>
         </ThemeProvider>
       </body>
