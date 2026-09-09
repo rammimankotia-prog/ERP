@@ -23,12 +23,28 @@ const SHIFT_TYPE_COLOR: Record<string, string> = {
   SPLIT: '#0ea5e9',
 }
 
-const MOCK_EMPLOYEES = [
-  { id: 'e1', code: 'GG-1001', name: 'Raman Mankotia', designation: 'General Manager', branch: 'Hotel Grand Godwin', dept: 'Front Office' },
-  { id: 'e2', code: 'GG-1002', name: 'Priya Sharma', designation: 'Front Desk Executive', branch: 'Hotel Grand Godwin', dept: 'Front Office' },
-  { id: 'e3', code: 'GD-1001', name: 'Rajiv Kumar', designation: 'Housekeeping Supervisor', branch: 'Hotel Godwin Deluxe', dept: 'Housekeeping' },
-  { id: 'e4', code: 'GD-1002', name: 'Sunita Verma', designation: 'Security Officer', branch: 'Hotel Godwin Deluxe', dept: 'Security' },
-  { id: 'e5', code: 'GG-1003', name: 'Amit Singh', designation: 'Accounts Executive', branch: 'Hotel Grand Godwin', dept: 'Accounts' },
+export type EmployeeItem = {
+  id: string
+  code: string
+  name: string
+  designation: string
+  branch: string
+  dept: string
+}
+
+export const DEFAULT_ROSTER_EMPLOYEES: EmployeeItem[] = [
+  { id: 'mock-emp-1', code: 'GG-1001', name: 'Raman Mankotia', designation: 'General Manager', branch: 'Hotel Grand Godwin', dept: 'Front Office' },
+  { id: 'mock-emp-2', code: 'GG-1002', name: 'Priya Sharma', designation: 'Front Desk Executive', branch: 'Hotel Grand Godwin', dept: 'Front Office' },
+  { id: 'mock-emp-8', code: 'GG-1004', name: 'Vikram Rathore', designation: 'Head Security Guard', branch: 'Hotel Grand Godwin', dept: 'Security Guard' },
+  { id: 'mock-emp-5', code: 'GG-1003', name: 'Amit Singh', designation: 'Accounts Executive', branch: 'Hotel Grand Godwin', dept: 'Accounts' },
+  
+  { id: 'mock-emp-3', code: 'GD-1001', name: 'Rajiv Kumar', designation: 'Housekeeping Supervisor', branch: 'Hotel Godwin Deluxe', dept: 'Housekeeping' },
+  { id: 'mock-emp-10', code: 'GD-1004', name: 'Anita Rawat', designation: 'Housekeeping Attendant', branch: 'Hotel Godwin Deluxe', dept: 'Housekeeping' },
+  { id: 'mock-emp-4', code: 'GD-1002', name: 'Sunita Verma', designation: 'Security Officer', branch: 'Hotel Godwin Deluxe', dept: 'Security Guard' },
+  { id: 'mock-emp-9', code: 'GD-1003', name: 'Sunil Thakur', designation: 'Security Guard', branch: 'Hotel Godwin Deluxe', dept: 'Security Guard' },
+  
+  { id: 'mock-emp-6', code: 'CB-1001', name: 'Karan Mehta', designation: 'Cafe Manager & Head Barista', branch: 'Cafe Brownie', dept: 'Food & Beverage' },
+  { id: 'mock-emp-7', code: 'CB-1002', name: 'Rohan Joshi', designation: 'Senior Barista', branch: 'Cafe Brownie', dept: 'Food & Beverage' },
 ]
 
 const MONTH_NAMES = [
@@ -36,48 +52,70 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
-const INITIAL_WEEKLY_ROSTER: Record<string, Record<string, string>> = {
-  'e1': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Morning Shift', Thu: 'Morning Shift', Fri: 'Morning Shift', Sat: 'OFF', Sun: 'OFF' },
-  'e2': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Break Shift', Thu: 'Break Shift', Fri: 'Morning Shift', Sat: 'Morning Shift', Sun: 'OFF' },
-  'e3': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Morning Shift', Thu: 'Morning Shift', Fri: 'Night Shift', Sat: 'Night Shift', Sun: 'OFF' },
-  'e4': { Mon: 'Night Shift', Tue: 'Night Shift', Wed: 'Night Shift', Thu: 'OFF', Fri: 'Night Shift', Sat: 'Night Shift', Sun: 'Night Shift' },
-  'e5': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Morning Shift', Thu: 'Morning Shift', Fri: 'Morning Shift', Sat: 'OFF', Sun: 'OFF' },
-}
-
-// Generate realistic monthly roster pattern
-function generateInitialMonthlyRoster(year: number, month: number) {
+// Generate realistic monthly roster pattern for any staff list
+function generateInitialMonthlyRoster(year: number, month: number, employees: EmployeeItem[] = DEFAULT_ROSTER_EMPLOYEES) {
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const res: Record<string, Record<number, string>> = {}
 
-  MOCK_EMPLOYEES.forEach(emp => {
+  employees.forEach(emp => {
     res[emp.id] = {}
+    const isSecurity = emp.dept.toLowerCase().includes('security') || emp.designation.toLowerCase().includes('security')
+    const isHousekeeping = emp.dept.toLowerCase().includes('housekeeping')
+    const isCafe = emp.branch.toLowerCase().includes('cafe') || emp.dept.toLowerCase().includes('beverage')
+
     for (let day = 1; day <= daysInMonth; day++) {
       const d = new Date(year, month, day)
       const dayOfWeek = d.getDay() // 0 = Sun, 6 = Sat
 
-      if (emp.id === 'e1') {
-        // Raman Mankotia: GM (Mon-Sat Morning, Sun OFF)
-        res[emp.id][day] = dayOfWeek === 0 ? 'OFF' : 'Morning Shift'
-      } else if (emp.id === 'e2') {
-        // Priya Sharma: Front Desk (Wed & Thu Break Shift, Sun OFF, rest Morning)
-        if (dayOfWeek === 0) res[emp.id][day] = 'OFF'
-        else if (dayOfWeek === 3 || dayOfWeek === 4) res[emp.id][day] = 'Break Shift'
+      if (isSecurity) {
+        res[emp.id][day] = (dayOfWeek === 4) ? 'OFF' : (day % 2 === 0 ? 'Night Shift' : 'Morning Shift')
+      } else if (isCafe) {
+        if (dayOfWeek === 1) res[emp.id][day] = 'OFF'
+        else if (day % 3 === 0) res[emp.id][day] = 'Break Shift'
         else res[emp.id][day] = 'Morning Shift'
-      } else if (emp.id === 'e3') {
-        // Rajiv Kumar: Housekeeping (Fri-Sat Night, Sun OFF, rest Morning)
+      } else if (isHousekeeping) {
         if (dayOfWeek === 0) res[emp.id][day] = 'OFF'
         else if (dayOfWeek === 5 || dayOfWeek === 6) res[emp.id][day] = 'Night Shift'
         else res[emp.id][day] = 'Morning Shift'
-      } else if (emp.id === 'e4') {
-        // Sunita Verma: Security (Night Shift, Thu OFF, works Sunday)
-        res[emp.id][day] = dayOfWeek === 4 ? 'OFF' : 'Night Shift'
-      } else if (emp.id === 'e5') {
-        // Amit Singh: Accounts (Mon-Fri Morning, Sat-Sun OFF)
-        res[emp.id][day] = (dayOfWeek === 0 || dayOfWeek === 6) ? 'OFF' : 'Morning Shift'
+      } else if (emp.code === 'GG-1001') {
+        res[emp.id][day] = dayOfWeek === 0 ? 'OFF' : 'Morning Shift'
+      } else if (emp.code === 'GG-1002') {
+        if (dayOfWeek === 0) res[emp.id][day] = 'OFF'
+        else if (dayOfWeek === 3 || dayOfWeek === 4) res[emp.id][day] = 'Break Shift'
+        else res[emp.id][day] = 'Morning Shift'
       } else {
         res[emp.id][day] = dayOfWeek === 0 ? 'OFF' : 'Morning Shift'
       }
     }
+  })
+
+  return res
+}
+
+// Generate weekly roster for all staff
+function generateInitialWeeklyRoster(employees: EmployeeItem[] = DEFAULT_ROSTER_EMPLOYEES): Record<string, Record<string, string>> {
+  const res: Record<string, Record<string, string>> = {}
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  employees.forEach(emp => {
+    res[emp.id] = {}
+    const isSecurity = emp.dept.toLowerCase().includes('security') || emp.designation.toLowerCase().includes('security')
+    const isHousekeeping = emp.dept.toLowerCase().includes('housekeeping')
+    const isCafe = emp.branch.toLowerCase().includes('cafe') || emp.dept.toLowerCase().includes('beverage')
+
+    days.forEach((day, idx) => {
+      if (isSecurity) {
+        res[emp.id][day] = day === 'Thu' ? 'OFF' : (idx % 2 === 0 ? 'Night Shift' : 'Morning Shift')
+      } else if (isCafe) {
+        res[emp.id][day] = day === 'Mon' ? 'OFF' : (day === 'Fri' || day === 'Sat' ? 'Break Shift' : 'Morning Shift')
+      } else if (isHousekeeping) {
+        res[emp.id][day] = day === 'Sun' ? 'OFF' : (day === 'Fri' || day === 'Sat' ? 'Night Shift' : 'Morning Shift')
+      } else if (emp.code === 'GG-1002') {
+        res[emp.id][day] = day === 'Sun' ? 'OFF' : (day === 'Wed' || day === 'Thu' ? 'Break Shift' : 'Morning Shift')
+      } else {
+        res[emp.id][day] = day === 'Sun' ? 'OFF' : 'Morning Shift'
+      }
+    })
   })
 
   return res
@@ -111,8 +149,11 @@ function formatWeekRange(startMonday: Date): string {
 }
 
 export default function ShiftsManager() {
+  const [employeesList, setEmployeesList] = useState<EmployeeItem[]>(DEFAULT_ROSTER_EMPLOYEES)
   const [shifts, setShifts] = useState<Shift[]>([])
-  const [roster, setRoster] = useState<Record<string, Record<string, string>>>(INITIAL_WEEKLY_ROSTER)
+  const [roster, setRoster] = useState<Record<string, Record<string, string>>>(() =>
+    generateInitialWeeklyRoster(DEFAULT_ROSTER_EMPLOYEES)
+  )
   const [showForm, setShowForm] = useState(false)
   const [editingShiftId, setEditingShiftId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -130,9 +171,12 @@ export default function ShiftsManager() {
   const [selectedMonth, setSelectedMonth] = useState<number>(8) // September (0-indexed)
   const [selectedYear, setSelectedYear] = useState<number>(2026)
   const [monthlyRoster, setMonthlyRoster] = useState<Record<string, Record<number, string>>>(() =>
-    generateInitialMonthlyRoster(2026, 8)
+    generateInitialMonthlyRoster(2026, 8, DEFAULT_ROSTER_EMPLOYEES)
   )
+
+  // Branch & Department Filters: Grand Godwin, Godwin Deluxe, Cafe Brownie & Housekeeping, Front Office, Security Guard
   const [branchFilter, setBranchFilter] = useState<string>('ALL')
+  const [deptFilter, setDeptFilter] = useState<string>('ALL')
 
   // Calendar / Week State
   const [selectedMonday, setSelectedMonday] = useState<Date>(() => getMonday(new Date()))
@@ -162,6 +206,34 @@ export default function ShiftsManager() {
     const timer = setInterval(updateClock, 1000)
     return () => clearInterval(timer)
   }, [])
+
+  // Load live employees from ERP API
+  useEffect(() => {
+    fetch('/api/hr/employees')
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d) && d.length > 0) {
+          const mapped: EmployeeItem[] = d.map((e: any) => ({
+            id: e.id,
+            code: e.employeeId || e.code || 'EMP',
+            name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff',
+            designation: e.designation || 'Staff',
+            branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
+            dept: e.department?.name || e.department || e.dept || 'Front Office',
+          }))
+          setEmployeesList(mapped)
+          setMonthlyRoster(prev => ({
+            ...generateInitialMonthlyRoster(selectedYear, selectedMonth, mapped),
+            ...prev
+          }))
+          setRoster(prev => ({
+            ...generateInitialWeeklyRoster(mapped),
+            ...prev
+          }))
+        }
+      })
+      .catch(() => {})
+  }, [selectedYear, selectedMonth])
 
   // Form states
   const [form, setForm] = useState({
@@ -379,7 +451,7 @@ export default function ShiftsManager() {
   const handleMonthChange = (newMonth: number, newYear: number) => {
     setSelectedMonth(newMonth)
     setSelectedYear(newYear)
-    setMonthlyRoster(generateInitialMonthlyRoster(newYear, newMonth))
+    setMonthlyRoster(generateInitialMonthlyRoster(newYear, newMonth, employeesList))
   }
 
   const handlePrevMonth = () => {
@@ -405,7 +477,7 @@ export default function ShiftsManager() {
 
   // Auto-populate monthly shifts pattern
   const handleAutoPopulateMonth = () => {
-    setMonthlyRoster(generateInitialMonthlyRoster(selectedYear, selectedMonth))
+    setMonthlyRoster(generateInitialMonthlyRoster(selectedYear, selectedMonth, employeesList))
     setMessage(`✨ Auto-populated standard hotel duty patterns for ${MONTH_NAMES[selectedMonth]} ${selectedYear}.`)
   }
 
@@ -418,10 +490,50 @@ export default function ShiftsManager() {
     return Array.from({ length: daysInMonth }, (_, i) => i + 1)
   }, [daysInMonth])
 
+  // Filter employees by Branch (Grand Godwin, Godwin Deluxe, Cafe Brownie) and Department (Housekeeping, Front Office, Security Guard)
   const filteredEmployees = useMemo(() => {
-    if (branchFilter === 'ALL') return MOCK_EMPLOYEES
-    return MOCK_EMPLOYEES.filter(e => e.branch.includes(branchFilter))
-  }, [branchFilter])
+    return employeesList.filter(emp => {
+      // Branch filter
+      let branchMatch = true
+      if (branchFilter !== 'ALL') {
+        const b = emp.branch.toLowerCase()
+        const target = branchFilter.toLowerCase()
+        if (target.includes('grand') || target === 'grand godwin') {
+          branchMatch = b.includes('grand')
+        } else if (target.includes('deluxe') || target === 'godwin deluxe') {
+          branchMatch = b.includes('deluxe')
+        } else if (target.includes('brownie') || target === 'cafe brownie') {
+          branchMatch = b.includes('brownie') || b.includes('cafe')
+        } else {
+          branchMatch = b.includes(target)
+        }
+      }
+
+      // Department filter
+      let deptMatch = true
+      if (deptFilter !== 'ALL') {
+        const d = emp.dept.toLowerCase()
+        const des = emp.designation.toLowerCase()
+        const target = deptFilter.toLowerCase()
+
+        if (target.includes('housekeeping')) {
+          deptMatch = d.includes('housekeeping') || des.includes('housekeeping')
+        } else if (target.includes('front') || target.includes('front office')) {
+          deptMatch = d.includes('front') || des.includes('front')
+        } else if (target.includes('security') || target.includes('guard')) {
+          deptMatch = d.includes('security') || des.includes('security') || d.includes('guard') || des.includes('guard')
+        } else if (target.includes('beverage') || target.includes('food') || target.includes('cafe')) {
+          deptMatch = d.includes('beverage') || d.includes('cafe') || des.includes('barista') || des.includes('cafe')
+        } else if (target.includes('accounts')) {
+          deptMatch = d.includes('accounts') || des.includes('accounts')
+        } else {
+          deptMatch = d.includes(target) || des.includes(target)
+        }
+      }
+
+      return branchMatch && deptMatch
+    })
+  }, [employeesList, branchFilter, deptFilter])
 
   // Monthly CSV Export
   const handleDownloadMonthlyCSV = () => {
@@ -431,6 +543,7 @@ export default function ShiftsManager() {
       '"Employee Name"',
       '"Designation"',
       '"Branch"',
+      '"Department"',
       ...dayHeaders,
       '"Morning (M)"',
       '"Break (B)"',
@@ -456,23 +569,24 @@ export default function ShiftsManager() {
         else offCount++
       })
 
-      const workDays = mCount + bCount + nCount
+      const totalWork = mCount + bCount + nCount
 
       return [
         `"${emp.code}"`,
         `"${emp.name}"`,
         `"${emp.designation}"`,
         `"${emp.branch}"`,
+        `"${emp.dept}"`,
         ...dayValues,
         mCount,
         bCount,
         nCount,
         offCount,
-        workDays
-      ]
+        totalWork
+      ].join(',')
     })
 
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+    const csvContent = [headers.join(','), ...rows].join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -999,10 +1113,72 @@ export default function ShiftsManager() {
                   📅 Weekly Roster
                 </button>
               </div>
+
+              {/* Branch Selector Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>🏨 Branch:</span>
+                <select
+                  className="form-input"
+                  style={{ width: '185px', padding: '0.35rem 0.6rem', fontSize: '0.82rem', fontWeight: 600 }}
+                  value={branchFilter}
+                  onChange={e => setBranchFilter(e.target.value)}
+                >
+                  <option value="ALL">🏨 All Branches</option>
+                  <option value="Grand Godwin">Hotel Grand Godwin</option>
+                  <option value="Godwin Deluxe">Hotel Godwin Deluxe</option>
+                  <option value="Cafe Brownie">Cafe Brownie</option>
+                </select>
+              </div>
+
+              {/* Department Selector Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>📁 Dept:</span>
+                <select
+                  className="form-input"
+                  style={{ width: '185px', padding: '0.35rem 0.6rem', fontSize: '0.82rem', fontWeight: 600 }}
+                  value={deptFilter}
+                  onChange={e => setDeptFilter(e.target.value)}
+                >
+                  <option value="ALL">📁 All Departments</option>
+                  <option value="Housekeeping">🧹 Housekeeping</option>
+                  <option value="Front Office">🛎️ Front Office</option>
+                  <option value="Security Guard">🛡️ Security Guard</option>
+                  <option value="Food & Beverage">☕ Food & Beverage (Cafe)</option>
+                  <option value="Accounts">💼 Accounts</option>
+                </select>
+              </div>
+
+              {/* Clear Filters button */}
+              {(branchFilter !== 'ALL' || deptFilter !== 'ALL') && (
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => { setBranchFilter('ALL'); setDeptFilter('ALL'); }}
+                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', color: '#ef4444', borderColor: '#fca5a5' }}
+                  title="Clear all filters"
+                >
+                  ✕ Clear
+                </button>
+              )}
+
+              {/* Staff Count Badge */}
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  padding: '3px 9px',
+                  borderRadius: '12px',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: 'var(--primary)',
+                  border: '1px solid rgba(59, 130, 246, 0.2)'
+                }}
+              >
+                {filteredEmployees.length} Staff
+              </span>
             </div>
 
             {/* Shift Badges Legend */}
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.75rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <span style={{ padding: '0.1rem 0.4rem', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontWeight: 700 }}>M</span> Morning (09-18)
               </span>
@@ -1153,13 +1329,31 @@ export default function ShiftsManager() {
                   <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Branch:</label>
                   <select
                     className="form-input"
-                    style={{ width: '190px', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+                    style={{ width: '185px', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
                     value={branchFilter}
                     onChange={e => setBranchFilter(e.target.value)}
                   >
                     <option value="ALL">🏨 All Branches</option>
                     <option value="Grand Godwin">Hotel Grand Godwin</option>
                     <option value="Godwin Deluxe">Hotel Godwin Deluxe</option>
+                    <option value="Cafe Brownie">Cafe Brownie</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dept:</label>
+                  <select
+                    className="form-input"
+                    style={{ width: '175px', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+                    value={deptFilter}
+                    onChange={e => setDeptFilter(e.target.value)}
+                  >
+                    <option value="ALL">📁 All Departments</option>
+                    <option value="Housekeeping">Housekeeping</option>
+                    <option value="Front Office">Front Office</option>
+                    <option value="Security Guard">Security Guard</option>
+                    <option value="Food & Beverage">Food & Beverage (Cafe)</option>
+                    <option value="Accounts">Accounts</option>
                   </select>
                 </div>
 
@@ -1296,6 +1490,14 @@ export default function ShiftsManager() {
                           <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem' }}>{emp.name}</div>
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                             <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{emp.code}</span> • {emp.designation}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)', fontWeight: 600 }}>
+                              {emp.branch}
+                            </span>
+                            <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(100, 116, 139, 0.1)', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              {emp.dept}
+                            </span>
                           </div>
                         </td>
 
@@ -1485,9 +1687,44 @@ export default function ShiftsManager() {
                 </button>
               </div>
 
-              <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
-                Click cell to toggle between Morning, Break, Night & OFF.
-              </span>
+              {/* Weekly Toolbar Branch & Department Selectors */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Branch:</span>
+                  <select
+                    className="form-input"
+                    style={{ width: '175px', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+                    value={branchFilter}
+                    onChange={e => setBranchFilter(e.target.value)}
+                  >
+                    <option value="ALL">🏨 All Branches</option>
+                    <option value="Grand Godwin">Hotel Grand Godwin</option>
+                    <option value="Godwin Deluxe">Hotel Godwin Deluxe</option>
+                    <option value="Cafe Brownie">Cafe Brownie</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Dept:</span>
+                  <select
+                    className="form-input"
+                    style={{ width: '170px', padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}
+                    value={deptFilter}
+                    onChange={e => setDeptFilter(e.target.value)}
+                  >
+                    <option value="ALL">📁 All Departments</option>
+                    <option value="Housekeeping">Housekeeping</option>
+                    <option value="Front Office">Front Office</option>
+                    <option value="Security Guard">Security Guard</option>
+                    <option value="Food & Beverage">Food & Beverage (Cafe)</option>
+                    <option value="Accounts">Accounts</option>
+                  </select>
+                </div>
+
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  💡 Click cell to toggle shift.
+                </span>
+              </div>
             </div>
 
             {/* Weekly Table */}
@@ -1506,7 +1743,7 @@ export default function ShiftsManager() {
                         minWidth: '180px',
                       }}
                     >
-                      Employee
+                      Employee ({filteredEmployees.length})
                     </th>
                     {weekDays.map(d => {
                       const headerBg = d.isToday
@@ -1572,6 +1809,14 @@ export default function ShiftsManager() {
                         <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>{emp.name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{emp.code}</span> • {emp.designation}
+                        </div>
+                        <div style={{ fontSize: '0.68rem', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)', fontWeight: 600 }}>
+                            {emp.branch}
+                          </span>
+                          <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(100, 116, 139, 0.1)', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            {emp.dept}
+                          </span>
                         </div>
                       </td>
                       {weekDays.map(d => {

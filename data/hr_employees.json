@@ -133,5 +133,140 @@
     "gender": "Male",
     "createdAt": "2024-05-01T00:00:00.000Z",
     "updatedAt": "2024-05-01T00:00:00.000Z"
+  },
+  {
+    "id": "mock-emp-6",
+    "employeeId": "CB-1001",
+    "firstName": "Karan",
+    "lastName": "Mehta",
+    "designation": "Cafe Manager & Head Barista",
+    "contactNo": "9856789012",
+    "branchId": "mock-4",
+    "branch": {
+      "id": "mock-4",
+      "name": "Cafe Brownie",
+      "prefix": "CB"
+    },
+    "departmentId": "dept-6",
+    "department": {
+      "id": "dept-6",
+      "name": "Food & Beverage"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-06-01T00:00:00.000Z",
+    "morningTime": "08:00",
+    "eveningTime": "17:00",
+    "gender": "Male",
+    "createdAt": "2024-06-01T00:00:00.000Z",
+    "updatedAt": "2024-06-01T00:00:00.000Z"
+  },
+  {
+    "id": "mock-emp-7",
+    "employeeId": "CB-1002",
+    "firstName": "Rohan",
+    "lastName": "Joshi",
+    "designation": "Senior Barista",
+    "contactNo": "9867890123",
+    "branchId": "mock-4",
+    "branch": {
+      "id": "mock-4",
+      "name": "Cafe Brownie",
+      "prefix": "CB"
+    },
+    "departmentId": "dept-6",
+    "department": {
+      "id": "dept-6",
+      "name": "Food & Beverage"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-06-15T00:00:00.000Z",
+    "morningTime": "12:00",
+    "eveningTime": "21:00",
+    "gender": "Male",
+    "createdAt": "2024-06-15T00:00:00.000Z",
+    "updatedAt": "2024-06-15T00:00:00.000Z"
+  },
+  {
+    "id": "mock-emp-8",
+    "employeeId": "GG-1004",
+    "firstName": "Vikram",
+    "lastName": "Rathore",
+    "designation": "Head Security Guard",
+    "contactNo": "9878901234",
+    "branchId": "mock-1",
+    "branch": {
+      "id": "mock-1",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "departmentId": "dept-3",
+    "department": {
+      "id": "dept-3",
+      "name": "Security Guard"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-02-01T00:00:00.000Z",
+    "morningTime": "20:00",
+    "eveningTime": "08:00",
+    "gender": "Male",
+    "createdAt": "2024-02-01T00:00:00.000Z",
+    "updatedAt": "2024-02-01T00:00:00.000Z"
+  },
+  {
+    "id": "mock-emp-9",
+    "employeeId": "GD-1003",
+    "firstName": "Sunil",
+    "lastName": "Thakur",
+    "designation": "Security Guard",
+    "contactNo": "9889012345",
+    "branchId": "mock-2",
+    "branch": {
+      "id": "mock-2",
+      "name": "Hotel Godwin Deluxe",
+      "prefix": "GD"
+    },
+    "departmentId": "dept-3",
+    "department": {
+      "id": "dept-3",
+      "name": "Security Guard"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-03-10T00:00:00.000Z",
+    "morningTime": "08:00",
+    "eveningTime": "20:00",
+    "gender": "Male",
+    "createdAt": "2024-03-10T00:00:00.000Z",
+    "updatedAt": "2024-03-10T00:00:00.000Z"
+  },
+  {
+    "id": "mock-emp-10",
+    "employeeId": "GD-1004",
+    "firstName": "Anita",
+    "lastName": "Rawat",
+    "designation": "Housekeeping Attendant",
+    "contactNo": "9890123456",
+    "branchId": "mock-2",
+    "branch": {
+      "id": "mock-2",
+      "name": "Hotel Godwin Deluxe",
+      "prefix": "GD"
+    },
+    "departmentId": "dept-2",
+    "department": {
+      "id": "dept-2",
+      "name": "Housekeeping"
+    },
+    "status": "ACTIVE",
+    "employmentType": "PERMANENT",
+    "doj": "2024-04-01T00:00:00.000Z",
+    "morningTime": "07:30",
+    "eveningTime": "16:30",
+    "gender": "Female",
+    "createdAt": "2024-04-01T00:00:00.000Z",
+    "updatedAt": "2024-04-01T00:00:00.000Z"
   }
 ]
