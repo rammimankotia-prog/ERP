@@ -16,6 +16,7 @@ import Sidebar from "@/components/Sidebar";
 import TopNavbar from "@/components/TopNavbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
+import { SidebarProvider } from "@/components/SidebarContext";
 
 export const metadata: Metadata = {
   title: "Godwin ERP | Hotel & Tour Management",
@@ -32,13 +33,15 @@ export default function RootLayout({
       <body className="dashboard-container">
         <ThemeProvider>
           <AuthProvider>
-            <Sidebar />
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
-              <TopNavbar />
-              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                {children}
+            <SidebarProvider>
+              <Sidebar />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
+                <TopNavbar />
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                  {children}
+                </div>
               </div>
-            </div>
+            </SidebarProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
