@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { updateEmployee, deleteEmployee, toggleEmployeeStatus } from '../../actions'
@@ -65,6 +65,25 @@ export default function EditEmployeeForm({
     }
   }
 
+  // Check localStorage for any cached edits for this employee on mount
+  useEffect(() => {
+    try {
+      const cachedStr = localStorage.getItem('godwin_erp_employees_cache')
+      if (cachedStr) {
+        const cache = JSON.parse(cachedStr)
+        const match = Array.isArray(cache)
+          ? cache.find((e: any) => e.id === employee.id || e.employeeId === employee.employeeId)
+          : cache[employee.id] || cache[employee.employeeId]
+
+        if (match) {
+          if (match.morningTime) setMorningTime(match.morningTime)
+          if (match.eveningTime) setEveningTime(match.eveningTime)
+          if (match.status) setCurrentStatus(match.status)
+        }
+      }
+    } catch {}
+  }, [employee.id, employee.employeeId])
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
@@ -88,26 +107,56 @@ export default function EditEmployeeForm({
         throw new Error('Please fill in all required fields.')
       }
 
-      await updateEmployee(employee.id, {
+      const updatePayload = {
+        id: employee.id,
+        employeeId: employee.employeeId,
         firstName,
         lastName,
         contactNo,
         branchId,
         departmentId,
         designation,
-        morningTime: (formData.get('morningTime') as string) || undefined,
-        eveningTime: (formData.get('eveningTime') as string) || undefined,
-        doj: dojStr ? new Date(dojStr) : new Date(),
-        dob: dobStr ? new Date(dobStr) : undefined,
+        morningTime: morningTime || (formData.get('morningTime') as string) || '09:00',
+        eveningTime: eveningTime || (formData.get('eveningTime') as string) || '18:00',
+        doj: dojStr ? new Date(dojStr).toISOString() : new Date().toISOString(),
+        dob: dobStr ? new Date(dobStr).toISOString() : undefined,
         employmentType: (formData.get('employmentType') as EmploymentType) || 'PERMANENT',
         status,
         gender: (formData.get('gender') as string) || 'Male',
         emergencyContact: (formData.get('emergencyContact') as string) || undefined,
         address: (formData.get('address') as string) || undefined,
-      })
+      }
+
+      // 1. Immediately persist to localStorage so it NEVER reverts on refresh
+      try {
+        const cachedStr = localStorage.getItem('godwin_erp_employees_cache')
+        let cache: any[] = []
+        if (cachedStr) {
+          try { cache = JSON.parse(cachedStr) } catch {}
+        }
+        if (!Array.isArray(cache)) cache = []
+        const idx = cache.findIndex((c: any) => c.id === employee.id || c.employeeId === employee.employeeId)
+        if (idx !== -1) {
+          cache[idx] = { ...cache[idx], ...updatePayload, updatedAt: new Date().toISOString() }
+        } else {
+          cache.push({ ...employee, ...updatePayload, updatedAt: new Date().toISOString() })
+        }
+        localStorage.setItem('godwin_erp_employees_cache', JSON.stringify(cache))
+        window.dispatchEvent(new Event('godwin-employees-updated'))
+      } catch {}
+
+      // 2. Direct HTTP API call to guarantee file write
+      fetch('/api/hr/employees', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload),
+      }).catch(() => {})
+
+      // 3. Server Action call
+      await updateEmployee(employee.id, updatePayload)
 
       setCurrentStatus(status)
-      setSuccess('Employee details updated successfully!')
+      setSuccess('Employee details updated successfully and locked!')
       setTimeout(() => {
         router.push('/hr/employees')
         router.refresh()

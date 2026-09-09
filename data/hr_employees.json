@@ -5,7 +5,7 @@
     "firstName": "Raman",
     "lastName": "Mankotia",
     "designation": "General Manager",
-    "contactNo": "9876543210",
+    "contactNo": "9811122233",
     "branchId": "mock-1",
     "branch": {
       "id": "mock-1",
@@ -20,11 +20,11 @@
     "status": "ACTIVE",
     "employmentType": "PERMANENT",
     "doj": "2024-01-15T00:00:00.000Z",
-    "morningTime": "09:00",
+    "morningTime": "08:30",
     "eveningTime": "18:00",
     "gender": "Male",
     "createdAt": "2024-01-15T00:00:00.000Z",
-    "updatedAt": "2024-01-15T00:00:00.000Z"
+    "updatedAt": "2026-09-09T11:17:50.640Z"
   },
   {
     "id": "mock-emp-2",

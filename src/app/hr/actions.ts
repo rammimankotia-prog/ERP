@@ -146,7 +146,9 @@ export async function getEmployees() {
       status: "ACTIVE",
       doj: new Date().toISOString(),
       employmentType: "PERMANENT",
-      contactNo: "9876543210"
+      contactNo: "9811122233",
+      morningTime: "08:30",
+      eveningTime: "18:00"
     }
   ]
   writeJsonFile(EMPLOYEES_FILE, initial)
@@ -267,11 +269,23 @@ export async function updateEmployee(id: string, data: any) {
   const branch = data.branchId ? branches.find((b: any) => b.id === data.branchId) : undefined
   const department = data.departmentId ? departments.find((d: any) => d.id === data.departmentId) : undefined
 
+  // Clean data: prevent undefined from overwriting existing valid values
+  const cleanData: any = {}
+  for (const k of Object.keys(data)) {
+    if (data[k] !== undefined && data[k] !== null) {
+      if (data[k] instanceof Date) {
+        cleanData[k] = data[k].toISOString()
+      } else {
+        cleanData[k] = data[k]
+      }
+    }
+  }
+
   // Try DB update
   try {
     await prisma.employee.update({
       where: { id },
-      data
+      data: cleanData
     })
   } catch (e) {
     console.warn("Prisma DB not available. Successfully updated in persistent JSON storage.")
@@ -286,7 +300,7 @@ export async function updateEmployee(id: string, data: any) {
   if (index !== -1) {
     updatedRecord = {
       ...fileEmployees[index],
-      ...data,
+      ...cleanData,
       branch: branch ? { id: branch.id, name: branch.name, prefix: branch.prefix } : fileEmployees[index].branch,
       department: department ? { id: department.id, name: department.name } : fileEmployees[index].department,
       updatedAt: new Date().toISOString(),
@@ -295,7 +309,7 @@ export async function updateEmployee(id: string, data: any) {
   } else {
     updatedRecord = {
       id,
-      ...data,
+      ...cleanData,
       branch: branch ? { id: branch.id, name: branch.name, prefix: branch.prefix } : undefined,
       department: department ? { id: department.id, name: department.name } : undefined,
       updatedAt: new Date().toISOString(),

@@ -31,7 +31,7 @@ const DEFAULT_EMPLOYEES = [
     firstName: "Raman",
     lastName: "Mankotia",
     designation: "General Manager",
-    contactNo: "9876543210",
+    contactNo: "9811122233",
     branchId: "mock-1",
     branch: { id: "mock-1", name: "Hotel Grand Godwin", prefix: "GG" },
     departmentId: "dept-1",
@@ -39,7 +39,7 @@ const DEFAULT_EMPLOYEES = [
     status: "ACTIVE",
     employmentType: "PERMANENT",
     doj: "2024-01-15T00:00:00.000Z",
-    morningTime: "09:00",
+    morningTime: "08:30",
     eveningTime: "18:00",
     gender: "Male"
   },

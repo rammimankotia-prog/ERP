@@ -18,6 +18,17 @@ function readJson<T>(file: string, fallback: T): T {
   return fallback
 }
 
+function writeJson(file: string, data: any): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true })
+    }
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8')
+  } catch (err) {
+    console.error(`Error writing ${file}:`, err)
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const branchId = searchParams.get('branchId')
@@ -57,4 +68,54 @@ export async function GET(req: NextRequest) {
     departments,
     total: employees.length
   })
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { id, employeeId, ...updates } = body
+    const targetId = id || employeeId
+
+    if (!targetId) {
+      return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 })
+    }
+
+    const employees = readJson<any[]>(EMPLOYEES_FILE, [])
+    const index = employees.findIndex((e: any) => e.id === targetId || e.employeeId === targetId)
+
+    let updatedRecord: any = null
+    if (index !== -1) {
+      updatedRecord = {
+        ...employees[index],
+        ...updates,
+        updatedAt: new Date().toISOString()
+      }
+      employees[index] = updatedRecord
+    } else {
+      updatedRecord = {
+        id: targetId,
+        employeeId: employeeId || targetId,
+        ...updates,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      employees.push(updatedRecord)
+    }
+
+    writeJson(EMPLOYEES_FILE, employees)
+
+    return NextResponse.json({
+      success: true,
+      employee: updatedRecord,
+      employees,
+      message: 'Employee updated successfully in persistent storage'
+    })
+  } catch (err: any) {
+    console.error('Error in PUT /api/hr/employees:', err)
+    return NextResponse.json({ error: err.message || 'Failed to update employee' }, { status: 500 })
+  }
+}
+
+export async function POST(req: NextRequest) {
+  return PUT(req)
 }

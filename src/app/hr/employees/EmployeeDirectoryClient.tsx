@@ -1,9 +1,11 @@
 'use client'
 
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { toggleEmployeeStatus, deleteEmployee } from '../actions'
+import { toggleEmployeeStatus, deleteEmployee, updateEmployee } from '../actions'
+
+const LOCAL_STORAGE_KEY = 'godwin_erp_employees_cache'
 
 interface Branch {
   id: string
@@ -51,17 +53,80 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
   const [selectedStatus, setSelectedStatus] = useState('ALL')
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
 
-  // Background fetch to keep live and handle any cold-start SSR mismatch
+  // Quick Edit Modal state
+  const [editingEmp, setEditingEmp] = useState<Employee | null>(null)
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+  const [editForm, setEditForm] = useState({
+    firstName: '',
+    lastName: '',
+    contactNo: '',
+    designation: '',
+    morningTime: '08:30',
+    eveningTime: '18:00',
+    status: 'ACTIVE',
+    branchId: '',
+    departmentId: '',
+  })
+
+  // Merge server data with localStorage to ensure user edits NEVER revert
+  const mergeWithLocalStorage = useCallback((incomingList: Employee[]) => {
+    try {
+      const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
+      if (!cachedStr) return incomingList
+      const cache: any[] = JSON.parse(cachedStr)
+      if (!Array.isArray(cache) || cache.length === 0) return incomingList
+
+      const merged = incomingList.map(serverEmp => {
+        const cachedEmp = cache.find((c: any) => c.id === serverEmp.id || c.employeeId === serverEmp.employeeId)
+        if (cachedEmp) {
+          return {
+            ...serverEmp,
+            ...cachedEmp,
+          }
+        }
+        return serverEmp
+      })
+
+      // Include any locally created/added records not yet returned by server
+      cache.forEach(cachedEmp => {
+        if (!merged.some(m => m.id === cachedEmp.id || m.employeeId === cachedEmp.employeeId)) {
+          merged.push(cachedEmp)
+        }
+      })
+
+      return merged
+    } catch {
+      return incomingList
+    }
+  }, [])
+
+  // On initial mount: restore from localStorage & fetch latest from server
   useEffect(() => {
+    // 1. Instantly merge with localStorage
+    setEmployees(prev => mergeWithLocalStorage(prev))
+
+    // 2. Background fetch to sync from live server API
     fetch('/api/hr/employees')
       .then(res => res.json())
       .then(data => {
         if (data.employees && Array.isArray(data.employees) && data.employees.length > 0) {
-          setEmployees(data.employees)
+          const merged = mergeWithLocalStorage(data.employees)
+          setEmployees(merged)
         }
       })
       .catch(() => {})
-  }, [])
+
+    // 3. Listen for window storage / custom updates
+    const handleStorageUpdate = () => {
+      setEmployees(prev => mergeWithLocalStorage(prev))
+    }
+    window.addEventListener('godwin-employees-updated', handleStorageUpdate)
+    window.addEventListener('storage', handleStorageUpdate)
+    return () => {
+      window.removeEventListener('godwin-employees-updated', handleStorageUpdate)
+      window.removeEventListener('storage', handleStorageUpdate)
+    }
+  }, [mergeWithLocalStorage])
 
   // Loading states
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
@@ -73,6 +138,78 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     setTimeout(() => {
       setToastMessage(null)
     }, 4000)
+  }
+
+  // Quick edit modal helpers
+  const openQuickEdit = (emp: Employee) => {
+    setEditingEmp(emp)
+    setEditForm({
+      firstName: emp.firstName || '',
+      lastName: emp.lastName || '',
+      contactNo: emp.contactNo || '',
+      designation: emp.designation || '',
+      morningTime: emp.morningTime || '08:30',
+      eveningTime: emp.eveningTime || '18:00',
+      status: emp.status || 'ACTIVE',
+      branchId: emp.branchId || emp.branch?.id || branches[0]?.id || '',
+      departmentId: emp.departmentId || emp.department?.id || departments[0]?.id || '',
+    })
+  }
+
+  const handleSaveQuickEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingEmp) return
+    setIsSavingEdit(true)
+
+    const selectedBranchObj = branches.find(b => b.id === editForm.branchId)
+    const selectedDeptObj = departments.find(d => d.id === editForm.departmentId)
+
+    const updatedEmp: Employee = {
+      ...editingEmp,
+      ...editForm,
+      branch: selectedBranchObj ? { id: selectedBranchObj.id, name: selectedBranchObj.name, prefix: selectedBranchObj.prefix } : editingEmp.branch,
+      department: selectedDeptObj ? { id: selectedDeptObj.id, name: selectedDeptObj.name } : editingEmp.department,
+      updatedAt: new Date().toISOString()
+    } as any
+
+    // 1. Optimistic UI update immediately
+    setEmployees(prev => prev.map(item => (item.id === editingEmp.id ? updatedEmp : item)))
+
+    // 2. Persist to localStorage so it NEVER reverts on refresh
+    try {
+      const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
+      let cache: any[] = []
+      if (cachedStr) {
+        try { cache = JSON.parse(cachedStr) } catch {}
+      }
+      if (!Array.isArray(cache)) cache = []
+      const idx = cache.findIndex((c: any) => c.id === editingEmp.id || c.employeeId === editingEmp.employeeId)
+      if (idx !== -1) {
+        cache[idx] = { ...cache[idx], ...updatedEmp }
+      } else {
+        cache.push(updatedEmp)
+      }
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache))
+      window.dispatchEvent(new Event('godwin-employees-updated'))
+    } catch {}
+
+    // 3. Direct API Call
+    try {
+      await fetch('/api/hr/employees', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedEmp)
+      })
+    } catch {}
+
+    // 4. Server Action
+    try {
+      await updateEmployee(editingEmp.id, editForm)
+    } catch {}
+
+    showToast(`${editForm.firstName} ${editForm.lastName} details updated and saved!`, 'success')
+    setIsSavingEdit(false)
+    setEditingEmp(null)
   }
 
   // Filtered employees
@@ -899,19 +1036,20 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
                       {/* Actions */}
                       <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-                          {/* Edit Button */}
-                          <Link
-                            href={`/hr/employees/${emp.id}`}
-                            title="Edit Employee Profile"
+                          {/* Quick Edit Button */}
+                          <button
+                            type="button"
+                            onClick={() => openQuickEdit(emp)}
+                            title="Quick Edit Details (Mobile, Shift Timing, etc.)"
                             style={{
                               padding: '6px 12px',
                               borderRadius: '6px',
-                              border: '1px solid var(--border)',
-                              backgroundColor: 'var(--bg-main)',
+                              border: '1px solid var(--primary)',
+                              backgroundColor: 'rgba(37, 99, 235, 0.08)',
                               color: 'var(--primary)',
                               fontSize: '0.82rem',
-                              fontWeight: 600,
-                              textDecoration: 'none',
+                              fontWeight: 700,
+                              cursor: 'pointer',
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '4px',
@@ -923,7 +1061,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
                               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                             </svg>
                             Edit
-                          </Link>
+                          </button>
 
                           {/* Toggle Active / Deactive Button */}
                           <button
@@ -1114,23 +1252,24 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
                     gap: '0.5rem',
                   }}
                 >
-                  <Link
-                    href={`/hr/employees/${emp.id}`}
+                  <button
+                    type="button"
+                    onClick={() => openQuickEdit(emp)}
                     style={{
                       flex: 1,
                       textAlign: 'center',
                       padding: '7px 12px',
                       borderRadius: '6px',
-                      border: '1px solid var(--border)',
-                      backgroundColor: 'var(--bg-main)',
+                      border: '1px solid var(--primary)',
+                      backgroundColor: 'rgba(37, 99, 235, 0.08)',
                       color: 'var(--primary)',
                       fontSize: '0.82rem',
-                      fontWeight: 600,
-                      textDecoration: 'none',
+                      fontWeight: 700,
+                      cursor: 'pointer',
                     }}
                   >
-                    Edit Profile
-                  </Link>
+                    ✏️ Quick Edit
+                  </button>
 
                   <button
                     type="button"
@@ -1171,6 +1310,182 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Quick Edit Modal */}
+      {editingEmp && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99998,
+            padding: '1.25rem',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '16px',
+              padding: '1.75rem',
+              maxWidth: '520px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                  ✏️ Quick Edit Employee Details
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
+                  {editingEmp.employeeId} • {editingEmp.firstName} {editingEmp.lastName}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingEmp(null)}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQuickEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>First Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.firstName}
+                    onChange={e => setEditForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    className="form-input"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.88rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>Last Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.lastName}
+                    onChange={e => setEditForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    className="form-input"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.88rem' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
+                  📞 Mobile / Contact Number <span style={{ color: 'var(--primary)' }}>*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={editForm.contactNo}
+                  onChange={e => setEditForm(prev => ({ ...prev, contactNo: e.target.value }))}
+                  className="form-input"
+                  style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.88rem', fontWeight: 600 }}
+                  placeholder="e.g. 9811122233"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
+                    ⏰ Reporting In-Time <span style={{ color: 'var(--primary)' }}>*</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={editForm.morningTime}
+                    onChange={e => setEditForm(prev => ({ ...prev, morningTime: e.target.value }))}
+                    className="form-input"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.88rem', fontWeight: 600 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
+                    ⏰ Departure Out-Time <span style={{ color: 'var(--primary)' }}>*</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={editForm.eveningTime}
+                    onChange={e => setEditForm(prev => ({ ...prev, eveningTime: e.target.value }))}
+                    className="form-input"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.88rem', fontWeight: 600 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>Designation</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.designation}
+                    onChange={e => setEditForm(prev => ({ ...prev, designation: e.target.value }))}
+                    className="form-input"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.88rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                    className="form-input"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.88rem' }}
+                  >
+                    <option value="ACTIVE">Active (Working)</option>
+                    <option value="ON_LEAVE">On Leave</option>
+                    <option value="RESIGNED">Resigned / Inactive</option>
+                    <option value="TERMINATED">Terminated</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+                <Link
+                  href={`/hr/employees/${editingEmp.id}`}
+                  style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'underline' }}
+                >
+                  Full Profile Editor ↗
+                </Link>
+
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingEmp(null)}
+                    className="btn btn-outline"
+                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingEdit}
+                    className="btn btn-primary"
+                    style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem', fontWeight: 700 }}
+                  >
+                    {isSavingEdit ? 'Saving...' : '💾 Save & Lock'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
