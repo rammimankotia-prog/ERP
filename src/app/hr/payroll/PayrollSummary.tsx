@@ -47,18 +47,21 @@ function formatCurrency(amount: number) {
 
 function downloadCSV(data: PayrollRecord[], month: string, year: number) {
   const headers = [
+    'Sr No',
     'Employee ID',
     'Name',
     'Designation',
     'Department',
     'Branch',
-    'Base Salary (INR)',
-    'Present Days',
-    'Absent Days',
-    'Late Days',
-    'Paid Leave Days',
+    'Month Days',
+    'Present (P)',
+    'Paid Leave (L)',
+    'Absent (A)',
+    'Half Days (HD)',
+    'Late Arrivals (L)',
     'Payable Days',
-    'Total Hours',
+    'Basic Salary (INR)',
+    'Total Working Hours',
     'Overtime Hours',
     'OT Pay (INR)',
     'Deductions (INR)',
@@ -66,18 +69,21 @@ function downloadCSV(data: PayrollRecord[], month: string, year: number) {
     'Payment Status'
   ]
 
-  const rows = data.map(r => [
+  const rows = data.map((r, i) => [
+    i + 1,
     r.employeeId,
     `"${r.employeeName}"`,
     `"${r.designation}"`,
     `"${r.department}"`,
     `"${r.branchName || (r.branchPrefix === 'GD' ? 'Hotel Godwin Deluxe' : 'Hotel Grand Godwin')}"`,
-    r.baseSalary,
+    r.daysInMonth || 30,
     r.presentDays,
-    r.absentDays,
-    r.lateDays,
     r.leaveDays,
+    r.absentDays,
+    r.halfDays || 0,
+    r.lateDays,
     r.payableDays,
+    r.baseSalary,
     formatMinutes(r.totalMinutes),
     formatMinutes(r.overtimeMinutes),
     r.overtimeAmount,
@@ -91,7 +97,7 @@ function downloadCSV(data: PayrollRecord[], month: string, year: number) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `Godwin-Payroll-Summary-${month}-${year}.csv`
+  a.download = `Godwin-Salary-Register-${month}-${year}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -107,6 +113,7 @@ export default function PayrollSummary() {
   const [loading, setLoading] = useState(false)
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollRecord | null>(null)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [showPrintPreview, setShowPrintPreview] = useState(false)
 
   const fetchPayroll = useCallback(async () => {
     setLoading(true)
@@ -169,7 +176,10 @@ export default function PayrollSummary() {
       netSalary: acc.netSalary + (r.netSalary || 0),
       present: acc.present + r.presentDays,
       absent: acc.absent + r.absentDays,
+      leave: acc.leave + r.leaveDays,
+      halfDays: acc.halfDays + (r.halfDays || 0),
       late: acc.late + r.lateDays,
+      payableDays: acc.payableDays + r.payableDays,
       totalMins: acc.totalMins + r.totalMinutes,
       otMins: acc.otMins + r.overtimeMinutes,
       otAmount: acc.otAmount + (r.overtimeAmount || 0),
@@ -182,7 +192,10 @@ export default function PayrollSummary() {
       netSalary: 0,
       present: 0,
       absent: 0,
+      leave: 0,
+      halfDays: 0,
       late: 0,
+      payableDays: 0,
       totalMins: 0,
       otMins: 0,
       otAmount: 0,
@@ -196,8 +209,85 @@ export default function PayrollSummary() {
   const monthName = MONTHS[month - 1]
   const fullMonthName = FULL_MONTHS[month - 1]
 
+  const triggerPrint = () => {
+    window.print()
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+      {/* Dedicated Print & PDF CSS */}
+      <style>{`
+        @media print {
+          @page {
+            size: landscape A4;
+            margin: 8mm 6mm;
+          }
+          html, body {
+            background: #ffffff !important;
+            color: #000000 !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+            font-size: 8.5pt !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          /* Hide app sidebar, navigation, controls, buttons, modals, toasts */
+          nav, aside, header, .no-print, .header, .card:not(.print-sheet), .toast-notification, select, input, button {
+            display: none !important;
+          }
+          .screen-only {
+            display: none !important;
+          }
+          .print-sheet {
+            display: block !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+          }
+          .print-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            margin-top: 8px !important;
+            font-size: 8pt !important;
+          }
+          .print-table th {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+            border: 1px solid #64748b !important;
+            padding: 5px 4px !important;
+            font-weight: 800 !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+          }
+          .print-table td {
+            border: 1px solid #94a3b8 !important;
+            padding: 4px 4px !important;
+            color: #0f172a !important;
+            vertical-align: middle !important;
+          }
+          .print-table tr:nth-child(even) {
+            background-color: #f8fafc !important;
+          }
+          .print-footer-signatures {
+            display: flex !important;
+            justify-content: space-between !important;
+            margin-top: 30px !important;
+            page-break-inside: avoid !important;
+          }
+        }
+
+        @media screen {
+          .print-sheet {
+            display: none;
+          }
+        }
+      `}</style>
+
       {/* Toast Notification */}
       {toastMsg && (
         <div style={{
@@ -223,7 +313,7 @@ export default function PayrollSummary() {
       )}
 
       {/* Filter and Control Bar */}
-      <div className="card" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+      <div className="card no-print" style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ marginBottom: 0, minWidth: '110px' }}>
             <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>PAY MONTH</label>
@@ -276,11 +366,30 @@ export default function PayrollSummary() {
           <button className="btn btn-primary" onClick={fetchPayroll} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {loading ? '⏳ Calculating...' : '🔄 Recalculate'}
           </button>
+          <button
+            className="btn btn-primary"
+            onClick={triggerPrint}
+            style={{
+              background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+              border: 'none',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)'
+            }}
+          >
+            🖨️ Print / Save PDF
+          </button>
+          <button
+            className="btn btn-outline"
+            onClick={() => setShowPrintPreview(prev => !prev)}
+            style={{ fontWeight: 700 }}
+          >
+            {showPrintPreview ? '👁️ Hide Preview' : '📋 Report Preview'}
+          </button>
           <button className="btn btn-outline" onClick={() => downloadCSV(filteredRecords, monthName, year)} disabled={filteredRecords.length === 0}>
             ⬇️ Export CSV
-          </button>
-          <button className="btn btn-outline" onClick={() => window.print()} title="Print Summary Table">
-            🖨️ Print
           </button>
           <button
             className="btn btn-outline"
@@ -293,8 +402,8 @@ export default function PayrollSummary() {
         </div>
       </div>
 
-      {/* Top KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
+      {/* Top KPI Cards (Screen only) */}
+      <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
         {/* Total Net Payroll */}
         <div className="card" style={{
           background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.04))',
@@ -375,7 +484,6 @@ export default function PayrollSummary() {
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Disbursed</span>
           </div>
-          {/* Progress Bar */}
           <div style={{ height: '6px', borderRadius: '99px', background: 'var(--bg-main)', overflow: 'hidden', marginTop: '0.2rem' }}>
             <div style={{
               height: '100%',
@@ -391,8 +499,8 @@ export default function PayrollSummary() {
         </div>
       </div>
 
-      {/* Main Payroll Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }} id="printable-payroll">
+      {/* Screen Interactive Table */}
+      <div className="card no-print" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{
           padding: '1.25rem 1.5rem',
           borderBottom: '1px solid var(--border)',
@@ -429,6 +537,7 @@ export default function PayrollSummary() {
             <thead style={{ backgroundColor: 'var(--bg-main)' }}>
               <tr>
                 {[
+                  '#',
                   'Employee',
                   'Branch & Dept',
                   'Basic Salary',
@@ -441,7 +550,7 @@ export default function PayrollSummary() {
                   'Actions'
                 ].map(h => (
                   <th key={h} style={{
-                    padding: '0.875rem 1rem',
+                    padding: '0.875rem 0.9rem',
                     textAlign: 'left',
                     fontWeight: 700,
                     color: 'var(--text-muted)',
@@ -458,21 +567,25 @@ export default function PayrollSummary() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <td colSpan={11} style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                     ⏳ Calculating payroll records...
                   </td>
                 </tr>
               ) : filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <td colSpan={11} style={{ padding: '3.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                     No payroll data found for the selected month and filters.
                   </td>
                 </tr>
               ) : (
-                filteredRecords.map(r => (
+                filteredRecords.map((r, idx) => (
                   <tr key={r.employeeId} style={{ borderTop: '1px solid var(--border)', transition: 'background 0.1s ease' }}>
+                    <td style={{ padding: '0.875rem 0.9rem', fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {idx + 1}
+                    </td>
+
                     {/* Employee info */}
-                    <td style={{ padding: '0.875rem 1rem' }}>
+                    <td style={{ padding: '0.875rem 0.9rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                         <div style={{
                           width: '36px',
@@ -500,7 +613,7 @@ export default function PayrollSummary() {
                     </td>
 
                     {/* Branch & Dept */}
-                    <td style={{ padding: '0.875rem 1rem' }}>
+                    <td style={{ padding: '0.875rem 0.9rem' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                         <span style={{
                           fontSize: '0.72rem',
@@ -520,12 +633,12 @@ export default function PayrollSummary() {
                     </td>
 
                     {/* Base Salary */}
-                    <td style={{ padding: '0.875rem 1rem', fontWeight: 600, color: 'var(--text-main)', fontSize: '0.88rem' }}>
+                    <td style={{ padding: '0.875rem 0.9rem', fontWeight: 600, color: 'var(--text-main)', fontSize: '0.88rem' }}>
                       {formatCurrency(r.baseSalary)}
                     </td>
 
                     {/* Attendance breakdown */}
-                    <td style={{ padding: '0.875rem 1rem' }}>
+                    <td style={{ padding: '0.875rem 0.9rem' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                           <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--success)' }} title="Present Days">
@@ -544,18 +657,18 @@ export default function PayrollSummary() {
                           )}
                         </div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                          Payable: <strong>{r.payableDays}d</strong>
+                          Payable: <strong>{r.payableDays}d</strong> / {r.daysInMonth || 30}d
                         </div>
                       </div>
                     </td>
 
                     {/* Working Hours */}
-                    <td style={{ padding: '0.875rem 1rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                    <td style={{ padding: '0.875rem 0.9rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
                       {formatMinutes(r.totalMinutes)}
                     </td>
 
                     {/* Overtime */}
-                    <td style={{ padding: '0.875rem 1rem' }}>
+                    <td style={{ padding: '0.875rem 0.9rem' }}>
                       {r.overtimeAmount > 0 ? (
                         <div>
                           <div style={{ fontWeight: 700, color: '#3b82f6', fontSize: '0.85rem' }}>
@@ -571,7 +684,7 @@ export default function PayrollSummary() {
                     </td>
 
                     {/* Deductions */}
-                    <td style={{ padding: '0.875rem 1rem' }}>
+                    <td style={{ padding: '0.875rem 0.9rem' }}>
                       {r.deductions > 0 ? (
                         <div style={{ fontWeight: 700, color: 'var(--error)', fontSize: '0.85rem' }}>
                           -{formatCurrency(r.deductions)}
@@ -582,14 +695,14 @@ export default function PayrollSummary() {
                     </td>
 
                     {/* Net Payable */}
-                    <td style={{ padding: '0.875rem 1rem' }}>
+                    <td style={{ padding: '0.875rem 0.9rem' }}>
                       <span style={{ fontSize: '1.05rem', fontWeight: 900, color: '#10b981' }}>
                         {formatCurrency(r.netSalary)}
                       </span>
                     </td>
 
-                    {/* Payment Status Pill (Clickable) */}
-                    <td style={{ padding: '0.875rem 1rem' }}>
+                    {/* Payment Status Pill */}
+                    <td style={{ padding: '0.875rem 0.9rem' }}>
                       <button
                         onClick={() => handleToggleStatus(r.employeeId)}
                         title="Click to toggle status"
@@ -624,7 +737,7 @@ export default function PayrollSummary() {
                     </td>
 
                     {/* Action Button: View Payslip */}
-                    <td style={{ padding: '0.875rem 1rem' }}>
+                    <td style={{ padding: '0.875rem 0.9rem' }}>
                       <button
                         onClick={() => setSelectedPayslip(r)}
                         className="btn btn-outline"
@@ -642,28 +755,28 @@ export default function PayrollSummary() {
             {filteredRecords.length > 0 && (
               <tfoot style={{ backgroundColor: 'var(--bg-main)', borderTop: '2px solid var(--border)' }}>
                 <tr>
-                  <td colSpan={2} style={{ padding: '1rem', fontWeight: 800, color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                  <td colSpan={3} style={{ padding: '1rem 0.9rem', fontWeight: 800, color: 'var(--text-main)', fontSize: '0.9rem' }}>
                     TOTALS ({filteredRecords.length} Employees)
                   </td>
-                  <td style={{ padding: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                  <td style={{ padding: '1rem 0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>
                     {formatCurrency(totals.baseSalary)}
                   </td>
-                  <td style={{ padding: '1rem', fontWeight: 800, color: 'var(--success)' }}>
-                    P: {totals.present} • A: {totals.absent}
+                  <td style={{ padding: '1rem 0.9rem', fontWeight: 800, color: 'var(--success)' }}>
+                    P: {totals.present} • L: {totals.leave} • A: {totals.absent}
                   </td>
-                  <td style={{ padding: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                  <td style={{ padding: '1rem 0.9rem', fontWeight: 800, color: 'var(--text-main)' }}>
                     {formatMinutes(totals.totalMins)}
                   </td>
-                  <td style={{ padding: '1rem', fontWeight: 800, color: '#3b82f6' }}>
+                  <td style={{ padding: '1rem 0.9rem', fontWeight: 800, color: '#3b82f6' }}>
                     +{formatCurrency(totals.otAmount)}
                   </td>
-                  <td style={{ padding: '1rem', fontWeight: 800, color: 'var(--error)' }}>
+                  <td style={{ padding: '1rem 0.9rem', fontWeight: 800, color: 'var(--error)' }}>
                     -{formatCurrency(totals.deductions)}
                   </td>
-                  <td style={{ padding: '1rem', fontWeight: 900, color: '#10b981', fontSize: '1.1rem' }}>
+                  <td style={{ padding: '1rem 0.9rem', fontWeight: 900, color: '#10b981', fontSize: '1.1rem' }}>
                     {formatCurrency(totals.netSalary)}
                   </td>
-                  <td colSpan={2} style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={2} style={{ padding: '1rem 0.9rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                     {totals.paidCount} Paid • {totals.pendingCount} Pending
                   </td>
                 </tr>
@@ -673,9 +786,41 @@ export default function PayrollSummary() {
         </div>
       </div>
 
+      {/* On-Screen Report Preview Card (When user clicks 'Report Preview') */}
+      {showPrintPreview && (
+        <div className="card no-print" style={{ border: '2px dashed var(--primary)', background: '#ffffff', color: '#0f172a', padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #cbd5e1', paddingBottom: '0.75rem' }}>
+            <div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#2563eb', textTransform: 'uppercase' }}>
+                📄 PDF / PRINT REPORT PREVIEW (Landscape A4 Layout)
+              </span>
+              <h3 style={{ margin: '0.2rem 0 0 0', color: '#0f172a', fontSize: '1.1rem' }}>
+                Complete Hotel Salary & Attendance Register
+              </h3>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button onClick={triggerPrint} className="btn btn-primary" style={{ padding: '0.45rem 1.2rem', fontWeight: 800 }}>
+                🖨️ Print / Save to PDF
+              </button>
+              <button onClick={() => setShowPrintPreview(false)} className="btn btn-outline" style={{ padding: '0.45rem 0.8rem', color: '#475569', borderColor: '#cbd5e1' }}>
+                Close Preview
+              </button>
+            </div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            {renderPrintRegister(filteredRecords, fullMonthName, year, branchFilter, totals)}
+          </div>
+        </div>
+      )}
+
+      {/* DEDICATED PRINTABLE CONTAINER (Visible ONLY during print/PDF generation) */}
+      <div className="print-sheet">
+        {renderPrintRegister(filteredRecords, fullMonthName, year, branchFilter, totals)}
+      </div>
+
       {/* PAYSLIP MODAL DIALOG */}
       {selectedPayslip && (
-        <div style={{
+        <div className="no-print" style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -853,6 +998,201 @@ export default function PayrollSummary() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Renders the formal Hotel Monthly Attendance & Salary Register Report
+ * containing all essential columns required for auditing, accounts, and PDF printing.
+ */
+function renderPrintRegister(
+  records: PayrollRecord[],
+  monthName: string,
+  year: number,
+  branchFilter: string,
+  totals: any
+) {
+  const branchLabel =
+    branchFilter === 'GG'
+      ? 'Hotel Grand Godwin (GG)'
+      : branchFilter === 'GD'
+      ? 'Hotel Godwin Deluxe (GD)'
+      : 'Hotel Grand Godwin & Hotel Godwin Deluxe'
+
+  const printedAt = new Date().toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
+  return (
+    <div style={{ width: '100%', color: '#0f172a', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif' }}>
+      {/* Formal Header */}
+      <div style={{ borderBottom: '2px solid #0f172a', paddingBottom: '8px', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '15pt', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#0f172a' }}>
+              HOTEL GRAND GODWIN & HOTEL GODWIN DELUXE
+            </h1>
+            <div style={{ fontSize: '8.5pt', color: '#475569', marginTop: '2px' }}>
+              8501/41-42, Arakashan Road, Ram Nagar, Pahar Ganj, New Delhi - 110055 • GSTIN: 07AAAAG0000A1Z5
+            </div>
+            <div style={{ fontSize: '10.5pt', fontWeight: 800, color: '#1e3a8a', marginTop: '4px' }}>
+              MONTHLY SALARY REGISTER & ATTENDANCE PAYROLL REPORT — {monthName.toUpperCase()} {year}
+            </div>
+          </div>
+
+          <div style={{ textAlign: 'right', fontSize: '8pt', color: '#334155' }}>
+            <div><strong>Branch:</strong> {branchLabel}</div>
+            <div><strong>Generated:</strong> {printedAt}</div>
+            <div><strong>Staff Strength:</strong> {records.length} Employees</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Complete Table with All Requisite Columns */}
+      <table className="print-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '7.5pt' }}>
+        <thead>
+          <tr style={{ backgroundColor: '#f1f5f9' }}>
+            <th style={{ width: '25px', padding: '5px 3px' }}>Sr.</th>
+            <th style={{ width: '65px', padding: '5px 4px' }}>Emp ID</th>
+            <th style={{ padding: '5px 6px', textAlign: 'left' }}>Employee Name</th>
+            <th style={{ padding: '5px 4px', textAlign: 'left' }}>Designation</th>
+            <th style={{ padding: '5px 4px', textAlign: 'left' }}>Department</th>
+            <th style={{ padding: '5px 4px' }}>Branch</th>
+            <th style={{ width: '38px', padding: '5px 2px' }} title="Month Days">Days</th>
+            <th style={{ width: '32px', padding: '5px 2px' }} title="Present Days">P</th>
+            <th style={{ width: '32px', padding: '5px 2px' }} title="Paid Leave Days">PL</th>
+            <th style={{ width: '32px', padding: '5px 2px' }} title="Absent / LOP Days">A</th>
+            <th style={{ width: '32px', padding: '5px 2px' }} title="Late Days">L</th>
+            <th style={{ width: '42px', padding: '5px 2px' }} title="Payable Days">Pay Days</th>
+            <th style={{ padding: '5px 4px', textAlign: 'right' }}>Basic Pay (₹)</th>
+            <th style={{ padding: '5px 3px' }}>OT Hrs</th>
+            <th style={{ padding: '5px 4px', textAlign: 'right' }}>OT Pay (₹)</th>
+            <th style={{ padding: '5px 4px', textAlign: 'right' }}>Deduction (₹)</th>
+            <th style={{ padding: '5px 5px', textAlign: 'right', fontWeight: 900 }}>Net Pay (₹)</th>
+            <th style={{ width: '65px', padding: '5px 3px' }}>Status</th>
+            <th style={{ width: '90px', padding: '5px 4px' }}>Signature</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.length === 0 ? (
+            <tr>
+              <td colSpan={19} style={{ textAlign: 'center', padding: '15px' }}>
+                No records found for this period.
+              </td>
+            </tr>
+          ) : (
+            records.map((r, i) => (
+              <tr key={r.employeeId}>
+                <td style={{ textAlign: 'center', fontWeight: 600 }}>{i + 1}</td>
+                <td style={{ textAlign: 'center', fontWeight: 700 }}>{r.employeeId}</td>
+                <td style={{ fontWeight: 700 }}>{r.employeeName}</td>
+                <td>{r.designation}</td>
+                <td>{r.department}</td>
+                <td style={{ textAlign: 'center' }}>
+                  <span style={{ fontWeight: 700 }}>
+                    {r.branchPrefix || (r.branchId === 'mock-2' ? 'GD' : 'GG')}
+                  </span>
+                </td>
+                <td style={{ textAlign: 'center' }}>{r.daysInMonth || 30}</td>
+                <td style={{ textAlign: 'center', fontWeight: 700, color: '#15803d' }}>{r.presentDays}</td>
+                <td style={{ textAlign: 'center', fontWeight: 600, color: '#2563eb' }}>{r.leaveDays}</td>
+                <td style={{ textAlign: 'center', fontWeight: 700, color: r.absentDays > 0 ? '#dc2626' : '#64748b' }}>
+                  {r.absentDays}
+                </td>
+                <td style={{ textAlign: 'center', color: r.lateDays > 0 ? '#b45309' : '#64748b' }}>{r.lateDays}</td>
+                <td style={{ textAlign: 'center', fontWeight: 800 }}>{r.payableDays}</td>
+                <td style={{ textAlign: 'right', fontWeight: 600 }}>{r.baseSalary.toLocaleString('en-IN')}</td>
+                <td style={{ textAlign: 'center' }}>{formatMinutes(r.overtimeMinutes)}</td>
+                <td style={{ textAlign: 'right', color: r.overtimeAmount > 0 ? '#1d4ed8' : '#64748b', fontWeight: 600 }}>
+                  {r.overtimeAmount > 0 ? `+${r.overtimeAmount.toLocaleString('en-IN')}` : '—'}
+                </td>
+                <td style={{ textAlign: 'right', color: r.deductions > 0 ? '#b91c1c' : '#64748b', fontWeight: 600 }}>
+                  {r.deductions > 0 ? `-${r.deductions.toLocaleString('en-IN')}` : '0'}
+                </td>
+                <td style={{ textAlign: 'right', fontWeight: 900, color: '#047857', fontSize: '8pt' }}>
+                  ₹{r.netSalary.toLocaleString('en-IN')}
+                </td>
+                <td style={{ textAlign: 'center', fontSize: '7pt', fontWeight: 700 }}>
+                  {r.paymentStatus}
+                </td>
+                <td style={{ borderBottom: '1px solid #94a3b8', height: '24px' }}>
+                  {/* Space for employee sign */}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+
+        {/* Totals Summary Row */}
+        <tfoot>
+          <tr style={{ backgroundColor: '#e2e8f0', fontWeight: 800, borderTop: '2px solid #0f172a' }}>
+            <td colSpan={6} style={{ padding: '6px 4px', textAlign: 'left', fontWeight: 900 }}>
+              TOTALS ({records.length} Employees)
+            </td>
+            <td style={{ textAlign: 'center' }}>—</td>
+            <td style={{ textAlign: 'center', color: '#15803d' }}>{totals.present}</td>
+            <td style={{ textAlign: 'center', color: '#2563eb' }}>{totals.leave}</td>
+            <td style={{ textAlign: 'center', color: '#dc2626' }}>{totals.absent}</td>
+            <td style={{ textAlign: 'center' }}>{totals.late}</td>
+            <td style={{ textAlign: 'center' }}>{totals.payableDays}</td>
+            <td style={{ textAlign: 'right' }}>₹{totals.baseSalary.toLocaleString('en-IN')}</td>
+            <td style={{ textAlign: 'center' }}>{formatMinutes(totals.otMins)}</td>
+            <td style={{ textAlign: 'right', color: '#1d4ed8' }}>₹{totals.otAmount.toLocaleString('en-IN')}</td>
+            <td style={{ textAlign: 'right', color: '#b91c1c' }}>₹{totals.deductions.toLocaleString('en-IN')}</td>
+            <td style={{ textAlign: 'right', color: '#047857', fontWeight: 900, fontSize: '8.5pt' }}>
+              ₹{totals.netSalary.toLocaleString('en-IN')}
+            </td>
+            <td colSpan={2} style={{ textAlign: 'center', fontSize: '7pt' }}>
+              {totals.paidCount} Paid • {totals.pendingCount} Pending
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+
+      {/* Summary Box & Official Signatures */}
+      <div className="print-footer-signatures" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '28px', paddingTop: '10px' }}>
+        <div style={{ display: 'flex', gap: '30px', fontSize: '8pt', color: '#334155' }}>
+          <div>
+            <strong>Summary:</strong>
+            <div>Total Base Wage: ₹{totals.baseSalary.toLocaleString('en-IN')}</div>
+            <div>Overtime Wage: +₹{totals.otAmount.toLocaleString('en-IN')}</div>
+            <div>Total Deductions: -₹{totals.deductions.toLocaleString('en-IN')}</div>
+            <div style={{ fontWeight: 800, color: '#047857' }}>Net Disbursed: ₹{totals.netSalary.toLocaleString('en-IN')}</div>
+          </div>
+          <div>
+            <strong>Attendance:</strong>
+            <div>Total Present: {totals.present} days</div>
+            <div>Paid Leaves: {totals.leave} days</div>
+            <div>Total LOP: {totals.absent} days</div>
+          </div>
+        </div>
+
+        {/* 3 Authority Signatures */}
+        <div style={{ display: 'flex', gap: '36px', textAlign: 'center' }}>
+          <div style={{ width: '130px' }}>
+            <div style={{ borderBottom: '1px solid #0f172a', height: '36px', marginBottom: '4px' }} />
+            <div style={{ fontSize: '8pt', fontWeight: 800 }}>Prepared By</div>
+            <div style={{ fontSize: '7pt', color: '#64748b' }}>HR Officer</div>
+          </div>
+
+          <div style={{ width: '130px' }}>
+            <div style={{ borderBottom: '1px solid #0f172a', height: '36px', marginBottom: '4px' }} />
+            <div style={{ fontSize: '8pt', fontWeight: 800 }}>Checked & Verified By</div>
+            <div style={{ fontSize: '7pt', color: '#64748b' }}>Accounts Department</div>
+          </div>
+
+          <div style={{ width: '140px' }}>
+            <div style={{ borderBottom: '1px solid #0f172a', height: '36px', marginBottom: '4px' }} />
+            <div style={{ fontSize: '8pt', fontWeight: 800 }}>Approved By</div>
+            <div style={{ fontSize: '7pt', color: '#64748b' }}>General Manager</div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
