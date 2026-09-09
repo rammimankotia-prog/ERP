@@ -350,6 +350,8 @@ export default function ShiftsManager() {
     d.setDate(selectedMonday.getDate() + idx)
     const isToday =
       d.getDate() === todayDay && d.getMonth() === todayMonth && d.getFullYear() === todayYear
+    const isSat = dayName === 'Sat'
+    const isSun = dayName === 'Sun'
 
     return {
       dayKey: dayName,
@@ -357,6 +359,8 @@ export default function ShiftsManager() {
       dateNum: d.getDate().toString().padStart(2, '0'),
       monthName: d.toLocaleDateString('en-GB', { month: 'short' }),
       isToday,
+      isSat,
+      isSun,
     }
   })
 
@@ -762,10 +766,10 @@ export default function ShiftsManager() {
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
               <h2 style={{ color: 'var(--text-main)', margin: 0 }}>Weekly Roster</h2>
-              {/* Shift Legend */}
-              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', fontSize: '0.72rem' }}>
+              {/* Shift Legend & Weekend Indicators */}
+              <div style={{ display: 'flex', gap: '0.55rem', alignItems: 'center', fontSize: '0.72rem', flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--success)' }}></span> Morning
                 </span>
@@ -774,6 +778,12 @@ export default function ShiftsManager() {
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#8b5cf6' }}></span> Night
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', marginLeft: '0.35rem', color: '#f59e0b', fontWeight: 600 }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: 'rgba(245, 158, 11, 0.6)' }}></span> Sat (Weekend)
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: '#f43f5e', fontWeight: 600 }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: 'rgba(244, 63, 94, 0.6)' }}></span> Sun (Weekly Off)
                 </span>
               </div>
             </div>
@@ -936,43 +946,105 @@ export default function ShiftsManager() {
                 >
                   Employee
                 </th>
-                {weekDays.map(d => (
-                  <th
-                    key={d.dayKey}
-                    style={{
-                      padding: '0.75rem 0.85rem',
-                      textAlign: 'center',
-                      fontWeight: 600,
-                      color: d.isToday ? '#38bdf8' : 'var(--text-muted)',
-                      fontSize: '0.8rem',
-                      backgroundColor: d.isToday ? 'rgba(14, 165, 233, 0.08)' : undefined,
-                      borderBottom: d.isToday ? '2px solid #0ea5e9' : undefined,
-                    }}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{d.label}</span>
-                      <span style={{ fontSize: '0.72rem', opacity: d.isToday ? 1 : 0.7 }}>
-                        {d.dateNum} {d.monthName}
-                      </span>
-                      {d.isToday && (
-                        <span
-                          style={{
-                            fontSize: '0.62rem',
-                            padding: '1px 6px',
-                            borderRadius: '999px',
-                            backgroundColor: '#0ea5e9',
-                            color: '#fff',
-                            fontWeight: 700,
-                            marginTop: '0.15rem',
-                            letterSpacing: '0.4px',
-                          }}
-                        >
-                          TODAY
+                {weekDays.map(d => {
+                  // Separate highlight styling for Saturday and Sunday
+                  const headerBg = d.isToday
+                    ? 'rgba(14, 165, 233, 0.12)'
+                    : d.isSat
+                    ? 'rgba(245, 158, 11, 0.1)'
+                    : d.isSun
+                    ? 'rgba(244, 63, 94, 0.1)'
+                    : undefined
+
+                  const headerTextColor = d.isToday
+                    ? '#38bdf8'
+                    : d.isSat
+                    ? '#f59e0b'
+                    : d.isSun
+                    ? '#f43f5e'
+                    : 'var(--text-muted)'
+
+                  const headerBorderBottom = d.isToday
+                    ? '2px solid #0ea5e9'
+                    : d.isSat
+                    ? '2px solid #f59e0b'
+                    : d.isSun
+                    ? '2px solid #f43f5e'
+                    : '1px solid var(--border)'
+
+                  return (
+                    <th
+                      key={d.dayKey}
+                      style={{
+                        padding: '0.75rem 0.85rem',
+                        textAlign: 'center',
+                        fontWeight: 600,
+                        color: headerTextColor,
+                        fontSize: '0.8rem',
+                        backgroundColor: headerBg,
+                        borderBottom: headerBorderBottom,
+                        borderLeft: d.isSat ? '1px dashed rgba(245, 158, 11, 0.3)' : d.isSun ? '1px dashed rgba(244, 63, 94, 0.3)' : undefined,
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{d.label}</span>
+                        </div>
+                        <span style={{ fontSize: '0.72rem', opacity: d.isToday || d.isSat || d.isSun ? 1 : 0.7 }}>
+                          {d.dateNum} {d.monthName}
                         </span>
-                      )}
-                    </div>
-                  </th>
-                ))}
+                        {d.isToday && (
+                          <span
+                            style={{
+                              fontSize: '0.62rem',
+                              padding: '1px 6px',
+                              borderRadius: '999px',
+                              backgroundColor: '#0ea5e9',
+                              color: '#fff',
+                              fontWeight: 700,
+                              marginTop: '0.15rem',
+                              letterSpacing: '0.4px',
+                            }}
+                          >
+                            TODAY
+                          </span>
+                        )}
+                        {!d.isToday && d.isSat && (
+                          <span
+                            style={{
+                              fontSize: '0.6rem',
+                              padding: '1px 5px',
+                              borderRadius: '999px',
+                              backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                              color: '#f59e0b',
+                              fontWeight: 700,
+                              marginTop: '0.15rem',
+                              border: '1px solid rgba(245, 158, 11, 0.4)',
+                            }}
+                          >
+                            SAT
+                          </span>
+                        )}
+                        {!d.isToday && d.isSun && (
+                          <span
+                            style={{
+                              fontSize: '0.6rem',
+                              padding: '1px 5px',
+                              borderRadius: '999px',
+                              backgroundColor: 'rgba(244, 63, 94, 0.2)',
+                              color: '#f43f5e',
+                              fontWeight: 700,
+                              marginTop: '0.15rem',
+                              border: '1px solid rgba(244, 63, 94, 0.4)',
+                            }}
+                          >
+                            SUN OFF
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  )
+                })}
               </tr>
             </thead>
             <tbody>
@@ -988,25 +1060,44 @@ export default function ShiftsManager() {
                     const isNight = assignment === 'Night Shift'
                     const isBreak = assignment === 'Break Shift'
 
-                    const bgColor = isOff
-                      ? 'rgba(100, 116, 139, 0.1)'
-                      : isNight
-                      ? 'rgba(139, 92, 246, 0.12)'
-                      : isBreak
-                      ? 'rgba(14, 165, 233, 0.15)'
-                      : 'rgba(16, 185, 129, 0.12)'
+                    // Column background for Today, Sat, Sun
+                    const cellColBg = d.isToday
+                      ? 'rgba(14, 165, 233, 0.03)'
+                      : d.isSat
+                      ? 'rgba(245, 158, 11, 0.03)'
+                      : d.isSun
+                      ? 'rgba(244, 63, 94, 0.03)'
+                      : undefined
 
-                    const textColor = isOff
-                      ? 'var(--text-muted)'
-                      : isNight
-                      ? '#8b5cf6'
-                      : isBreak
-                      ? '#0ea5e9'
-                      : 'var(--success)'
+                    // Button badges styling
+                    let bgColor = 'rgba(16, 185, 129, 0.12)'
+                    let textColor = 'var(--success)'
+                    let borderColor = 'transparent'
 
-                    const borderColor = isBreak
-                      ? 'rgba(14, 165, 233, 0.3)'
-                      : 'transparent'
+                    if (isOff) {
+                      if (d.isSun) {
+                        // Sunday off: highlighted in soft rose red
+                        bgColor = 'rgba(244, 63, 94, 0.15)'
+                        textColor = '#f43f5e'
+                        borderColor = 'rgba(244, 63, 94, 0.3)'
+                      } else if (d.isSat) {
+                        // Saturday off: highlighted in soft amber
+                        bgColor = 'rgba(245, 158, 11, 0.15)'
+                        textColor = '#f59e0b'
+                        borderColor = 'rgba(245, 158, 11, 0.3)'
+                      } else {
+                        bgColor = 'rgba(100, 116, 139, 0.1)'
+                        textColor = 'var(--text-muted)'
+                      }
+                    } else if (isNight) {
+                      bgColor = 'rgba(139, 92, 246, 0.15)'
+                      textColor = '#8b5cf6'
+                      borderColor = 'rgba(139, 92, 246, 0.3)'
+                    } else if (isBreak) {
+                      bgColor = 'rgba(14, 165, 233, 0.15)'
+                      textColor = '#0ea5e9'
+                      borderColor = 'rgba(14, 165, 233, 0.35)'
+                    }
 
                     return (
                       <td
@@ -1014,7 +1105,8 @@ export default function ShiftsManager() {
                         style={{
                           padding: '0.75rem',
                           textAlign: 'center',
-                          backgroundColor: d.isToday ? 'rgba(14, 165, 233, 0.02)' : undefined,
+                          backgroundColor: cellColBg,
+                          borderLeft: d.isSat ? '1px dashed rgba(245, 158, 11, 0.15)' : d.isSun ? '1px dashed rgba(244, 63, 94, 0.15)' : undefined,
                         }}
                       >
                         <button
@@ -1032,9 +1124,9 @@ export default function ShiftsManager() {
                             cursor: 'pointer',
                             transition: 'all 0.15s ease-in-out',
                           }}
-                          title="Click to toggle shift (Morning -> Break -> Night -> OFF)"
+                          title={`Click to toggle shift (${d.dayKey}: ${assignment})`}
                         >
-                          {isOff ? '—' : assignment.replace(' Shift', '')}
+                          {isOff ? (d.isSun ? 'OFF' : d.isSat ? 'OFF' : '—') : assignment.replace(' Shift', '')}
                         </button>
                       </td>
                     )
