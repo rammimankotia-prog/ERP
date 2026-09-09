@@ -135,6 +135,31 @@ export default function AttendanceReports() {
   const [reportData, setReportData] = useState<ReportResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isFullScreen, setIsFullScreen] = useState(false)
+
+  const toggleFullScreen = () => {
+    if (!isFullScreen) {
+      setIsFullScreen(true)
+      if (typeof document !== 'undefined' && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {})
+      }
+    } else {
+      setIsFullScreen(false)
+      if (typeof document !== 'undefined' && document.exitFullscreen && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {})
+      }
+    }
+  }
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      if (typeof document !== 'undefined' && !document.fullscreenElement) {
+        setIsFullScreen(false)
+      }
+    }
+    document.addEventListener('fullscreenchange', handleFsChange)
+    return () => document.removeEventListener('fullscreenchange', handleFsChange)
+  }, [])
 
   // Compute active date range based on mode
   const activeRange = useMemo(() => {
@@ -290,7 +315,33 @@ export default function AttendanceReports() {
   const summary = reportData?.summary
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div
+      style={
+        isFullScreen
+          ? {
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100vw',
+              height: '100vh',
+              zIndex: 99999,
+              backgroundColor: 'var(--bg-main)',
+              padding: '1.25rem 2rem',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem'
+            }
+          : {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem',
+              width: '100%'
+            }
+      }
+    >
       {/* Top Header Card with Report Mode Switcher */}
       <div
         className="card"
@@ -490,7 +541,23 @@ export default function AttendanceReports() {
             </div>
           )}
 
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              className="btn btn-outline"
+              onClick={toggleFullScreen}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                backgroundColor: isFullScreen ? 'var(--primary)' : 'rgba(59, 130, 246, 0.1)',
+                color: isFullScreen ? '#fff' : 'var(--primary)',
+                fontWeight: 700,
+                borderColor: isFullScreen ? 'var(--primary)' : 'rgba(59, 130, 246, 0.3)'
+              }}
+              title={isFullScreen ? "Exit Fullscreen Window Mode" : "Open Fullscreen Window Mode"}
+            >
+              {isFullScreen ? '🗗 Exit Fullscreen' : '⛶ Fullscreen Window'}
+            </button>
             <button
               className="btn btn-outline"
               onClick={handleDownloadCSV}
