@@ -942,7 +942,7 @@ export default function ShiftsManager() {
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: '1rem',
-            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))',
+            backgroundColor: 'var(--bg-card)',
           }}
         >
           <div>
@@ -958,10 +958,10 @@ export default function ShiftsManager() {
               <div
                 style={{
                   display: 'inline-flex',
-                  backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                  backgroundColor: 'var(--bg-main)',
                   padding: '3px',
                   borderRadius: '9px',
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                  border: '1px solid var(--border)'
                 }}
               >
                 <button
@@ -1087,7 +1087,7 @@ export default function ShiftsManager() {
             <div
               style={{
                 padding: '0.85rem 1.5rem',
-                backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                backgroundColor: 'var(--bg-main)',
                 borderBottom: '1px solid var(--border)',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -1192,7 +1192,7 @@ export default function ShiftsManager() {
                         minWidth: '200px',
                         position: 'sticky',
                         left: 0,
-                        backgroundColor: 'var(--bg-main)',
+                        backgroundColor: 'var(--bg-card)',
                         zIndex: 11,
                         borderRight: '2px solid var(--border)',
                         borderBottom: '2px solid var(--border)',
@@ -1237,7 +1237,7 @@ export default function ShiftsManager() {
                             backgroundColor: headerBg,
                             color: headerTextColor,
                             borderBottom: isToday ? '2px solid #0ea5e9' : '2px solid var(--border)',
-                            borderLeft: isSat ? '1px dashed rgba(245, 158, 11, 0.3)' : isSun ? '1px dashed rgba(244, 63, 94, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)',
+                            borderLeft: isSat ? '1px dashed rgba(245, 158, 11, 0.3)' : isSun ? '1px dashed rgba(244, 63, 94, 0.3)' : '1px solid var(--border)',
                           }}
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
@@ -1288,7 +1288,7 @@ export default function ShiftsManager() {
                             padding: '0.65rem 1rem',
                             position: 'sticky',
                             left: 0,
-                            backgroundColor: 'var(--card-bg, #0f172a)',
+                            backgroundColor: 'var(--bg-card)',
                             zIndex: 2,
                             borderRight: '2px solid var(--border)',
                           }}
@@ -1339,7 +1339,7 @@ export default function ShiftsManager() {
                                 padding: '0.4rem 0.25rem',
                                 textAlign: 'center',
                                 backgroundColor: isToday ? 'rgba(14, 165, 233, 0.05)' : isSat ? 'rgba(245, 158, 11, 0.03)' : isSun ? 'rgba(244, 63, 94, 0.03)' : undefined,
-                                borderLeft: isSat ? '1px dashed rgba(245, 158, 11, 0.15)' : isSun ? '1px dashed rgba(244, 63, 94, 0.15)' : '1px solid rgba(255, 255, 255, 0.03)',
+                                borderLeft: isSat ? '1px dashed rgba(245, 158, 11, 0.15)' : isSun ? '1px dashed rgba(244, 63, 94, 0.15)' : '1px solid var(--border)',
                               }}
                             >
                               <button
@@ -1397,7 +1397,7 @@ export default function ShiftsManager() {
               style={{
                 padding: '0.85rem 1.5rem',
                 borderTop: '1px solid var(--border)',
-                backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                backgroundColor: 'var(--bg-main)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -1426,7 +1426,7 @@ export default function ShiftsManager() {
             <div
               style={{
                 padding: '0.85rem 1.5rem',
-                backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                backgroundColor: 'var(--bg-main)',
                 borderBottom: '1px solid var(--border)',
                 display: 'flex',
                 justifyContent: 'space-between',

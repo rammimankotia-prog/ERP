@@ -14,6 +14,7 @@
 
   --bg-main: #f8fafc;
   --bg-card: #ffffff;
+  --card-bg: #ffffff;
   --bg-sidebar: #1e293b;
   --text-main: #0f172a;
   --text-muted: #64748b;
@@ -39,6 +40,7 @@
 .dark {
   --bg-main: #0f172a;
   --bg-card: #1e293b;
+  --card-bg: #1e293b;
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
   --border: #334155;
@@ -52,6 +54,7 @@
   :root:not(.light) {
     --bg-main: #0f172a;
     --bg-card: #1e293b;
+    --card-bg: #1e293b;
     --text-main: #f1f5f9;
     --text-muted: #94a3b8;
     --border: #334155;

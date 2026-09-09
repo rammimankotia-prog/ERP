@@ -591,7 +591,7 @@ export default function LeaveManagement() {
                       backgroundColor: isSelected
                         ? 'rgba(59, 130, 246, 0.18)'
                         : hasLeave
-                        ? 'rgba(30, 41, 59, 0.95)'
+                        ? 'rgba(59, 130, 246, 0.08)'
                         : isToday
                         ? 'rgba(37, 99, 235, 0.1)'
                         : 'var(--bg-main)',
@@ -816,7 +816,7 @@ export default function LeaveManagement() {
 
           {/* Detailed Selected Date Breakdown Card */}
           <div className="card" style={{
-            background: 'linear-gradient(180deg, var(--bg-card), rgba(15, 23, 42, 0.8))',
+            backgroundColor: 'var(--bg-card)',
             border: '1px solid var(--border)'
           }}>
             <div style={{
@@ -957,7 +957,7 @@ export default function LeaveManagement() {
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.25rem' }}>
                         <span style={{ color: 'var(--text-muted)' }}>Reason:</span>
-                        <span style={{ color: 'var(--text-main)', fontStyle: 'italic', background: 'rgba(0,0,0,0.15)', padding: '0.35rem 0.5rem', borderRadius: '4px' }}>
+                        <span style={{ color: 'var(--text-main)', fontStyle: 'italic', background: 'var(--bg-main)', border: '1px solid var(--border)', padding: '0.35rem 0.5rem', borderRadius: '4px' }}>
                           "{req.reason}"
                         </span>
                       </div>

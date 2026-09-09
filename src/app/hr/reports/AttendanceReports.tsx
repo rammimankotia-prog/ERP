@@ -360,9 +360,8 @@ export default function AttendanceReports() {
           flexWrap: 'wrap',
           gap: '1rem',
           padding: '1.25rem 1.5rem',
-          background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9))',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.3)'
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
         }}
       >
         <div>
@@ -381,10 +380,10 @@ export default function AttendanceReports() {
         <div
           style={{
             display: 'inline-flex',
-            backgroundColor: 'rgba(0, 0, 0, 0.35)',
+            backgroundColor: 'var(--bg-main)',
             padding: '4px',
             borderRadius: '10px',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
+            border: '1px solid var(--border)'
           }}
         >
           <button
@@ -786,7 +785,7 @@ export default function AttendanceReports() {
             alignItems: 'center',
             padding: '1rem 1.5rem',
             borderBottom: '1px solid var(--border)',
-            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            backgroundColor: 'var(--bg-main)',
             flexWrap: 'wrap',
             gap: '0.75rem'
           }}
@@ -858,7 +857,7 @@ export default function AttendanceReports() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
               <thead>
-                <tr style={{ backgroundColor: 'rgba(0, 0, 0, 0.25)', borderBottom: '1px solid var(--border)' }}>
+                <tr style={{ backgroundColor: 'var(--bg-main)', borderBottom: '1px solid var(--border)' }}>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Employee</th>
                   <th style={{ padding: '0.85rem 0.75rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Branch & Dept</th>
                   <th style={{ padding: '0.85rem 0.75rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Shift</th>
@@ -1015,7 +1014,7 @@ export default function AttendanceReports() {
                             style={{
                               width: '45px',
                               height: '6px',
-                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                              backgroundColor: 'var(--border)',
                               borderRadius: '3px',
                               overflow: 'hidden'
                             }}
@@ -1055,7 +1054,7 @@ export default function AttendanceReports() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
               <thead>
-                <tr style={{ backgroundColor: 'rgba(0, 0, 0, 0.25)', borderBottom: '1px solid var(--border)' }}>
+                <tr style={{ backgroundColor: 'var(--bg-main)', borderBottom: '1px solid var(--border)' }}>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Date & Day</th>
                   <th style={{ padding: '0.85rem 0.75rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Employee</th>
                   <th style={{ padding: '0.85rem 0.75rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Shift</th>
