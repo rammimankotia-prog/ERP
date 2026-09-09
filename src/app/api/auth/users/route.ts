@@ -15,8 +15,6 @@ const MASTER_ADMIN_PERMISSIONS = {
     payroll: { view: true, edit: true },
     reports: { view: true },
   },
-  quotations: { view: true, edit: true, delete: true },
-  fleet: { view: true, edit: true },
   userAccess: { view: true, edit: true },
   settings: { view: true, edit: true },
 };

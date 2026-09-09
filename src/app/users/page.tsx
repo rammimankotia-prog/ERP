@@ -14,8 +14,6 @@ interface PermissionSet {
     payroll?: { view?: boolean; edit?: boolean };
     reports?: { view?: boolean };
   };
-  quotations?: { view?: boolean; edit?: boolean; delete?: boolean };
-  fleet?: { view?: boolean; edit?: boolean };
   userAccess?: { view?: boolean; edit?: boolean };
   settings?: { view?: boolean; edit?: boolean };
 }
@@ -40,8 +38,6 @@ const EMPTY_PERMISSIONS: PermissionSet = {
     payroll: { view: false, edit: false },
     reports: { view: false },
   },
-  quotations: { view: false, edit: false, delete: false },
-  fleet: { view: false, edit: false },
   userAccess: { view: false, edit: false },
   settings: { view: false, edit: false },
 };
@@ -87,21 +83,6 @@ const PERMISSION_MODULES = [
     label: 'HR — Reports', key: 'hr.reports',
     actions: [
       { key: 'view', label: 'View' },
-    ]
-  },
-  {
-    label: 'Quotations', key: 'quotations',
-    actions: [
-      { key: 'view', label: 'View' },
-      { key: 'edit', label: 'Edit' },
-      { key: 'delete', label: 'Delete' },
-    ]
-  },
-  {
-    label: 'Fleet Manager', key: 'fleet',
-    actions: [
-      { key: 'view', label: 'View' },
-      { key: 'edit', label: 'Edit' },
     ]
   },
   {

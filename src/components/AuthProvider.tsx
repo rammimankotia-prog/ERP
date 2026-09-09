@@ -13,8 +13,6 @@ export interface UserPermissions {
     payroll?: { view?: boolean; edit?: boolean };
     reports?: { view?: boolean };
   };
-  quotations?: { view?: boolean; edit?: boolean; delete?: boolean };
-  fleet?: { view?: boolean; edit?: boolean };
   userAccess?: { view?: boolean; edit?: boolean };
   settings?: { view?: boolean; edit?: boolean };
 }
@@ -39,8 +37,6 @@ export const MASTER_ADMIN_PERMISSIONS: UserPermissions = {
     payroll: { view: true, edit: true },
     reports: { view: true },
   },
-  quotations: { view: true, edit: true, delete: true },
-  fleet: { view: true, edit: true },
   userAccess: { view: true, edit: true },
   settings: { view: true, edit: true },
 };

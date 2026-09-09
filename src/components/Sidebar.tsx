@@ -52,14 +52,6 @@ export default function Sidebar() {
           </>
         )}
 
-        {canSee('quotations') && (
-          <NavLink href="/quotations" icon="📝" label="Quotations" active={pathname.startsWith('/quotations')} theme={theme} />
-        )}
-
-        {canSee('fleet') && (
-          <NavLink href="/fleet" icon="🚗" label="Fleet Manager" active={pathname === '/fleet'} theme={theme} />
-        )}
-
         <div style={{ margin: '1.5rem 0.5rem', borderTop: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }} />
 
         {canSee('userAccess') && (
