@@ -200,6 +200,8 @@ export async function getEmployeeById(id: string) {
 export async function createEmployee(data: {
   firstName: string
   lastName: string
+  email: string
+  password: string
   contactNo: string
   branchId: string
   departmentId: string

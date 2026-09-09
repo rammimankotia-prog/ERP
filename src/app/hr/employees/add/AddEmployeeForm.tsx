@@ -55,18 +55,22 @@ export default function AddEmployeeForm({
       const departmentId = formData.get('departmentId') as string
       const firstName = (formData.get('firstName') as string)?.trim()
       const lastName = (formData.get('lastName') as string)?.trim()
+      const email = (formData.get('email') as string)?.trim()
+      const password = (formData.get('password') as string)?.trim()
       const contactNo = (formData.get('contactNo') as string)?.trim()
       const designation = (formData.get('designation') as string)?.trim()
       const dojStr = formData.get('doj') as string
       const dobStr = formData.get('dob') as string
 
-      if (!firstName || !lastName || !contactNo || !branchId || !departmentId || !designation) {
+      if (!firstName || !lastName || !email || !password || !contactNo || !branchId || !departmentId || !designation) {
         throw new Error('Please fill in all required fields.')
       }
 
       await createEmployee({
         firstName,
         lastName,
+        email,
+        password,
         contactNo,
         branchId,
         departmentId,
@@ -201,6 +205,56 @@ export default function AddEmployeeForm({
               name="lastName"
               type="text"
               placeholder="e.g. Mankotia"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Email Address */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Email (Kiosk Login) <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <input
+              required
+              name="email"
+              type="email"
+              placeholder="e.g. name@godwinhotels.com"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Password */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Password (Kiosk Login) <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <input
+              required
+              name="password"
+              type="text"
+              placeholder="e.g. Godwin@123"
               className="form-input"
               style={{
                 width: '100%',
