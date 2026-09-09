@@ -54,11 +54,11 @@ export default function Sidebar() {
 
       <style jsx>{`
         .sidebar {
-          color: ${theme === 'light' ? '#64748b' : '#94a3b8'};
+          color: ${theme === 'light' ? '#374151' : '#94a3b8'};
         }
         .nav-link-hover:hover {
-          background-color: ${theme === 'light' ? 'rgba(59, 130, 246, 0.05)' : 'rgba(255, 255, 255, 0.05)'} !important;
-          color: ${theme === 'light' ? '#2563eb' : 'white'} !important;
+          background-color: ${theme === 'light' ? 'rgba(37, 99, 235, 0.08)' : 'rgba(255, 255, 255, 0.07)'} !important;
+          color: ${theme === 'light' ? '#1d4ed8' : 'white'} !important;
         }
       `}</style>
     </aside>
@@ -102,10 +102,14 @@ function SubLink({ href, label, active, theme }: { href: string; label: string; 
       padding: '0.45rem 0.75rem',
       borderRadius: '8px',
       textDecoration: 'none',
-      color: active ? (isLight ? '#2563eb' : '#93c5fd') : (isLight ? '#64748b' : '#64748b'),
-      background: active ? (isLight ? 'rgba(37, 99, 235, 0.08)' : 'rgba(37, 99, 235, 0.12)') : 'transparent',
+      color: active
+        ? (isLight ? '#1d4ed8' : '#93c5fd')
+        : (isLight ? '#374151' : '#94a3b8'),
+      background: active
+        ? (isLight ? 'rgba(37, 99, 235, 0.1)' : 'rgba(37, 99, 235, 0.15)')
+        : 'transparent',
       fontSize: '0.825rem',
-      fontWeight: active ? 700 : 400,
+      fontWeight: active ? 700 : 500,
       transition: 'all 0.15s',
     }}
     className={active ? '' : 'nav-link-hover'}
@@ -114,4 +118,5 @@ function SubLink({ href, label, active, theme }: { href: string; label: string; 
     </Link>
   );
 }
+
 
