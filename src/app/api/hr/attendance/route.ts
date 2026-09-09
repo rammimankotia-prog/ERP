@@ -1,45 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import fs from 'fs'
+import path from 'path'
 
-const prisma = new PrismaClient()
+const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
+const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
+const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
 
-// GET /api/hr/attendance?employeeId=&date=&from=&to=&branch=
+function readJson<T>(file: string, fallback: T): T {
+  try {
+    if (fs.existsSync(file)) {
+      return JSON.parse(fs.readFileSync(file, 'utf-8'))
+    }
+  } catch {}
+  return fallback
+}
+
+// GET /api/hr/attendance?date=2024-05-15
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const employeeId = searchParams.get('employeeId')
-  const date = searchParams.get('date')
-  const from = searchParams.get('from')
-  const to = searchParams.get('to')
-  const branchId = searchParams.get('branch')
+  const dateStr = searchParams.get('date') || new Date().toISOString().split('T')[0]
 
   try {
-    let where: any = {}
+    const employees = readJson<any[]>(EMPLOYEES_FILE, [])
+    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, [])
 
-    if (employeeId) where.employeeId = employeeId
-    if (date) where.date = new Date(date)
-    if (from || to) {
-      where.date = {}
-      if (from) where.date.gte = new Date(from)
-      if (to) where.date.lte = new Date(to)
-    }
+    const todayAttendance = allAttendance.filter(a => a.date === dateStr)
 
-    // Branch-level filter needs employee join
-    const logs = await prisma.attendanceLog.findMany({
-      where,
-      orderBy: { date: 'desc' },
-      take: 500
+    // Combine employees with their attendance
+    const teamAttendance = employees.map(emp => {
+      const record = todayAttendance.find(a => a.employeeId === emp.employeeId || a.employeeId === emp.id)
+      return {
+        employeeId: emp.employeeId || emp.id,
+        employeeName: `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+        department: emp.department?.name || emp.departmentId || 'Unassigned',
+        designation: emp.designation || 'Staff',
+        status: record ? record.status : 'ABSENT', // Default absent if no punch in
+        punchIn: record ? record.punchIn : null,
+        punchOut: record ? record.punchOut : null,
+        totalMinutes: record ? record.totalMinutes : null,
+        punchInMode: record ? record.punchInMode : null
+      }
     })
 
-    return NextResponse.json({ logs })
+    return NextResponse.json({ date: dateStr, logs: teamAttendance })
   } catch (e) {
-    // Mock data for development
-    const today = new Date().toISOString().split('T')[0]
-    return NextResponse.json({
-      logs: [
-        { id: 'mock-1', employeeId: 'mock-emp-1', date: today, punchIn: `${today}T09:05:00Z`, punchOut: `${today}T18:10:00Z`, status: 'PRESENT', totalMinutes: 545, overtimeMinutes: 65, punchInMode: 'WEB' },
-        { id: 'mock-2', employeeId: 'mock-emp-2', date: today, punchIn: `${today}T09:45:00Z`, punchOut: null, status: 'LATE', totalMinutes: null, overtimeMinutes: 0, punchInMode: 'GEO' },
-      ],
-      _mock: true
-    })
+    return NextResponse.json({ error: 'Failed to fetch attendance data' }, { status: 500 })
   }
 }
