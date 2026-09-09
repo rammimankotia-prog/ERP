@@ -31,14 +31,39 @@ const MOCK_EMPLOYEES = [
   { id: 'e5', name: 'Amit Singh', designation: 'Accounts' },
 ]
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
 const INITIAL_ROSTER: Record<string, Record<string, string>> = {
   'e1': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Morning Shift', Thu: 'Morning Shift', Fri: 'Morning Shift', Sat: 'OFF', Sun: 'OFF' },
   'e2': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Break Shift', Thu: 'Break Shift', Fri: 'Morning Shift', Sat: 'Morning Shift', Sun: 'OFF' },
   'e3': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Morning Shift', Thu: 'Morning Shift', Fri: 'Night Shift', Sat: 'Night Shift', Sun: 'OFF' },
   'e4': { Mon: 'Night Shift', Tue: 'Night Shift', Wed: 'Night Shift', Thu: 'OFF', Fri: 'Night Shift', Sat: 'Night Shift', Sun: 'Night Shift' },
   'e5': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Morning Shift', Thu: 'Morning Shift', Fri: 'Morning Shift', Sat: 'OFF', Sun: 'OFF' },
+}
+
+// Helper to get Monday of any date
+function getMonday(d: Date): Date {
+  const date = new Date(d)
+  const day = date.getDay()
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
+  date.setDate(diff)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+
+// Format week range: e.g. "07 Sep – 13 Sep 2026"
+function formatWeekRange(startMonday: Date): string {
+  const endSunday = new Date(startMonday)
+  endSunday.setDate(startMonday.getDate() + 6)
+
+  const startDay = startMonday.getDate().toString().padStart(2, '0')
+  const startMonth = startMonday.toLocaleDateString('en-GB', { month: 'short' })
+  const endDay = endSunday.getDate().toString().padStart(2, '0')
+  const endMonth = endSunday.toLocaleDateString('en-GB', { month: 'short' })
+  const year = endSunday.getFullYear()
+
+  if (startMonth === endMonth) {
+    return `${startDay} – ${endDay} ${startMonth} ${year}`
+  }
+  return `${startDay} ${startMonth} – ${endDay} ${endMonth} ${year}`
 }
 
 export default function ShiftsManager() {
@@ -48,6 +73,39 @@ export default function ShiftsManager() {
   const [editingShiftId, setEditingShiftId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+
+  // Live Local Time
+  const [currentTime, setCurrentTime] = useState<string>('')
+  const [currentDateStr, setCurrentDateStr] = useState<string>('')
+
+  // Calendar / Week State
+  const [selectedMonday, setSelectedMonday] = useState<Date>(() => getMonday(new Date()))
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date()
+      setCurrentTime(
+        now.toLocaleTimeString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true,
+        })
+      )
+      setCurrentDateStr(
+        now.toLocaleDateString('en-IN', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      )
+    }
+
+    updateClock()
+    const timer = setInterval(updateClock, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Form states
   const [form, setForm] = useState({
@@ -70,7 +128,6 @@ export default function ShiftsManager() {
         if (d.shifts && d.shifts.length > 0) {
           setShifts(d.shifts)
         } else {
-          // Default initial shifts
           setShifts([
             { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' },
             { id: 'shift-2', name: 'Break Shift', type: 'BREAK', startTime: '10:00', endTime: '22:00', firstSlot: '10:00 – 14:00', secondSlot: '18:00 – 22:00', breakTime: '14:00 – 18:00', graceMinutes: 15, branchId: 'mock-1' },
@@ -122,7 +179,6 @@ export default function ShiftsManager() {
   }
 
   const handleEditShift = (shift: Shift) => {
-    const isBreak = shift.type === 'BREAK' || shift.type === 'SPLIT'
     let mStart = '10:00'
     let mEnd = '14:00'
     let eStart = '18:00'
@@ -181,7 +237,6 @@ export default function ShiftsManager() {
 
     try {
       if (editingShiftId) {
-        // Edit in state
         setShifts(prev =>
           prev.map(s =>
             s.id === editingShiftId
@@ -252,6 +307,59 @@ export default function ShiftsManager() {
     }))
   }
 
+  // Week calculation helpers
+  const handlePrevWeek = () => {
+    setSelectedMonday(prev => {
+      const n = new Date(prev)
+      n.setDate(n.getDate() - 7)
+      return n
+    })
+  }
+
+  const handleNextWeek = () => {
+    setSelectedMonday(prev => {
+      const n = new Date(prev)
+      n.setDate(n.getDate() + 7)
+      return n
+    })
+  }
+
+  const handleToday = () => {
+    setSelectedMonday(getMonday(new Date()))
+  }
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value) {
+      const parts = e.target.value.split('-')
+      if (parts.length === 3) {
+        const picked = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+        setSelectedMonday(getMonday(picked))
+      }
+    }
+  }
+
+  // Generate 7 days for the current week view
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const today = new Date()
+  const todayDay = today.getDate()
+  const todayMonth = today.getMonth()
+  const todayYear = today.getFullYear()
+
+  const weekDays = dayNames.map((dayName, idx) => {
+    const d = new Date(selectedMonday)
+    d.setDate(selectedMonday.getDate() + idx)
+    const isToday =
+      d.getDate() === todayDay && d.getMonth() === todayMonth && d.getFullYear() === todayYear
+
+    return {
+      dayKey: dayName,
+      label: dayName,
+      dateNum: d.getDate().toString().padStart(2, '0'),
+      monthName: d.toLocaleDateString('en-GB', { month: 'short' }),
+      isToday,
+    }
+  })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {message && (
@@ -274,7 +382,7 @@ export default function ShiftsManager() {
         </div>
       )}
 
-      {/* Shifts Cards */}
+      {/* Shifts Cards Header & List */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
@@ -640,35 +748,229 @@ export default function ShiftsManager() {
         </div>
       </div>
 
-      {/* Weekly Roster Grid */}
+      {/* Weekly Roster Grid Card */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div
+          style={{
+            padding: '1.25rem 1.5rem',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem',
+          }}
+        >
           <div>
-            <h2 style={{ color: 'var(--text-main)', margin: '0 0 0.25rem 0' }}>Weekly Roster</h2>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Click any shift cell to toggle schedule between Morning, Break, Night, and OFF</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+              <h2 style={{ color: 'var(--text-main)', margin: 0 }}>Weekly Roster</h2>
+              {/* Shift Legend */}
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', fontSize: '0.72rem' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--success)' }}></span> Morning
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0ea5e9' }}></span> Break
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#8b5cf6' }}></span> Night
+                </span>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Click any shift cell to toggle duty between Morning, Break, Night, and OFF
+            </span>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.75rem' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--success)' }}></span> Morning
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0ea5e9' }}></span> Break
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#8b5cf6' }}></span> Night
-            </span>
+
+          {/* Calendar & Local Time Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {/* Live Local Time Pill */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.4rem 0.85rem',
+                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.82rem',
+                color: 'var(--success)',
+                fontWeight: 600,
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '0.3px',
+              }}
+              title={`Local Date: ${currentDateStr}`}
+            >
+              <span
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--success)',
+                  display: 'inline-block',
+                  boxShadow: '0 0 8px var(--success)',
+                }}
+              />
+              <span>🕒 Local Time: <b>{currentTime || '--:--:--'}</b></span>
+            </div>
+
+            {/* Interactive Calendar Week Selector */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: 'var(--bg-main)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0.2rem 0.35rem',
+                gap: '0.25rem',
+              }}
+            >
+              <button
+                type="button"
+                onClick={handlePrevWeek}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '0.3rem 0.55rem',
+                  borderRadius: '4px',
+                  color: 'var(--text-main)',
+                  fontSize: '0.95rem',
+                  fontWeight: 'bold',
+                }}
+                title="Previous Week"
+              >
+                ‹
+              </button>
+
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    cursor: 'pointer',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  }}
+                  title="Click to open Calendar picker"
+                >
+                  <span style={{ fontSize: '0.9rem' }}>📅</span>
+                  <span>{formatWeekRange(selectedMonday)}</span>
+                  <input
+                    type="date"
+                    onChange={handleDateChange}
+                    style={{
+                      position: 'absolute',
+                      opacity: 0,
+                      width: '100%',
+                      height: '100%',
+                      left: 0,
+                      top: 0,
+                      cursor: 'pointer',
+                    }}
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleNextWeek}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '0.3rem 0.55rem',
+                  borderRadius: '4px',
+                  color: 'var(--text-main)',
+                  fontSize: '0.95rem',
+                  fontWeight: 'bold',
+                }}
+                title="Next Week"
+              >
+                ›
+              </button>
+
+              <button
+                type="button"
+                onClick={handleToday}
+                style={{
+                  padding: '0.25rem 0.6rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  borderRadius: '4px',
+                  backgroundColor: 'var(--primary)',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  marginLeft: '0.2rem',
+                }}
+                title="Jump to Current Week"
+              >
+                Current Week
+              </button>
+            </div>
           </div>
         </div>
+
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ backgroundColor: 'var(--bg-main)' }}>
               <tr>
-                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: '170px' }}>
+                <th
+                  style={{
+                    padding: '0.875rem 1.25rem',
+                    textAlign: 'left',
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                    fontSize: '0.8rem',
+                    whiteSpace: 'nowrap',
+                    minWidth: '170px',
+                  }}
+                >
                   Employee
                 </th>
-                {DAYS.map(d => (
-                  <th key={d} style={{ padding: '0.875rem 1rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                    {d}
+                {weekDays.map(d => (
+                  <th
+                    key={d.dayKey}
+                    style={{
+                      padding: '0.75rem 0.85rem',
+                      textAlign: 'center',
+                      fontWeight: 600,
+                      color: d.isToday ? '#38bdf8' : 'var(--text-muted)',
+                      fontSize: '0.8rem',
+                      backgroundColor: d.isToday ? 'rgba(14, 165, 233, 0.08)' : undefined,
+                      borderBottom: d.isToday ? '2px solid #0ea5e9' : undefined,
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{d.label}</span>
+                      <span style={{ fontSize: '0.72rem', opacity: d.isToday ? 1 : 0.7 }}>
+                        {d.dateNum} {d.monthName}
+                      </span>
+                      {d.isToday && (
+                        <span
+                          style={{
+                            fontSize: '0.62rem',
+                            padding: '1px 6px',
+                            borderRadius: '999px',
+                            backgroundColor: '#0ea5e9',
+                            color: '#fff',
+                            fontWeight: 700,
+                            marginTop: '0.15rem',
+                            letterSpacing: '0.4px',
+                          }}
+                        >
+                          TODAY
+                        </span>
+                      )}
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -680,12 +982,11 @@ export default function ShiftsManager() {
                     <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>{emp.name}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{emp.designation}</div>
                   </td>
-                  {DAYS.map(day => {
-                    const assignment = roster[emp.id]?.[day] || 'Unassigned'
+                  {weekDays.map(d => {
+                    const assignment = roster[emp.id]?.[d.dayKey] || 'Unassigned'
                     const isOff = assignment === 'OFF'
                     const isNight = assignment === 'Night Shift'
                     const isBreak = assignment === 'Break Shift'
-                    const isMorning = assignment === 'Morning Shift'
 
                     const bgColor = isOff
                       ? 'rgba(100, 116, 139, 0.1)'
@@ -708,10 +1009,17 @@ export default function ShiftsManager() {
                       : 'transparent'
 
                     return (
-                      <td key={day} style={{ padding: '0.75rem', textAlign: 'center' }}>
+                      <td
+                        key={d.dayKey}
+                        style={{
+                          padding: '0.75rem',
+                          textAlign: 'center',
+                          backgroundColor: d.isToday ? 'rgba(14, 165, 233, 0.02)' : undefined,
+                        }}
+                      >
                         <button
                           type="button"
-                          onClick={() => cycleRosterShift(emp.id, day)}
+                          onClick={() => cycleRosterShift(emp.id, d.dayKey)}
                           style={{
                             padding: '0.35rem 0.6rem',
                             borderRadius: 'var(--radius-sm)',
@@ -724,7 +1032,7 @@ export default function ShiftsManager() {
                             cursor: 'pointer',
                             transition: 'all 0.15s ease-in-out',
                           }}
-                          title="Click to change shift"
+                          title="Click to toggle shift (Morning -> Break -> Night -> OFF)"
                         >
                           {isOff ? '—' : assignment.replace(' Shift', '')}
                         </button>
@@ -740,4 +1048,3 @@ export default function ShiftsManager() {
     </div>
   )
 }
-
