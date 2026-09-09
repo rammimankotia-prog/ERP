@@ -19,11 +19,86 @@ export async function GET(req: NextRequest) {
     })
     return NextResponse.json({ requests })
   } catch {
+    const allMockRequests = [
+      {
+        id: 'leave-2',
+        employeeId: 'e2',
+        employeeName: 'Priya Sharma',
+        designation: 'Front Desk Executive',
+        leaveType: { name: 'Sick Leave', category: 'SICK' },
+        fromDate: '2026-09-05',
+        toDate: '2026-09-06',
+        totalDays: 2,
+        reason: 'Viral Fever & Medical Rest',
+        status: 'APPROVED',
+        approvedAt: '2026-09-04T10:00:00.000Z',
+        createdAt: '2026-09-04T09:00:00.000Z'
+      },
+      {
+        id: 'leave-3',
+        employeeId: 'e3',
+        employeeName: 'Rajiv Kumar',
+        designation: 'Housekeeping Supervisor',
+        leaveType: { name: 'Casual Leave', category: 'CASUAL' },
+        fromDate: '2026-09-09',
+        toDate: '2026-09-10',
+        totalDays: 2,
+        reason: 'Urgent Family Work at Village',
+        status: 'APPROVED',
+        approvedAt: '2026-09-08T11:30:00.000Z',
+        createdAt: '2026-09-08T08:00:00.000Z'
+      },
+      {
+        id: 'leave-4',
+        employeeId: 'e4',
+        employeeName: 'Sunita Verma',
+        designation: 'Security Officer',
+        leaveType: { name: 'Earned Leave', category: 'EARNED' },
+        fromDate: '2026-09-09',
+        toDate: '2026-09-11',
+        totalDays: 3,
+        reason: 'Attending Sister Wedding Out of Town',
+        status: 'APPROVED',
+        approvedAt: '2026-09-07T14:00:00.000Z',
+        createdAt: '2026-09-07T10:00:00.000Z'
+      },
+      {
+        id: 'leave-5',
+        employeeId: 'e5',
+        employeeName: 'Amit Singh',
+        designation: 'Accounts Executive',
+        leaveType: { name: 'Casual Leave', category: 'CASUAL' },
+        fromDate: '2026-09-14',
+        toDate: '2026-09-15',
+        totalDays: 2,
+        reason: 'Personal Bank & Government Documentation',
+        status: 'APPROVED',
+        approvedAt: '2026-09-12T16:00:00.000Z',
+        createdAt: '2026-09-12T11:00:00.000Z'
+      },
+      {
+        id: 'leave-1',
+        employeeId: 'e1',
+        employeeName: 'Raman Mankotia',
+        designation: 'General Manager',
+        leaveType: { name: 'Casual Leave', category: 'CASUAL' },
+        fromDate: '2026-09-24',
+        toDate: '2026-09-25',
+        totalDays: 2,
+        reason: 'Hotel Operations Conference & Personal Work',
+        status: 'PENDING',
+        createdAt: '2026-09-09T09:30:00.000Z'
+      },
+    ]
+
+    const filtered = allMockRequests.filter(r => {
+      if (employeeId && r.employeeId !== employeeId) return false
+      if (status && r.status !== status) return false
+      return true
+    })
+
     return NextResponse.json({
-      requests: [
-        { id: 'leave-1', employeeId: 'mock-emp-1', leaveType: { name: 'Casual Leave', category: 'CASUAL' }, fromDate: '2026-09-10', toDate: '2026-09-11', totalDays: 2, reason: 'Personal work', status: 'PENDING', createdAt: new Date() },
-        { id: 'leave-2', employeeId: 'mock-emp-2', leaveType: { name: 'Sick Leave', category: 'SICK' }, fromDate: '2026-09-05', toDate: '2026-09-06', totalDays: 2, reason: 'Fever', status: 'APPROVED', approvedAt: new Date(), createdAt: new Date() },
-      ],
+      requests: filtered,
       _mock: true
     })
   }

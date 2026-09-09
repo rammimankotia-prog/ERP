@@ -29,6 +29,11 @@ export default function AddEmployeeForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedBranchId, setSelectedBranchId] = useState<string>(branches[0]?.id || '')
+  const [selectedShift, setSelectedShift] = useState<'MORNING' | 'BREAK' | 'NIGHT'>('MORNING')
+  const [morningTime, setMorningTime] = useState('09:00')
+  const [eveningTime, setEveningTime] = useState('18:00')
+  const [breakStart, setBreakStart] = useState('14:00')
+  const [breakEnd, setBreakEnd] = useState('18:00')
 
   const selectedBranch = branches.find((b) => b.id === selectedBranchId)
 
@@ -627,61 +632,259 @@ export default function AddEmployeeForm({
           </div>
         </div>
 
+        {/* Shift Toggle Buttons */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '1.25rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '0.85rem',
+            marginBottom: '1.25rem',
           }}
         >
-          {/* Morning Report Time */}
-          <div className="form-group">
-            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
-              Morning Report Time (In-Time)
-            </label>
-            <input
-              name="morningTime"
-              type="time"
-              defaultValue="09:00"
-              className="form-input"
-              style={{
-                width: '100%',
-                height: '42px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--bg-main)',
-                color: 'var(--text-main)',
-                fontSize: '0.9rem',
-                outline: 'none',
-              }}
-            />
-          </div>
+          {/* Morning Shift Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedShift('MORNING')
+              setMorningTime('09:00')
+              setEveningTime('18:00')
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '10px',
+              border: selectedShift === 'MORNING' ? '2px solid #10b981' : '1px solid var(--border)',
+              backgroundColor: selectedShift === 'MORNING' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-main)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.35rem',
+              transition: 'all 0.2s ease',
+              textAlign: 'center',
+            }}
+          >
+            <span style={{ fontSize: '1.4rem' }}>☀️</span>
+            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'MORNING' ? '#10b981' : 'var(--text-main)' }}>
+              Morning Shift
+            </span>
+            <span style={{ fontSize: '0.75rem', color: selectedShift === 'MORNING' ? '#10b981' : 'var(--text-muted)' }}>
+              09:00 AM – 06:00 PM
+            </span>
+          </button>
 
-          {/* Evening Report Time */}
-          <div className="form-group">
-            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
-              Evening Departure Time (Out-Time)
-            </label>
-            <input
-              name="eveningTime"
-              type="time"
-              defaultValue="18:00"
-              className="form-input"
-              style={{
-                width: '100%',
-                height: '42px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--bg-main)',
-                color: 'var(--text-main)',
-                fontSize: '0.9rem',
-                outline: 'none',
-              }}
-            />
-          </div>
+          {/* Break Shift Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedShift('BREAK')
+              setMorningTime('10:00')
+              setEveningTime('22:00')
+              setBreakStart('14:00')
+              setBreakEnd('18:00')
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '10px',
+              border: selectedShift === 'BREAK' ? '2px solid #0ea5e9' : '1px solid var(--border)',
+              backgroundColor: selectedShift === 'BREAK' ? 'rgba(14, 165, 233, 0.12)' : 'var(--bg-main)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.35rem',
+              transition: 'all 0.2s ease',
+              textAlign: 'center',
+            }}
+          >
+            <span style={{ fontSize: '1.4rem' }}>☕</span>
+            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'BREAK' ? '#38bdf8' : 'var(--text-main)' }}>
+              Break Shift
+            </span>
+            <span style={{ fontSize: '0.75rem', color: selectedShift === 'BREAK' ? '#38bdf8' : 'var(--text-muted)' }}>
+              10:00–14:00 & 18:00–22:00
+            </span>
+          </button>
+
+          {/* Night Shift Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedShift('NIGHT')
+              setMorningTime('22:00')
+              setEveningTime('07:00')
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '10px',
+              border: selectedShift === 'NIGHT' ? '2px solid #8b5cf6' : '1px solid var(--border)',
+              backgroundColor: selectedShift === 'NIGHT' ? 'rgba(139, 92, 246, 0.12)' : 'var(--bg-main)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.35rem',
+              transition: 'all 0.2s ease',
+              textAlign: 'center',
+            }}
+          >
+            <span style={{ fontSize: '1.4rem' }}>🌙</span>
+            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'NIGHT' ? '#8b5cf6' : 'var(--text-main)' }}>
+              Night Shift
+            </span>
+            <span style={{ fontSize: '0.75rem', color: selectedShift === 'NIGHT' ? '#8b5cf6' : 'var(--text-muted)' }}>
+              10:00 PM – 07:00 AM
+            </span>
+          </button>
         </div>
+
+        {/* Selected Shift Timing Detail Card */}
+        {selectedShift === 'BREAK' ? (
+          <div
+            style={{
+              padding: '1.25rem',
+              backgroundColor: 'rgba(14, 165, 233, 0.05)',
+              border: '1px solid rgba(14, 165, 233, 0.25)',
+              borderRadius: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.95rem' }}>
+                ☕ Break Shift Timing Setup
+              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                4 hrs Morning Duty + 4 hrs Afternoon Break + 4 hrs Evening Duty
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              {/* Part 1 (Morning) */}
+              <div style={{ padding: '0.85rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#38bdf8', marginBottom: '0.5rem' }}>
+                  🌅 Morning Slot (Part 1)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
+                    <input
+                      name="morningTime"
+                      type="time"
+                      value={morningTime}
+                      onChange={e => setMorningTime(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Out-Time</label>
+                    <input
+                      type="time"
+                      value={breakStart}
+                      onChange={e => setBreakStart(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Part 2 (Evening) */}
+              <div style={{ padding: '0.85rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f59e0b', marginBottom: '0.5rem' }}>
+                  🌆 Evening Slot (Part 2)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
+                    <input
+                      type="time"
+                      value={breakEnd}
+                      onChange={e => setBreakEnd(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Out-Time</label>
+                    <input
+                      name="eveningTime"
+                      type="time"
+                      value={eveningTime}
+                      onChange={e => setEveningTime(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+              <span>☕ <b>Afternoon Break Window:</b> {breakStart} – {breakEnd}</span>
+              <span>⏱ <b>Total Working Hours:</b> 8 Hours Duty</span>
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '1.25rem',
+            }}
+          >
+            {/* Morning / Start Report Time */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                {selectedShift === 'NIGHT' ? '🌙 Night Shift In-Time' : '☀️ Morning Shift In-Time'}
+              </label>
+              <input
+                name="morningTime"
+                type="time"
+                value={morningTime}
+                onChange={e => setMorningTime(e.target.value)}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Evening / End Departure Time */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                {selectedShift === 'NIGHT' ? '🌙 Night Shift Out-Time (Next Day)' : '☀️ Morning Shift Out-Time'}
+              </label>
+              <input
+                name="eveningTime"
+                type="time"
+                value={eveningTime}
+                onChange={e => setEveningTime(e.target.value)}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}
