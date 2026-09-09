@@ -4,7 +4,7 @@ import path from 'path'
 
 export const dynamic = 'force-dynamic'
 
-const DATA_DIR = path.join(process.cwd(), 'data')
+const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
 const BRANCHES_FILE = path.join(DATA_DIR, 'hr_branches.json')
 const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')

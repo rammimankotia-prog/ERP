@@ -7,10 +7,32 @@ import path from 'path'
 
 const prisma = new PrismaClient()
 
-const DATA_DIR = path.join(process.cwd(), 'data')
+// Use PERSISTENT_DATA_DIR env var if set (for production persistence outside repo),
+// otherwise fall back to the local data/ folder (works in development).
+const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
 const BRANCHES_FILE = path.join(DATA_DIR, 'hr_branches.json')
 const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')
+
+// Ensure data directory and seed files exist at startup
+;(function ensureDataDir() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true })
+    }
+    // Copy seed files from local data/ if they don't exist in PERSISTENT_DATA_DIR
+    const localDataDir = path.join(process.cwd(), 'data')
+    for (const fname of ['hr_employees.json', 'hr_branches.json', 'hr_departments.json']) {
+      const dest = path.join(DATA_DIR, fname)
+      const src = path.join(localDataDir, fname)
+      if (!fs.existsSync(dest) && fs.existsSync(src)) {
+        fs.copyFileSync(src, dest)
+      }
+    }
+  } catch (e) {
+    console.warn('Warning: Could not initialize data directory:', e)
+  }
+})()
 
 function readJsonFile<T>(filePath: string, fallback: T): T {
   try {
