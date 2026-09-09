@@ -8,6 +8,9 @@ type Shift = {
   type: string
   startTime: string
   endTime: string
+  firstSlot?: string
+  secondSlot?: string
+  breakTime?: string
   graceMinutes: number
   branchId: string
 }
@@ -16,6 +19,8 @@ const SHIFT_TYPE_COLOR: Record<string, string> = {
   FIXED: '#10b981',
   ROTATING: '#f59e0b',
   NIGHT: '#8b5cf6',
+  BREAK: '#0ea5e9',
+  SPLIT: '#0ea5e9',
 }
 
 const MOCK_EMPLOYEES = [
@@ -28,9 +33,9 @@ const MOCK_EMPLOYEES = [
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-const MOCK_ROSTER: Record<string, Record<string, string>> = {
+const INITIAL_ROSTER: Record<string, Record<string, string>> = {
   'e1': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Morning Shift', Thu: 'Morning Shift', Fri: 'Morning Shift', Sat: 'OFF', Sun: 'OFF' },
-  'e2': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Evening Shift', Thu: 'Evening Shift', Fri: 'Morning Shift', Sat: 'Morning Shift', Sun: 'OFF' },
+  'e2': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Break Shift', Thu: 'Break Shift', Fri: 'Morning Shift', Sat: 'Morning Shift', Sun: 'OFF' },
   'e3': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Morning Shift', Thu: 'Morning Shift', Fri: 'Night Shift', Sat: 'Night Shift', Sun: 'OFF' },
   'e4': { Mon: 'Night Shift', Tue: 'Night Shift', Wed: 'Night Shift', Thu: 'OFF', Fri: 'Night Shift', Sat: 'Night Shift', Sun: 'Night Shift' },
   'e5': { Mon: 'Morning Shift', Tue: 'Morning Shift', Wed: 'Morning Shift', Thu: 'Morning Shift', Fri: 'Morning Shift', Sat: 'OFF', Sun: 'OFF' },
@@ -38,126 +43,633 @@ const MOCK_ROSTER: Record<string, Record<string, string>> = {
 
 export default function ShiftsManager() {
   const [shifts, setShifts] = useState<Shift[]>([])
+  const [roster, setRoster] = useState<Record<string, Record<string, string>>>(INITIAL_ROSTER)
   const [showForm, setShowForm] = useState(false)
+  const [editingShiftId, setEditingShiftId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' })
+
+  // Form states
+  const [form, setForm] = useState({
+    name: 'Break Shift',
+    type: 'BREAK',
+    startTime: '10:00',
+    endTime: '22:00',
+    morningStart: '10:00',
+    morningEnd: '14:00',
+    eveningStart: '18:00',
+    eveningEnd: '22:00',
+    graceMinutes: 15,
+    branchId: 'mock-1',
+  })
 
   useEffect(() => {
-    fetch('/api/hr/shifts').then(r => r.json()).then(d => setShifts(d.shifts || [])).catch(() => {})
+    fetch('/api/hr/shifts')
+      .then(r => r.json())
+      .then(d => {
+        if (d.shifts && d.shifts.length > 0) {
+          setShifts(d.shifts)
+        } else {
+          // Default initial shifts
+          setShifts([
+            { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' },
+            { id: 'shift-2', name: 'Break Shift', type: 'BREAK', startTime: '10:00', endTime: '22:00', firstSlot: '10:00 – 14:00', secondSlot: '18:00 – 22:00', breakTime: '14:00 – 18:00', graceMinutes: 15, branchId: 'mock-1' },
+            { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '22:00', endTime: '07:00', graceMinutes: 20, branchId: 'mock-1' },
+          ])
+        }
+      })
+      .catch(() => {
+        setShifts([
+          { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' },
+          { id: 'shift-2', name: 'Break Shift', type: 'BREAK', startTime: '10:00', endTime: '22:00', firstSlot: '10:00 – 14:00', secondSlot: '18:00 – 22:00', breakTime: '14:00 – 18:00', graceMinutes: 15, branchId: 'mock-1' },
+          { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '22:00', endTime: '07:00', graceMinutes: 20, branchId: 'mock-1' },
+        ])
+      })
   }, [])
 
-  const handleCreateShift = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setForm({
+      name: '',
+      type: 'FIXED',
+      startTime: '09:00',
+      endTime: '18:00',
+      morningStart: '10:00',
+      morningEnd: '14:00',
+      eveningStart: '18:00',
+      eveningEnd: '22:00',
+      graceMinutes: 15,
+      branchId: 'mock-1',
+    })
+    setEditingShiftId(null)
+    setShowForm(false)
+  }
+
+  const handleOpenCreateBreakShift = () => {
+    setForm({
+      name: 'Break Shift',
+      type: 'BREAK',
+      startTime: '10:00',
+      endTime: '22:00',
+      morningStart: '10:00',
+      morningEnd: '14:00',
+      eveningStart: '18:00',
+      eveningEnd: '22:00',
+      graceMinutes: 15,
+      branchId: 'mock-1',
+    })
+    setEditingShiftId(null)
+    setShowForm(true)
+  }
+
+  const handleEditShift = (shift: Shift) => {
+    const isBreak = shift.type === 'BREAK' || shift.type === 'SPLIT'
+    let mStart = '10:00'
+    let mEnd = '14:00'
+    let eStart = '18:00'
+    let eEnd = '22:00'
+
+    if (shift.firstSlot) {
+      const parts = shift.firstSlot.split('–').map(s => s.trim())
+      if (parts[0]) mStart = parts[0]
+      if (parts[1]) mEnd = parts[1]
+    }
+    if (shift.secondSlot) {
+      const parts = shift.secondSlot.split('–').map(s => s.trim())
+      if (parts[0]) eStart = parts[0]
+      if (parts[1]) eEnd = parts[1]
+    }
+
+    setForm({
+      name: shift.name,
+      type: shift.type,
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      morningStart: mStart,
+      morningEnd: mEnd,
+      eveningStart: eStart,
+      eveningEnd: eEnd,
+      graceMinutes: shift.graceMinutes,
+      branchId: shift.branchId || 'mock-1',
+    })
+    setEditingShiftId(shift.id)
+    setShowForm(true)
+  }
+
+  const handleDeleteShift = (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete "${name}"?`)) {
+      setShifts(prev => prev.filter(s => s.id !== id))
+      setMessage(`🗑️ Shift "${name}" removed.`)
+    }
+  }
+
+  const handleSaveShift = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+
+    const isBreak = form.type === 'BREAK' || form.type === 'SPLIT'
+    const payload = {
+      name: form.name,
+      type: form.type,
+      startTime: isBreak ? form.morningStart : form.startTime,
+      endTime: isBreak ? form.eveningEnd : form.endTime,
+      firstSlot: isBreak ? `${form.morningStart} – ${form.morningEnd}` : undefined,
+      secondSlot: isBreak ? `${form.eveningStart} – ${form.eveningEnd}` : undefined,
+      breakTime: isBreak ? `${form.morningEnd} – ${form.eveningStart}` : undefined,
+      graceMinutes: form.graceMinutes,
+      branchId: form.branchId,
+    }
+
     try {
-      const res = await fetch('/api/hr/shifts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-role': 'ADMIN' },
-        body: JSON.stringify(form)
-      })
-      const data = await res.json()
-      setShifts(prev => [...prev, data.shift])
-      setMessage('✅ Shift created successfully!')
-      setShowForm(false)
-      setForm({ name: '', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' })
+      if (editingShiftId) {
+        // Edit in state
+        setShifts(prev =>
+          prev.map(s =>
+            s.id === editingShiftId
+              ? {
+                  ...s,
+                  ...payload,
+                }
+              : s
+          )
+        )
+        setMessage('✅ Shift updated successfully!')
+        resetForm()
+      } else {
+        const res = await fetch('/api/hr/shifts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-user-role': 'ADMIN' },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json()
+        const newShift: Shift = data.shift || {
+          id: 'shift-' + Date.now(),
+          ...payload,
+        }
+        setShifts(prev => [...prev, newShift])
+        setMessage('✅ Shift created successfully!')
+        resetForm()
+      }
     } catch {
-      setMessage('✅ Shift created (offline mode)')
-      setShowForm(false)
+      if (editingShiftId) {
+        setShifts(prev =>
+          prev.map(s =>
+            s.id === editingShiftId
+              ? {
+                  ...s,
+                  ...payload,
+                }
+              : s
+          )
+        )
+      } else {
+        setShifts(prev => [
+          ...prev,
+          {
+            id: 'shift-' + Date.now(),
+            ...payload,
+          },
+        ])
+      }
+      setMessage('✅ Saved (offline mode)')
+      resetForm()
     } finally {
       setLoading(false)
     }
   }
 
+  const cycleRosterShift = (empId: string, day: string) => {
+    const shiftOptions = ['Morning Shift', 'Break Shift', 'Night Shift', 'OFF']
+    const current = roster[empId]?.[day] || 'Morning Shift'
+    const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
+    const nextShift = shiftOptions[nextIdx]
+
+    setRoster(prev => ({
+      ...prev,
+      [empId]: {
+        ...prev[empId],
+        [day]: nextShift,
+      },
+    }))
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       {message && (
-        <div style={{ padding: '1rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--success)', display: 'flex', justifyContent: 'space-between' }}>
-          {message}
-          <button onClick={() => setMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>×</button>
+        <div
+          style={{
+            padding: '1rem',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            color: 'var(--success)',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--success)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span>{message}</span>
+          <button onClick={() => setMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1.2rem' }}>
+            ×
+          </button>
         </div>
       )}
 
       {/* Shifts Cards */}
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 style={{ color: 'var(--text-main)' }}>Defined Shifts</h2>
-          <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-            {showForm ? 'Cancel' : '+ New Shift'}
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h2 style={{ color: 'var(--text-main)', margin: 0 }}>Defined Shifts</h2>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Hotel staff schedules with Fixed, Split / Break, and Night duties</span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              className="btn btn-secondary"
+              onClick={handleOpenCreateBreakShift}
+              style={{
+                borderColor: '#0ea5e9',
+                color: '#38bdf8',
+                backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
+            >
+              <span>☕ + Break Shift</span>
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                if (showForm) {
+                  resetForm()
+                } else {
+                  resetForm()
+                  setShowForm(true)
+                }
+              }}
+            >
+              {showForm ? 'Cancel' : '+ New Shift'}
+            </button>
+          </div>
         </div>
 
         {showForm && (
-          <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ color: 'var(--text-main)', marginBottom: '1.5rem' }}>Create New Shift</h3>
-            <form onSubmit={handleCreateShift} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              <div className="form-group">
-                <label>Shift Name *</label>
-                <input required className="form-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Morning Shift" />
+          <div className="card" style={{ marginBottom: '1.5rem', border: '1px solid var(--primary)', animation: 'fadeIn 0.2s ease-in-out' }}>
+            <h3 style={{ color: 'var(--text-main)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {editingShiftId ? '✏️ Edit Shift' : '✨ Create New Shift'}
+            </h3>
+            <form onSubmit={handleSaveShift} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                <div className="form-group">
+                  <label>Shift Name *</label>
+                  <input
+                    required
+                    className="form-input"
+                    value={form.name}
+                    onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g. Break Shift, Morning Shift"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Shift Type *</label>
+                  <select
+                    className="form-input"
+                    value={form.type}
+                    onChange={e => {
+                      const newType = e.target.value
+                      setForm(p => ({
+                        ...p,
+                        type: newType,
+                        name: newType === 'BREAK' && (!p.name || p.name === 'Morning Shift' || p.name === 'Evening Shift') ? 'Break Shift' : p.name,
+                      }))
+                    }}
+                  >
+                    <option value="BREAK">Break / Split Shift (Morning + Evening)</option>
+                    <option value="FIXED">Fixed Regular Shift</option>
+                    <option value="ROTATING">Rotating Shift</option>
+                    <option value="NIGHT">Night Shift</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Grace Period (Minutes)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    className="form-input"
+                    value={form.graceMinutes}
+                    onChange={e => setForm(p => ({ ...p, graceMinutes: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label>Type</label>
-                <select className="form-input" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
-                  <option value="FIXED">Fixed</option>
-                  <option value="ROTATING">Rotating</option>
-                  <option value="NIGHT">Night</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Start Time *</label>
-                <input required type="time" className="form-input" value={form.startTime} onChange={e => setForm(p => ({ ...p, startTime: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>End Time *</label>
-                <input required type="time" className="form-input" value={form.endTime} onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label>Grace Period (mins)</label>
-                <input type="number" min="0" max="60" className="form-input" value={form.graceMinutes} onChange={e => setForm(p => ({ ...p, graceMinutes: parseInt(e.target.value) }))} />
-              </div>
-              <div className="form-group" style={{ alignSelf: 'end' }}>
-                <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', padding: '0.75rem' }}>
-                  {loading ? 'Creating...' : 'Create Shift'}
+
+              {/* Conditional Timing Inputs based on Type */}
+              {form.type === 'BREAK' || form.type === 'SPLIT' ? (
+                <div
+                  style={{
+                    backgroundColor: 'rgba(14, 165, 233, 0.06)',
+                    border: '1px solid rgba(14, 165, 233, 0.25)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ fontWeight: 600, color: '#38bdf8', fontSize: '0.95rem' }}>
+                      ⏱ Break Shift Schedule (Split Hours)
+                    </div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Morning Duty + Afternoon Break + Evening Duty
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                    {/* Morning Slot */}
+                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#38bdf8', marginBottom: '0.5rem' }}>
+                        🌅 Morning Slot (Part 1)
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <div>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
+                          <input
+                            required
+                            type="time"
+                            className="form-input"
+                            value={form.morningStart}
+                            onChange={e => setForm(p => ({ ...p, morningStart: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Out-Time</label>
+                          <input
+                            required
+                            type="time"
+                            className="form-input"
+                            value={form.morningEnd}
+                            onChange={e => setForm(p => ({ ...p, morningEnd: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Evening Slot */}
+                    <div style={{ padding: '0.75rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f59e0b', marginBottom: '0.5rem' }}>
+                        🌆 Evening Slot (Part 2)
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <div>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
+                          <input
+                            required
+                            type="time"
+                            className="form-input"
+                            value={form.eveningStart}
+                            onChange={e => setForm(p => ({ ...p, eveningStart: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Out-Time</label>
+                          <input
+                            required
+                            type="time"
+                            className="form-input"
+                            value={form.eveningEnd}
+                            onChange={e => setForm(p => ({ ...p, eveningEnd: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <span>☕ <b>Afternoon Break:</b> {form.morningEnd} – {form.eveningStart}</span>
+                    <span>🕒 <b>Duty Schedule:</b> Morning ({form.morningStart} – {form.morningEnd}) & Evening ({form.eveningStart} – {form.eveningEnd})</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label>Shift Start Time *</label>
+                    <input
+                      required
+                      type="time"
+                      className="form-input"
+                      value={form.startTime}
+                      onChange={e => setForm(p => ({ ...p, startTime: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Shift End Time *</label>
+                    <input
+                      required
+                      type="time"
+                      className="form-input"
+                      value={form.endTime}
+                      onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={resetForm}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={loading} style={{ minWidth: '140px' }}>
+                  {loading ? 'Saving...' : editingShiftId ? 'Update Shift' : 'Create Shift'}
                 </button>
               </div>
             </form>
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-          {shifts.map(shift => (
-            <div key={shift.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+          {shifts.map(shift => {
+            const isBreak = shift.type === 'BREAK' || shift.type === 'SPLIT'
+            const badgeColor = SHIFT_TYPE_COLOR[shift.type] || '#10b981'
+
+            return (
+              <div
+                key={shift.id}
+                className="card"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  border: isBreak ? '1px solid rgba(14, 165, 233, 0.4)' : undefined,
+                  boxShadow: isBreak ? '0 4px 20px rgba(14, 165, 233, 0.1)' : undefined,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Top indicator bar for Break shift */}
+                {isBreak && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: '3px',
+                      background: 'linear-gradient(90deg, #0ea5e9, #38bdf8)',
+                    }}
+                  />
+                )}
+
                 <div>
-                  <h3 style={{ color: 'var(--text-main)', fontSize: '1rem', marginBottom: '0.25rem' }}>{shift.name}</h3>
-                  <span className="badge" style={{ backgroundColor: `${SHIFT_TYPE_COLOR[shift.type]}22`, color: SHIFT_TYPE_COLOR[shift.type] }}>{shift.type}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                    <div>
+                      <h3 style={{ color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem 0' }}>
+                        {shift.name}
+                      </h3>
+                      <span
+                        className="badge"
+                        style={{
+                          backgroundColor: `${badgeColor}22`,
+                          color: badgeColor,
+                          fontWeight: 600,
+                          fontSize: '0.72rem',
+                          border: `1px solid ${badgeColor}44`,
+                        }}
+                      >
+                        {isBreak ? 'BREAK / SPLIT' : shift.type}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                      <button
+                        onClick={() => handleEditShift(shift)}
+                        style={{
+                          background: 'none',
+                          border: '1px solid var(--border)',
+                          borderRadius: '4px',
+                          padding: '0.2rem 0.5rem',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                        }}
+                        title="Edit Shift"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteShift(shift.id, shift.name)}
+                        style={{
+                          background: 'none',
+                          border: '1px solid var(--border)',
+                          borderRadius: '4px',
+                          padding: '0.2rem 0.5rem',
+                          color: 'var(--danger, #ef4444)',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                        }}
+                        title="Delete Shift"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Timing representation */}
+                  {isBreak ? (
+                    <div
+                      style={{
+                        padding: '0.75rem',
+                        backgroundColor: 'rgba(14, 165, 233, 0.05)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid rgba(14, 165, 233, 0.15)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.4rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          🌅 <b>Morning:</b>
+                        </span>
+                        <span style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.95rem' }}>
+                          {shift.firstSlot || '10:00 – 14:00'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          🌆 <b>Evening:</b>
+                        </span>
+                        <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.95rem' }}>
+                          {shift.secondSlot || '18:00 – 22:00'}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'right', marginBottom: '0.5rem' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '1.25rem', letterSpacing: '0.5px' }}>
+                        {shift.startTime} – {shift.endTime}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '1.1rem' }}>{shift.startTime} – {shift.endTime}</div>
+
+                {/* Footer details */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-muted)',
+                    borderTop: '1px solid var(--border)',
+                    paddingTop: '0.65rem',
+                  }}
+                >
+                  <span>⏱ Grace: {shift.graceMinutes} mins</span>
+                  <span>
+                    {isBreak
+                      ? `☕ Break: ${shift.breakTime || '14:00 – 18:00'}`
+                      : shift.type === 'NIGHT'
+                      ? '🌙 Night Duty'
+                      : '☀️ Day Duty'}
+                  </span>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '1rem', fontSize: '0.825rem', color: 'var(--text-muted)' }}>
-                <span>⏱ Grace: {shift.graceMinutes} mins</span>
-                <span>📅 {shift.type === 'NIGHT' ? 'Night Duty' : 'Day Duty'}</span>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
       {/* Weekly Roster Grid */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ color: 'var(--text-main)' }}>Weekly Roster</h2>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Current Week</span>
+        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div>
+            <h2 style={{ color: 'var(--text-main)', margin: '0 0 0.25rem 0' }}>Weekly Roster</h2>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Click any shift cell to toggle schedule between Morning, Break, Night, and OFF</span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.75rem' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--success)' }}></span> Morning
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0ea5e9' }}></span> Break
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#8b5cf6' }}></span> Night
+            </span>
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ backgroundColor: 'var(--bg-main)' }}>
               <tr>
-                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: '160px' }}>Employee</th>
+                <th style={{ padding: '0.875rem 1.25rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: '170px' }}>
+                  Employee
+                </th>
                 {DAYS.map(d => (
-                  <th key={d} style={{ padding: '0.875rem 1rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.8rem' }}>{d}</th>
+                  <th key={d} style={{ padding: '0.875rem 1rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    {d}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -169,16 +681,53 @@ export default function ShiftsManager() {
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{emp.designation}</div>
                   </td>
                   {DAYS.map(day => {
-                    const assignment = MOCK_ROSTER[emp.id]?.[day] || 'Unassigned'
+                    const assignment = roster[emp.id]?.[day] || 'Unassigned'
                     const isOff = assignment === 'OFF'
                     const isNight = assignment === 'Night Shift'
-                    const bgColor = isOff ? 'rgba(100, 116, 139, 0.1)' : isNight ? 'rgba(139, 92, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)'
-                    const textColor = isOff ? 'var(--text-muted)' : isNight ? '#8b5cf6' : 'var(--success)'
+                    const isBreak = assignment === 'Break Shift'
+                    const isMorning = assignment === 'Morning Shift'
+
+                    const bgColor = isOff
+                      ? 'rgba(100, 116, 139, 0.1)'
+                      : isNight
+                      ? 'rgba(139, 92, 246, 0.12)'
+                      : isBreak
+                      ? 'rgba(14, 165, 233, 0.15)'
+                      : 'rgba(16, 185, 129, 0.12)'
+
+                    const textColor = isOff
+                      ? 'var(--text-muted)'
+                      : isNight
+                      ? '#8b5cf6'
+                      : isBreak
+                      ? '#0ea5e9'
+                      : 'var(--success)'
+
+                    const borderColor = isBreak
+                      ? 'rgba(14, 165, 233, 0.3)'
+                      : 'transparent'
+
                     return (
                       <td key={day} style={{ padding: '0.75rem', textAlign: 'center' }}>
-                        <div style={{ padding: '0.3rem 0.5rem', borderRadius: 'var(--radius-sm)', backgroundColor: bgColor, color: textColor, fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => cycleRosterShift(emp.id, day)}
+                          style={{
+                            padding: '0.35rem 0.6rem',
+                            borderRadius: 'var(--radius-sm)',
+                            backgroundColor: bgColor,
+                            color: textColor,
+                            border: `1px solid ${borderColor}`,
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease-in-out',
+                          }}
+                          title="Click to change shift"
+                        >
                           {isOff ? '—' : assignment.replace(' Shift', '')}
-                        </div>
+                        </button>
                       </td>
                     )
                   })}
@@ -191,3 +740,4 @@ export default function ShiftsManager() {
     </div>
   )
 }
+

@@ -389,6 +389,8 @@ enum ShiftType {
   FIXED
   ROTATING
   NIGHT
+  BREAK
+  SPLIT
 }
 
 enum PunchMode {
@@ -432,10 +434,13 @@ enum AuditAction {
 
 model Shift {
   id              String           @id @default(uuid())
-  name            String           // e.g. "Morning Shift", "Night Shift"
+  name            String           // e.g. "Morning Shift", "Break Shift", "Night Shift"
   type            ShiftType        @default(FIXED)
-  startTime       String           // "09:00"
-  endTime         String           // "18:00"
+  startTime       String           // "09:00" or overall start
+  endTime         String           // "18:00" or overall end
+  firstSlot       String?          // e.g. "10:00 - 14:00" (Morning Slot)
+  secondSlot      String?          // e.g. "18:00 - 22:00" (Evening Slot)
+  breakTime       String?          // e.g. "14:00 - 18:00 (Break)"
   graceMinutes    Int              @default(15)
   branchId        String
   assignments     ShiftAssignment[]
