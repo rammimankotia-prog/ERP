@@ -74,10 +74,19 @@ function fmtMinutes(m: number | null | undefined) {
   return `${h}h ${rem}m`
 }
 
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function formatDateDisplay(dateStr: string) {
   try {
-    const d = new Date(dateStr + 'T12:00:00')
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    if (!dateStr) return '—'
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const dateObj = new Date(y, m - 1, d)
+    return dateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
   } catch {
     return dateStr
   }
@@ -87,13 +96,12 @@ function formatDateDisplay(dateStr: string) {
 function getWeekRange(refDate: Date) {
   const d = new Date(refDate)
   const day = d.getDay()
-  // Diff to Monday (if day is 0/Sunday, Monday was 6 days ago)
   const diffToMonday = d.getDate() - (day === 0 ? 6 : day - 1)
-  const monday = new Date(d.setDate(diffToMonday))
-  const sunday = new Date(new Date(monday).setDate(monday.getDate() + 6))
+  const monday = new Date(d.getFullYear(), d.getMonth(), diffToMonday)
+  const sunday = new Date(d.getFullYear(), d.getMonth(), diffToMonday + 6)
   return {
-    from: monday.toISOString().split('T')[0],
-    to: sunday.toISOString().split('T')[0]
+    from: formatLocalDate(monday),
+    to: formatLocalDate(sunday)
   }
 }
 
@@ -101,8 +109,8 @@ function getMonthRange(year: number, monthIndex: number) {
   const firstDay = new Date(year, monthIndex, 1)
   const lastDay = new Date(year, monthIndex + 1, 0)
   return {
-    from: firstDay.toISOString().split('T')[0],
-    to: lastDay.toISOString().split('T')[0]
+    from: formatLocalDate(firstDay),
+    to: formatLocalDate(lastDay)
   }
 }
 

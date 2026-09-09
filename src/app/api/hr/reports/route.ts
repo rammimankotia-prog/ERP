@@ -202,6 +202,13 @@ export async function GET(req: NextRequest) {
     employees = employees.filter(e => e.departmentId === deptFilter || e.department?.id === deptFilter)
   }
 
+function formatYMD(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
   // Generate date list between fromDate and toDate
   const dateList: string[] = []
   const cur = new Date(fromDate)
@@ -210,7 +217,7 @@ export async function GET(req: NextRequest) {
   end.setHours(0, 0, 0, 0)
 
   while (cur <= end) {
-    dateList.push(cur.toISOString().split('T')[0])
+    dateList.push(formatYMD(cur))
     cur.setDate(cur.getDate() + 1)
   }
 
