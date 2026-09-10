@@ -6,6 +6,9 @@ const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'da
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
 const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees.json')
 
+const USERS_FILE = path.join(DATA_DIR, 'users.json')
+const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
+
 function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
   for (const f of [file, fallbackFile]) {
     try {
@@ -30,6 +33,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Employee ID or Email is required' }, { status: 400 })
     }
 
+    // First check system users (from User Access Management)
+    const users = readJson<any[]>(USERS_FILE, LOCAL_USERS_FILE, [])
+    const sysUser = users.find(u => {
+      const uMail = (u.email || '').trim().toLowerCase()
+      const uUsername = (u.username || '').trim().toLowerCase()
+      return uMail === identifier || uUsername === identifier
+    })
+
+    if (sysUser) {
+      if (sysUser.status !== 'Active') {
+        return NextResponse.json({ error: 'Account is inactive. Please contact Admin.' }, { status: 403 })
+      }
+      if (password && sysUser.password !== password) {
+        return NextResponse.json({ error: 'Invalid password. Please verify your credentials.' }, { status: 401 })
+      }
+
+      // If user has kiosk access (Security Guard or Admin), allow them
+      const nameParts = (sysUser.name || 'Security User').split(' ')
+      return NextResponse.json({
+        success: true,
+        employee: {
+          id: sysUser.id,
+          employeeId: sysUser.username,
+          firstName: nameParts[0],
+          lastName: nameParts.slice(1).join(' ') || '',
+          email: sysUser.email,
+          department: 'Security',
+          designation: sysUser.role, // "Security Guard" will pass the frontend check
+        }
+      })
+    }
+
+    // If not a system user, check HR Employees
     const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
     
     // Find employee by email, employee ID (e.g. GG-1002 or 1002), or ID
@@ -42,7 +78,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!employee) {
-      return NextResponse.json({ error: 'Employee not found. Please check your Staff ID or Email.' }, { status: 404 })
+      return NextResponse.json({ error: 'Employee or User not found. Please check your Staff ID or Email.' }, { status: 404 })
     }
 
     if (employee.status && employee.status !== 'ACTIVE') {
