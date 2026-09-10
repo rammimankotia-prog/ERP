@@ -11,7 +11,7 @@ export default async function AddEmployeePage() {
   ]);
 
   return (
-    <div style={{ padding: '2rem 1.5rem', maxWidth: '1080px', margin: '0 auto', width: '100%' }}>
+    <div className="page-container" style={{ maxWidth: '1080px' }}>
       {/* Breadcrumb & Navigation */}
       <div style={{ marginBottom: '1.5rem' }}>
         <Link
@@ -34,10 +34,10 @@ export default async function AddEmployeePage() {
           Back to Employee Directory
         </Link>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <h1
             style={{
-              fontSize: '1.75rem',
+              fontSize: 'clamp(1.35rem, 4vw, 1.75rem)',
               fontWeight: 700,
               color: 'var(--text-main)',
               letterSpacing: '-0.025em',
@@ -59,7 +59,7 @@ export default async function AddEmployeePage() {
             Staff Onboarding
           </span>
         </div>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.35rem', marginBottom: 0 }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.35rem', marginBottom: 0 }}>
           Create a comprehensive staff profile, assign branch/department, and set shift schedules.
         </p>
       </div>

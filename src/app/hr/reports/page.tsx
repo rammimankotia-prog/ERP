@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function ReportsPage() {
   return (
-    <div style={{ padding: '1.25rem 1.5rem', width: '100%', minHeight: '100%' }}>
+    <div className="page-container" style={{ minHeight: '100%' }}>
       <AttendanceReports />
     </div>
   )

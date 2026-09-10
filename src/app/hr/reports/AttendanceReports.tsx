@@ -854,8 +854,8 @@ export default function AttendanceReports() {
 
         {/* TAB 1: EMPLOYEE SUMMARY MATRIX */}
         {!loading && viewTab === 'SUMMARY' && (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+          <div className="table-scroll-container">
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', minWidth: '950px' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-main)', borderBottom: '1px solid var(--border)' }}>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Employee</th>
@@ -1051,8 +1051,8 @@ export default function AttendanceReports() {
 
         {/* TAB 2: DETAILED DAILY ATTENDANCE LOG */}
         {!loading && viewTab === 'DETAILED' && (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+          <div className="table-scroll-container">
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', minWidth: '950px' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-main)', borderBottom: '1px solid var(--border)' }}>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Date & Day</th>

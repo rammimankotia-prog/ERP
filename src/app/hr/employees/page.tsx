@@ -43,7 +43,7 @@ export default function EmployeeListPage() {
   ])
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+    <div className="page-container">
       <EmployeeDirectoryClient
         initialEmployees={employees}
         branches={branches}

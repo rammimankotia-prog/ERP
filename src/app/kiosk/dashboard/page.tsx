@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '@/components/ThemeProvider'
+import OneTapPunchInterface from '@/components/OneTapPunchInterface'
 
 type Employee = {
   id: string
@@ -138,142 +139,32 @@ export default function KioskDashboard() {
       </header>
 
       {/* Main Content Split Layout */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        
-        {/* Left Side: Personal Check-In */}
-        <div style={{ 
-          flex: 1, 
-          padding: '3rem',
+      <div
+        style={{
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <div style={{
-            background: isLight ? '#ffffff' : '#1e293b',
-            borderRadius: '24px',
-            padding: '3rem',
-            width: '100%',
-            maxWidth: '500px',
-            boxShadow: isLight ? '0 20px 40px rgba(0,0,0,0.08)' : '0 20px 40px rgba(0,0,0,0.4)',
-            border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              width: '100px',
-              height: '100px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-              margin: '0 auto 1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '2.5rem',
-              color: 'white',
-              fontWeight: 800,
-              boxShadow: '0 10px 20px rgba(37, 99, 235, 0.3)'
-            }}>
-              {employee.firstName.charAt(0)}{employee.lastName.charAt(0)}
-            </div>
-            
-            <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.75rem', color: isLight ? '#0f172a' : '#f8fafc' }}>
-              Welcome, {employee.firstName} {employee.lastName}
-            </h2>
-            <p style={{ margin: '0 0 2.5rem', color: isLight ? '#64748b' : '#94a3b8', fontSize: '1.1rem' }}>
-              {employee.designation} • {employee.department}
-            </p>
-
-            {message ? (
-              <div style={{
-                padding: '1.5rem',
-                borderRadius: '12px',
-                background: message.includes('Successfully') ? '#dcfce7' : '#fee2e2',
-                color: message.includes('Successfully') ? '#166534' : '#991b1b',
-                fontSize: '1.1rem',
-                fontWeight: 600,
-                marginBottom: '1.5rem'
-              }}>
-                {message}
-                <div style={{ fontSize: '0.85rem', marginTop: '0.5rem', fontWeight: 500 }}>Auto-logging out in 3 seconds...</div>
-              </div>
-            ) : hasPunchedOut ? (
-              <div style={{
-                padding: '2rem',
-                borderRadius: '16px',
-                background: isLight ? '#f1f5f9' : '#0f172a',
-                color: isLight ? '#334155' : '#cbd5e1',
-                fontSize: '1.2rem',
-                fontWeight: 600,
-                border: isLight ? '1px solid #e2e8f0' : '1px solid #1e293b'
-              }}>
-                ✅ You have completed your shift for today. Have a great day!
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                <button
-                  onClick={() => handlePunch('IN')}
-                  disabled={processing || hasPunchedIn}
-                  style={{
-                    flex: 1,
-                    padding: '1.5rem',
-                    borderRadius: '16px',
-                    border: 'none',
-                    background: hasPunchedIn ? (isLight ? '#e2e8f0' : '#334155') : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    color: hasPunchedIn ? (isLight ? '#94a3b8' : '#64748b') : 'white',
-                    fontSize: '1.25rem',
-                    fontWeight: 700,
-                    cursor: (processing || hasPunchedIn) ? 'not-allowed' : 'pointer',
-                    boxShadow: (!hasPunchedIn && !processing) ? '0 10px 25px rgba(16, 185, 129, 0.4)' : 'none',
-                    transition: 'all 0.2s',
-                    transform: (!hasPunchedIn && !processing) ? 'scale(1.05)' : 'scale(1)',
-                    opacity: hasPunchedIn ? 0.6 : 1
-                  }}
-                >
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🟢</div>
-                  Check-In
-                </button>
-
-                <button
-                  onClick={() => handlePunch('OUT')}
-                  disabled={processing || !hasPunchedIn}
-                  style={{
-                    flex: 1,
-                    padding: '1.5rem',
-                    borderRadius: '16px',
-                    border: 'none',
-                    background: !hasPunchedIn ? (isLight ? '#e2e8f0' : '#334155') : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                    color: !hasPunchedIn ? (isLight ? '#94a3b8' : '#64748b') : 'white',
-                    fontSize: '1.25rem',
-                    fontWeight: 700,
-                    cursor: (processing || !hasPunchedIn) ? 'not-allowed' : 'pointer',
-                    boxShadow: (hasPunchedIn && !processing) ? '0 10px 25px rgba(239, 68, 68, 0.4)' : 'none',
-                    transition: 'all 0.2s',
-                    transform: (hasPunchedIn && !processing) ? 'scale(1.05)' : 'scale(1)',
-                    opacity: !hasPunchedIn ? 0.6 : 1
-                  }}
-                >
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔴</div>
-                  Check-Out
-                </button>
-              </div>
-            )}
-
-            <button
-              onClick={handleLogout}
-              style={{
-                marginTop: '3rem',
-                background: 'transparent',
-                border: 'none',
-                color: isLight ? '#64748b' : '#94a3b8',
-                fontSize: '1rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                textDecoration: 'underline'
-              }}
-            >
-              Not {employee.firstName}? Log out
-            </button>
-          </div>
+          flex: 1,
+          flexWrap: 'wrap',
+          overflow: 'auto',
+        }}
+      >
+        {/* Left Side: One-Tap Punch Interface */}
+        <div
+          style={{
+            flex: '1 1 500px',
+            padding: 'clamp(1rem, 2.5vw, 2.5rem)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <OneTapPunchInterface
+            employee={employee}
+            onBack={handleLogout}
+            onSuccess={() => {
+              setHasPunchedIn(true);
+            }}
+          />
         </div>
 
         {/* Right Side: Live Status Log */}

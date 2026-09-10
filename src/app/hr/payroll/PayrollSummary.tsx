@@ -698,7 +698,7 @@ export default function PayrollSummary() {
 
       {/* Salary Financial Metric Cards (Interactive Toggle Filters) */}
       {(metricViewMode === 'SALARY' || metricViewMode === 'ALL') && (
-        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '1rem' }}>
           {/* Total Net Payroll */}
           <div
             onClick={() => setReportFilter('ALL')}
@@ -894,8 +894,8 @@ export default function PayrollSummary() {
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-scroll-container">
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '980px' }}>
             <thead style={{ backgroundColor: 'var(--bg-main)' }}>
               <tr>
                 {[

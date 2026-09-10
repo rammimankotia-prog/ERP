@@ -124,7 +124,7 @@ export default function AddEmployeeForm({
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: '14px',
-          padding: '1.75rem',
+          padding: 'clamp(1rem, 3vw, 1.75rem)',
           boxShadow: 'var(--shadow)',
         }}
       >
@@ -163,13 +163,7 @@ export default function AddEmployeeForm({
           </div>
         </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '1.25rem',
-          }}
-        >
+        <div className="responsive-form-grid">
           {/* First Name */}
           <div className="form-group">
             <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
@@ -402,7 +396,7 @@ export default function AddEmployeeForm({
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: '14px',
-          padding: '1.75rem',
+          padding: 'clamp(1rem, 3vw, 1.75rem)',
           boxShadow: 'var(--shadow)',
         }}
       >
@@ -461,13 +455,7 @@ export default function AddEmployeeForm({
           )}
         </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '1.25rem',
-          }}
-        >
+        <div className="responsive-form-grid">
           {/* Branch */}
           <div className="form-group">
             <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
@@ -647,7 +635,7 @@ export default function AddEmployeeForm({
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: '14px',
-          padding: '1.75rem',
+          padding: 'clamp(1rem, 3vw, 1.75rem)',
           boxShadow: 'var(--shadow)',
         }}
       >
@@ -687,14 +675,7 @@ export default function AddEmployeeForm({
         </div>
 
         {/* Shift Toggle Buttons */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '0.85rem',
-            marginBottom: '1.25rem',
-          }}
-        >
+        <div className="shift-selector-grid" style={{ marginBottom: '1.25rem' }}>
           {/* Morning Shift Toggle */}
           <button
             type="button"
@@ -813,13 +794,13 @@ export default function AddEmployeeForm({
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div className="responsive-form-grid" style={{ gap: '1rem' }}>
               {/* Part 1 (Morning) */}
               <div style={{ padding: '0.85rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#38bdf8', marginBottom: '0.5rem' }}>
                   🌅 Morning Slot (Part 1)
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' }}>
                   <div>
                     <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
                     <input
@@ -849,7 +830,7 @@ export default function AddEmployeeForm({
                 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f59e0b', marginBottom: '0.5rem' }}>
                   🌆 Evening Slot (Part 2)
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' }}>
                   <div>
                     <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
                     <input
@@ -881,13 +862,7 @@ export default function AddEmployeeForm({
             </div>
           </div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '1.25rem',
-            }}
-          >
+          <div className="responsive-form-grid">
             {/* Morning / Start Report Time */}
             <div className="form-group">
               <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
@@ -942,15 +917,7 @@ export default function AddEmployeeForm({
       </div>
 
       {/* Action Buttons */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          gap: '1rem',
-          paddingTop: '0.5rem',
-        }}
-      >
+      <div className="form-actions-bar">
         <Link
           href="/hr/employees"
           style={{

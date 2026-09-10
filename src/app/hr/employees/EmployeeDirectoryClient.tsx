@@ -407,7 +407,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
           gap: '1.25rem',
           marginBottom: '1.75rem',
         }}
@@ -865,7 +865,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
             boxShadow: 'var(--shadow)',
           }}
         >
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-scroll-container">
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '980px' }}>
               <thead>
                 <tr
@@ -1132,7 +1132,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
             gap: '1.25rem',
           }}
         >
@@ -1333,8 +1333,8 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
               backgroundColor: 'var(--bg-card)',
               border: '1px solid var(--border)',
               borderRadius: '16px',
-              padding: '1.75rem',
-              maxWidth: '520px',
+              padding: 'clamp(1rem, 3vw, 1.75rem)',
+              maxWidth: 'min(94vw, 520px)',
               width: '100%',
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
               maxHeight: '90vh',
@@ -1360,7 +1360,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
             </div>
 
             <form onSubmit={handleSaveQuickEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>First Name</label>
                   <input
@@ -1400,7 +1400,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
                     ⏰ Reporting In-Time <span style={{ color: 'var(--primary)' }}>*</span>
@@ -1429,7 +1429,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>Designation</label>
                   <input
@@ -1509,8 +1509,8 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
               backgroundColor: 'var(--bg-card)',
               border: '1px solid var(--border)',
               borderRadius: '16px',
-              padding: '2rem',
-              maxWidth: '460px',
+              padding: 'clamp(1.25rem, 4vw, 2rem)',
+              maxWidth: 'min(92vw, 460px)',
               width: '100%',
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
               animation: 'scaleUp 0.15s ease-out',

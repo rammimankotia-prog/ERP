@@ -4,6 +4,7 @@ import path from 'path'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
+const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
 
 function readJson<T>(file: string, fallback: T): T {
   try {
@@ -25,6 +26,39 @@ function writeJson(file: string, data: any) {
   }
 }
 
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const employeeId = searchParams.get('employeeId')
+    const dateStr = searchParams.get('date') || new Date().toISOString().split('T')[0]
+
+    if (!employeeId) {
+      return NextResponse.json({ error: 'employeeId required' }, { status: 400 })
+    }
+
+    const employees = readJson<any[]>(EMPLOYEES_FILE, [])
+    const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId)
+
+    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, [])
+    const record = allAttendance.find(a => 
+      (a.employeeId === employeeId || (emp && (a.employeeId === emp.id || a.employeeId === emp.employeeId))) && 
+      a.date === dateStr
+    )
+
+    return NextResponse.json({
+      checkedIn: !!(record && record.punchIn),
+      checkedOut: !!(record && record.punchOut),
+      punchInTime: record?.punchIn || null,
+      punchOutTime: record?.punchOut || null,
+      totalMinutes: record?.totalMinutes || null,
+      status: record ? record.status : 'ABSENT',
+      record: record || null
+    })
+  } catch (err: any) {
+    return NextResponse.json({ error: 'Failed to check status' }, { status: 500 })
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { employeeId, action } = await req.json()
@@ -33,11 +67,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'employeeId and action required' }, { status: 400 })
     }
 
+    const employees = readJson<any[]>(EMPLOYEES_FILE, [])
+    const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId)
+    const normalizedEmpId = emp ? (emp.employeeId || emp.id) : employeeId
+
     const allAttendance = readJson<any[]>(ATTENDANCE_FILE, [])
     const dateStr = new Date().toISOString().split('T')[0]
 
     let existingIndex = allAttendance.findIndex(a => 
-      (a.employeeId === employeeId) && a.date === dateStr
+      (a.employeeId === employeeId || (emp && (a.employeeId === emp.id || a.employeeId === emp.employeeId))) && 
+      a.date === dateStr
     )
 
     const now = new Date().toISOString()
@@ -49,7 +88,7 @@ export async function POST(req: NextRequest) {
       
       const newRecord = {
         id: `att-${Date.now()}`,
-        employeeId,
+        employeeId: normalizedEmpId,
         date: dateStr,
         punchIn: now,
         punchOut: null,

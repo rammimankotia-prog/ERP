@@ -214,7 +214,7 @@ export default function EditEmployeeForm({
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: '14px',
-          padding: '1.5rem',
+          padding: 'clamp(1rem, 2.5vw, 1.5rem)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -348,7 +348,7 @@ export default function EditEmployeeForm({
             backgroundColor: 'var(--bg-card)',
             border: '1px solid var(--border)',
             borderRadius: '14px',
-            padding: '1.75rem',
+            padding: 'clamp(1rem, 3vw, 1.75rem)',
             boxShadow: 'var(--shadow)',
           }}
         >
@@ -387,13 +387,7 @@ export default function EditEmployeeForm({
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '1.25rem',
-            }}
-          >
+          <div className="responsive-form-grid">
             {/* First Name */}
             <div className="form-group">
               <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
@@ -579,7 +573,7 @@ export default function EditEmployeeForm({
             backgroundColor: 'var(--bg-card)',
             border: '1px solid var(--border)',
             borderRadius: '14px',
-            padding: '1.75rem',
+            padding: 'clamp(1rem, 3vw, 1.75rem)',
             boxShadow: 'var(--shadow)',
           }}
         >
@@ -636,13 +630,7 @@ export default function EditEmployeeForm({
             </span>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-              gap: '1.25rem',
-            }}
-          >
+          <div className="responsive-form-grid">
             {/* Branch */}
             <div className="form-group">
               <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
@@ -824,7 +812,7 @@ export default function EditEmployeeForm({
             backgroundColor: 'var(--bg-card)',
             border: '1px solid var(--border)',
             borderRadius: '14px',
-            padding: '1.75rem',
+            padding: 'clamp(1rem, 3vw, 1.75rem)',
             boxShadow: 'var(--shadow)',
           }}
         >
@@ -864,14 +852,7 @@ export default function EditEmployeeForm({
           </div>
 
           {/* Shift Toggle Buttons */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '0.85rem',
-              marginBottom: '1.25rem',
-            }}
-          >
+          <div className="shift-selector-grid" style={{ marginBottom: '1.25rem' }}>
             {/* Morning Shift Toggle */}
             <button
               type="button"
@@ -990,13 +971,13 @@ export default function EditEmployeeForm({
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div className="responsive-form-grid" style={{ gap: '1rem' }}>
                 {/* Part 1 (Morning) */}
                 <div style={{ padding: '0.85rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#38bdf8', marginBottom: '0.5rem' }}>
                     🌅 Morning Slot (Part 1)
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' }}>
                     <div>
                       <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
                       <input
@@ -1026,7 +1007,7 @@ export default function EditEmployeeForm({
                   <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f59e0b', marginBottom: '0.5rem' }}>
                     🌆 Evening Slot (Part 2)
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' }}>
                     <div>
                       <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
                       <input
@@ -1058,13 +1039,7 @@ export default function EditEmployeeForm({
               </div>
             </div>
           ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: '1.25rem',
-              }}
-            >
+            <div className="responsive-form-grid">
               {/* Morning / Start Report Time */}
               <div className="form-group">
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
@@ -1119,15 +1094,7 @@ export default function EditEmployeeForm({
         </div>
 
         {/* Action Buttons */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            gap: '1rem',
-            paddingTop: '0.5rem',
-          }}
-        >
+        <div className="form-actions-bar">
           <Link
             href="/hr/employees"
             style={{
@@ -1256,8 +1223,8 @@ export default function EditEmployeeForm({
               backgroundColor: 'var(--bg-card)',
               border: '1px solid var(--border)',
               borderRadius: '16px',
-              padding: '2rem',
-              maxWidth: '460px',
+              padding: 'clamp(1.25rem, 4vw, 2rem)',
+              maxWidth: 'min(92vw, 460px)',
               width: '100%',
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
               animation: 'scaleUp 0.15s ease-out',

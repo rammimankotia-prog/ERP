@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function LeavePage() {
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+    <div className="page-container" style={{ maxWidth: '1200px' }}>
       <div className="header">
         <div>
           <h1 style={{ color: 'var(--text-main)', marginBottom: '0.25rem' }}>Leave Management</h1>

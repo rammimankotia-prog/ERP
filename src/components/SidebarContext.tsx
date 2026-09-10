@@ -6,12 +6,17 @@ interface SidebarContextType {
   isCollapsed: boolean;
   toggleSidebar: () => void;
   setIsCollapsed: (collapsed: boolean) => void;
+  isMobileOpen: boolean;
+  toggleMobileSidebar: () => void;
+  closeMobileSidebar: () => void;
+  openMobileSidebar: () => void;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -22,6 +27,15 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.warn(e);
     }
+
+    const handleResize = () => {
+      if (window.innerWidth > 1024) {
+        setIsMobileOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const toggleSidebar = () => {
@@ -36,8 +50,30 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const toggleMobileSidebar = () => {
+    setIsMobileOpen((prev) => !prev);
+  };
+
+  const closeMobileSidebar = () => {
+    setIsMobileOpen(false);
+  };
+
+  const openMobileSidebar = () => {
+    setIsMobileOpen(true);
+  };
+
   return (
-    <SidebarContext.Provider value={{ isCollapsed, toggleSidebar, setIsCollapsed }}>
+    <SidebarContext.Provider
+      value={{
+        isCollapsed,
+        toggleSidebar,
+        setIsCollapsed,
+        isMobileOpen,
+        toggleMobileSidebar,
+        closeMobileSidebar,
+        openMobileSidebar,
+      }}
+    >
       {children}
     </SidebarContext.Provider>
   );
@@ -46,7 +82,15 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 export function useSidebar() {
   const context = useContext(SidebarContext);
   if (!context) {
-    return { isCollapsed: false, toggleSidebar: () => {}, setIsCollapsed: () => {} };
+    return {
+      isCollapsed: false,
+      toggleSidebar: () => {},
+      setIsCollapsed: () => {},
+      isMobileOpen: false,
+      toggleMobileSidebar: () => {},
+      closeMobileSidebar: () => {},
+      openMobileSidebar: () => {},
+    };
   }
   return context;
 }

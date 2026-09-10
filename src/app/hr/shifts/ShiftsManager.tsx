@@ -1370,8 +1370,8 @@ export default function ShiftsManager() {
             </div>
 
             {/* Monthly Calendar Matrix Table */}
-            <div style={{ overflowX: 'auto', maxHeight: isRosterFullscreen ? 'calc(100vh - 180px)' : '750px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+            <div className="table-scroll-container" style={{ overflowX: 'auto', maxHeight: isRosterFullscreen ? 'calc(100vh - 180px)' : '750px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '1050px' }}>
                 <thead>
                   <tr style={{ backgroundColor: 'var(--bg-main)', position: 'sticky', top: 0, zIndex: 10 }}>
                     {/* Sticky Employee Header */}
@@ -1728,8 +1728,8 @@ export default function ShiftsManager() {
             </div>
 
             {/* Weekly Table */}
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="table-scroll-container">
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '850px' }}>
                 <thead style={{ backgroundColor: 'var(--bg-main)' }}>
                   <tr>
                     <th

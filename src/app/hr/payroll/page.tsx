@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function PayrollPage() {
   return (
-    <div style={{ padding: '2rem', maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
+    <div className="page-container" style={{ maxWidth: '1440px' }}>
       <div className="header" style={{ marginBottom: '1.75rem' }}>
         <div>
           <h1 style={{ color: 'var(--text-main)', marginBottom: '0.25rem', fontSize: '1.75rem', fontWeight: 800 }}>

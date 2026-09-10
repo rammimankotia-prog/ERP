@@ -879,7 +879,7 @@ export default function LeaveManagement() {
             ) : (
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
                 gap: '1rem'
               }}>
                 {selectedDateLeaves.map(req => (
@@ -1010,14 +1010,15 @@ export default function LeaveManagement() {
       {/* TAB 2: LEAVE REQUESTS LIST */}
       {tab === 'requests' && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ backgroundColor: 'var(--bg-main)' }}>
-              <tr>
-                {['Employee', 'Designation', 'Leave Type', 'From', 'To', 'Days', 'Reason', 'Status', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '0.875rem 1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
+          <div className="table-scroll-container">
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '850px' }}>
+              <thead style={{ backgroundColor: 'var(--bg-main)' }}>
+                <tr>
+                  {['Employee', 'Designation', 'Leave Type', 'From', 'To', 'Days', 'Reason', 'Status', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '0.875rem 1rem', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
             <tbody>
               {requests.length === 0 ? (
                 <tr><td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>No leave requests found</td></tr>
@@ -1083,6 +1084,7 @@ export default function LeaveManagement() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -1092,7 +1094,7 @@ export default function LeaveManagement() {
           <h2 style={{ color: 'var(--text-main)', marginBottom: '1.5rem', fontSize: '1.3rem', fontWeight: 800 }}>
             Submit Staff Leave Request
           </h2>
-          <form onSubmit={handleApply} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+          <form onSubmit={handleApply} className="responsive-form-grid" style={{ gap: '1.5rem' }}>
             <div className="form-group">
               <label>Employee *</label>
               <select
@@ -1179,7 +1181,7 @@ export default function LeaveManagement() {
               />
             </div>
 
-            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ gridColumn: '1 / -1' }} className="form-actions-bar">
               <button
                 type="submit"
                 className="btn btn-primary"

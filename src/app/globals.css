@@ -211,6 +211,108 @@ p { font-size: 1rem; color: var(--text-muted); }
   .grid-responsive {
     grid-template-columns: 1fr !important;
   }
+
+  .header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    margin-bottom: 1.25rem !important;
+  }
+
+  .header h1 {
+    font-size: 1.4rem !important;
+  }
+
+  .main-content {
+    padding: 1rem 0.75rem !important;
+  }
+
+  .card {
+    padding: 1.1rem 1rem !important;
+  }
+
+  /* Prevent auto-zooming on iOS Safari by ensuring at least 16px font */
+  input, select, textarea, .form-input {
+    font-size: 16px !important;
+  }
+}
+
+/* Responsive Utilities */
+.page-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 0.75rem !important;
+  }
+}
+
+.responsive-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .responsive-form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+  }
+}
+
+.shift-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .shift-selector-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.form-actions-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .form-actions-bar {
+    flex-direction: column-reverse;
+    width: 100%;
+  }
+  .form-actions-bar > * {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+}
+
+.table-scroll-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.3);
+  border-radius: 4px;
 }
 
 /* Utility Classes */
@@ -235,3 +337,4 @@ p { font-size: 1rem; color: var(--text-muted); }
   background-color: rgba(255, 255, 255, 0.1);
   color: white !important;
 }
+
