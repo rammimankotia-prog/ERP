@@ -22,16 +22,17 @@ const MASTER_ADMIN_PERMISSIONS = {
 const DEFAULT_USERS = [
   {
     id: "admin-001",
-    username: "Godwinhotels",
+    username: "mail@godwinhotels.com",
     name: "Raman Mankotia",
     email: "mail@godwinhotels.com",
-    password: "Godwindeluxe@99",
+    password: "Jaimatadi@24",
     role: "Master Admin",
     status: "Active",
     createdAt: new Date().toISOString().split("T")[0],
     permissions: MASTER_ADMIN_PERMISSIONS,
   }
 ];
+
 
 function getUsers() {
   // Try persistent dir first, then local data/
