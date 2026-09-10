@@ -14,6 +14,7 @@ interface PermissionSet {
     payroll?: { view?: boolean; edit?: boolean };
     reports?: { view?: boolean };
   };
+  kiosk?: { access?: boolean };
   userAccess?: { view?: boolean; edit?: boolean };
   settings?: { view?: boolean; edit?: boolean };
 }
@@ -38,6 +39,7 @@ const EMPTY_PERMISSIONS: PermissionSet = {
     payroll: { view: false, edit: false },
     reports: { view: false },
   },
+  kiosk: { access: false },
   userAccess: { view: false, edit: false },
   settings: { view: false, edit: false },
 };
@@ -86,6 +88,12 @@ const PERMISSION_MODULES = [
     ]
   },
   {
+    label: 'Punch Terminal / Kiosk', key: 'kiosk',
+    actions: [
+      { key: 'access', label: 'Access (Punch In/Out)' },
+    ]
+  },
+  {
     label: 'User Access', key: 'userAccess',
     actions: [
       { key: 'view', label: 'View' },
@@ -121,6 +129,7 @@ function getRoleBadgeStyle(role: string, isLight: boolean) {
   if (role === 'Master Admin') return { bg: 'rgba(124,58,237,0.12)', color: '#7c3aed' };
   if (role === 'Manager') return { bg: 'rgba(37,99,235,0.1)', color: '#2563eb' };
   if (role === 'Admin') return { bg: 'rgba(239,68,68,0.1)', color: '#dc2626' };
+  if (role === 'Security Guard') return { bg: 'rgba(245,158,11,0.1)', color: '#d97706' };
   return { bg: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', color: isLight ? '#374151' : '#94a3b8' };
 }
 
@@ -176,9 +185,32 @@ export default function UsersManagementPage() {
   const openEdit = (u: User) => {
     setEditingUser(u);
     setFormData({ username: u.username, name: u.name, email: u.email, password: '', role: u.role, status: u.status });
-    setFormPermissions(u.permissions ? JSON.parse(JSON.stringify(u.permissions)) : JSON.parse(JSON.stringify(EMPTY_PERMISSIONS)));
+    
+    // Ensure backwards compatibility by adding kiosk to old permissions
+    const existingPerms = u.permissions ? JSON.parse(JSON.stringify(u.permissions)) : {};
+    if (!existingPerms.kiosk) existingPerms.kiosk = { access: false };
+    // If security guard and kiosk wasn't explicitly false, ensure it's true
+    if (u.role === 'Security Guard' && existingPerms.kiosk.access !== false) {
+       existingPerms.kiosk.access = true;
+    }
+    
+    setFormPermissions(u.permissions ? existingPerms : JSON.parse(JSON.stringify(EMPTY_PERMISSIONS)));
     setFormError(''); setFormSuccess('');
     setShowModal(true);
+  };
+
+  // Add auto-permission logic for roles
+  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newRole = e.target.value;
+    setFormData(p => ({ ...p, role: newRole }));
+    
+    // Auto-grant Kiosk access for Security Guard
+    if (newRole === 'Security Guard') {
+      setFormPermissions(prev => ({
+        ...prev,
+        kiosk: { access: true }
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -312,6 +344,7 @@ export default function UsersManagementPage() {
             <option value="Master Admin">Master Admin</option>
             <option value="Manager">Manager</option>
             <option value="Staff">Staff</option>
+            <option value="Security Guard">Security Guard</option>
           </select>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...input, width: 140, flex: 'none' }}>
             <option value="ALL">All Statuses</option>
@@ -458,10 +491,11 @@ export default function UsersManagementPage() {
                   </div>
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Role</label>
-                    <select value={formData.role} onChange={e => setFormData(p => ({ ...p, role: e.target.value }))} style={input} disabled={editingUser?.id === 'admin-001'}>
+                    <select value={formData.role} onChange={handleRoleChange} style={input} disabled={editingUser?.id === 'admin-001'}>
                       <option value="Staff">Staff</option>
                       <option value="Manager">Manager</option>
                       <option value="Master Admin">Master Admin</option>
+                      <option value="Security Guard">Security Guard</option>
                     </select>
                   </div>
                   <div>

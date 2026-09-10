@@ -12,6 +12,7 @@ export interface UserPermissions {
     payroll?: { view?: boolean; edit?: boolean };
     reports?: { view?: boolean };
   };
+  kiosk?: { access?: boolean };
   userAccess?: { view?: boolean; edit?: boolean };
   settings?: { view?: boolean; edit?: boolean };
 }
@@ -35,6 +36,7 @@ export const MASTER_ADMIN_PERMISSIONS: UserPermissions = {
     payroll: { view: true, edit: true },
     reports: { view: true },
   },
+  kiosk: { access: true },
   userAccess: { view: true, edit: true },
   settings: { view: true, edit: true },
 };
