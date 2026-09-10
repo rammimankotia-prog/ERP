@@ -95,12 +95,18 @@ export default function LoginPage() {
     }
   };
 
-  // If already logged in as Admin, redirect to dashboard
+  // If already logged in as Admin, redirect to dashboard (only if NOT explicitly logged out)
   useEffect(() => {
-    if (user) {
+    if (typeof window !== 'undefined') {
+      const isLoggedOut = localStorage.getItem('GODWIN_LOGGED_OUT') === 'true';
+      if (isLoggedOut) {
+        return;
+      }
+    }
+    if (user && userType === 'admin') {
       router.push('/');
     }
-  }, [user, router]);
+  }, [user, userType, router]);
 
   // Identify employee by ID or name for One-Tap Punch (No Password Needed)
   const handleIdentifyStaff = (e: React.FormEvent) => {

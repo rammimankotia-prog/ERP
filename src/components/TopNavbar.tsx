@@ -263,7 +263,12 @@ export default function TopNavbar() {
 
         {/* Logout */}
         <button
-          onClick={logout}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            logout();
+          }}
           title="Log Out of Godwin ERP"
           aria-label="Log out"
           style={{

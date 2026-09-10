@@ -105,8 +105,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
 
-    // 4. Redirect current window to login
-    router.push('/login');
+    // 4. Force hard redirect to /login to completely flush in-memory React tree and caches
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    } else {
+      router.push('/login');
+    }
   }, [router]);
 
   // Login function
@@ -181,7 +185,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               localStorage.removeItem('kiosk_employee');
             } catch {}
             if (pathname && pathname !== '/login') {
-              router.push('/login');
+              if (typeof window !== 'undefined') {
+                window.location.href = '/login';
+              } else {
+                router.push('/login');
+              }
             }
           } else if (event.data?.type === 'LOGIN' && event.data?.user) {
             setUser(event.data.user);
@@ -201,14 +209,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem('kiosk_employee');
         } catch {}
         if (pathname && pathname !== '/login') {
-          router.push('/login');
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          } else {
+            router.push('/login');
+          }
         }
       } else if (e.key === 'GODWIN_LOGGED_IN_USER') {
         if (!e.newValue) {
           // User was logged out in another tab
           setUser(null);
           if (pathname && pathname !== '/login') {
-            router.push('/login');
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            } else {
+              router.push('/login');
+            }
           }
         } else {
           // User logged in in another tab

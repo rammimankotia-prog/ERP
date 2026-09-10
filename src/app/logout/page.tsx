@@ -35,7 +35,11 @@ export default function LogoutPage() {
     if (logout) {
       logout();
     } else {
-      router.push('/login');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      } else {
+        router.push('/login');
+      }
     }
   }, [logout, router]);
 
