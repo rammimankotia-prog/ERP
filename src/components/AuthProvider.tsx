@@ -128,13 +128,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Synchronize authentication across all windows & tabs
   useEffect(() => {
+    const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
+    const isPublic = 
+      cleanPath === '/login' || 
+      cleanPath.startsWith('/login/') ||
+      cleanPath === '/logout' || 
+      cleanPath.startsWith('/logout/') ||
+      cleanPath === '/kiosk' ||
+      cleanPath.startsWith('/kiosk/');
+
     // 1. Initial storage check on load / refresh
     try {
       const isExplicitlyLoggedOut = localStorage.getItem('GODWIN_LOGGED_OUT') === 'true';
 
       if (isExplicitlyLoggedOut) {
         setUser(null);
-        if (pathname && !['/login', '/logout'].includes(pathname) && !pathname.startsWith('/kiosk')) {
+        if (!isPublic) {
           if (typeof window !== 'undefined') {
             window.location.href = '/login';
           } else {
@@ -146,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
-            if (parsed && parsed.username) {
+            if (parsed && parsed.username && parsed.id) {
               setUser(parsed);
             } else {
               setUser(null);
@@ -157,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           // If no user is logged in, redirect if on protected route
           setUser(null);
-          if (pathname && !['/login', '/logout'].includes(pathname) && !pathname.startsWith('/kiosk')) {
+          if (!isPublic) {
             if (typeof window !== 'undefined') {
               window.location.href = '/login';
             } else {
@@ -185,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               localStorage.removeItem('GODWIN_LOGGED_IN_USER');
               localStorage.removeItem('kiosk_employee');
             } catch {}
-            if (pathname && pathname !== '/login') {
+            if (!isPublic) {
               if (typeof window !== 'undefined') {
                 window.location.href = '/login';
               } else {
@@ -209,7 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem('GODWIN_LOGGED_IN_USER');
           localStorage.removeItem('kiosk_employee');
         } catch {}
-        if (pathname && pathname !== '/login') {
+        if (!isPublic) {
           if (typeof window !== 'undefined') {
             window.location.href = '/login';
           } else {
@@ -220,7 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!e.newValue) {
           // User was logged out in another tab
           setUser(null);
-          if (pathname && pathname !== '/login') {
+          if (!isPublic) {
             if (typeof window !== 'undefined') {
               window.location.href = '/login';
             } else {
@@ -280,7 +289,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return current === true;
   }, [user, isMasterAdmin]);
 
-  const isPublicRoute = !pathname || ['/login', '/logout'].includes(pathname) || pathname.startsWith('/kiosk');
+  const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
+  const isPublicRoute = 
+    cleanPath === '/login' || 
+    cleanPath.startsWith('/login/') ||
+    cleanPath === '/logout' || 
+    cleanPath.startsWith('/logout/') ||
+    cleanPath === '/kiosk' ||
+    cleanPath.startsWith('/kiosk/');
 
   return (
     <AuthContext.Provider value={{ user, login, logout, hasPermission, isMasterAdmin }}>

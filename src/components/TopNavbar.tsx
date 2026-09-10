@@ -29,7 +29,8 @@ export default function TopNavbar() {
     }
   };
 
-  if (!user || pathname === '/login' || pathname === '/logout') return null;
+  const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
+  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout')) return null;
 
   const isLight = theme === 'light';
 
