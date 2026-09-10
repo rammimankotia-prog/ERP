@@ -4,15 +4,27 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
+import OneTapPunchInterface, { EmployeeInfo } from '@/components/OneTapPunchInterface';
 
 type UserType = 'admin' | 'employee';
+type EmployeeMode = 'direct-punch' | 'portal-login';
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, login } = useAuth();
 
   // Primary Mode: Admin vs Employee
-  const [userType, setUserType] = useState<UserType>('admin');
+  const [userType, setUserType] = useState<UserType>('employee'); // Default to employee for fast daily punch
+
+  // Employee Sub-Mode: Direct 1-Tap Punch (No Password) vs Portal Login (with Password)
+  const [empMode, setEmpMode] = useState<EmployeeMode>('direct-punch');
+
+  // Employee List for Quick ID Identification
+  const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [staffSearch, setStaffSearch] = useState('');
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeInfo | null>(null);
+  const [identifyError, setIdentifyError] = useState('');
 
   // Admin Login States
   const [adminTab, setAdminTab] = useState<'login' | 'reset'>('login');
@@ -28,22 +40,43 @@ export default function LoginPage() {
   const [resetSuccess, setResetSuccess] = useState('');
   const [resetError, setResetError] = useState('');
 
-  // Employee Login States
+  // Employee Password Login States
   const [empIdentifier, setEmpIdentifier] = useState('');
   const [empPassword, setEmpPassword] = useState('');
   const [showEmpPassword, setShowEmpPassword] = useState(false);
   const [empError, setEmpError] = useState('');
   const [empSubmitting, setEmpSubmitting] = useState(false);
 
-  // Read URL query params on mount to support direct links like ?mode=employee or ?mode=admin
+  // Fetch employees list for quick Staff ID matching and 1-tap punch
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      setLoadingEmployees(true);
+      try {
+        const res = await fetch('/api/kiosk/employees');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.employees && Array.isArray(data.employees)) {
+            setEmployees(data.employees);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load employees', e);
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
+  // Read URL query params on mount to support direct links
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const mode = params.get('mode') || params.get('type') || params.get('role') || params.get('tab');
-      if (mode === 'employee' || mode === 'staff') {
-        setUserType('employee');
-      } else if (mode === 'admin' || mode === 'manager') {
+      if (mode === 'admin' || mode === 'manager') {
         setUserType('admin');
+      } else if (mode === 'employee' || mode === 'staff') {
+        setUserType('employee');
       }
     }
   }, []);
@@ -51,8 +84,10 @@ export default function LoginPage() {
   // Function to switch between modes and synchronize URL cleanly
   const handleSwitchMode = (newMode: UserType) => {
     setUserType(newMode);
+    setSelectedEmployee(null);
     setAdminError('');
     setEmpError('');
+    setIdentifyError('');
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.set('mode', newMode);
@@ -67,6 +102,37 @@ export default function LoginPage() {
     }
   }, [user, router]);
 
+  // Identify employee by ID or name for One-Tap Punch (No Password Needed)
+  const handleIdentifyStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIdentifyError('');
+    const query = staffSearch.trim().toLowerCase();
+    if (!query) {
+      setIdentifyError('Please enter your Staff ID or Name.');
+      return;
+    }
+
+    const found = employees.find(emp => {
+      const eId = (emp.employeeId || '').toLowerCase();
+      const rawId = (emp.id || '').toLowerCase();
+      const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+      return (
+        eId === query ||
+        rawId === query ||
+        fullName === query ||
+        fullName.includes(query) ||
+        (eId.includes('-') && eId.split('-')[1] === query)
+      );
+    });
+
+    if (found) {
+      setSelectedEmployee(found);
+      setStaffSearch('');
+    } else {
+      setIdentifyError(`Staff ID "${staffSearch}" not found. Try GG-1001, GG-1002, GD-1001 or select from list below.`);
+    }
+  };
+
   // Handle Admin Login Submit
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +143,10 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: adminUsername, password: adminPassword })
+        body: JSON.stringify({
+          username: adminUsername.trim(),
+          password: adminPassword.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -109,7 +178,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resetEmail })
+        body: JSON.stringify({ email: resetEmail.trim() }),
       });
 
       const data = await res.json();
@@ -126,7 +195,7 @@ export default function LoginPage() {
     }
   };
 
-  // Handle Employee Login Submit
+  // Handle Employee Portal Login Submit (With Password)
   const handleEmployeeLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmpError('');
@@ -136,7 +205,10 @@ export default function LoginPage() {
       const res = await fetch('/api/kiosk/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: empIdentifier, password: empPassword })
+        body: JSON.stringify({
+          identifier: empIdentifier.trim(),
+          password: empPassword.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -154,7 +226,7 @@ export default function LoginPage() {
     }
   };
 
-  // Demo auto-fill helpers
+  // Quick fill helpers
   const fillAdminCredentials = () => {
     setAdminUsername('Godwinhotels');
     setAdminPassword('Godwindeluxe@99');
@@ -183,6 +255,19 @@ export default function LoginPage() {
           <button
             type="button"
             role="tab"
+            aria-selected={userType === 'employee'}
+            onClick={() => handleSwitchMode('employee')}
+            className={`portal-tab ${userType === 'employee' ? 'active emp-active' : ''}`}
+          >
+            <span className="portal-icon">⚡</span>
+            <div className="portal-tab-content">
+              <span className="portal-title">Employee Punch</span>
+              <span className="portal-hint">One-Tap (No Password)</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={userType === 'admin'}
             onClick={() => handleSwitchMode('admin')}
             className={`portal-tab ${userType === 'admin' ? 'active admin-active' : ''}`}
@@ -193,20 +278,247 @@ export default function LoginPage() {
               <span className="portal-hint">Management &amp; ERP</span>
             </div>
           </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={userType === 'employee'}
-            onClick={() => handleSwitchMode('employee')}
-            className={`portal-tab ${userType === 'employee' ? 'active emp-active' : ''}`}
-          >
-            <span className="portal-icon">👤</span>
-            <div className="portal-tab-content">
-              <span className="portal-title">Employee Login</span>
-              <span className="portal-hint">Staff Shifts &amp; Punch</span>
-            </div>
-          </button>
         </div>
+
+        {/* ==================== EMPLOYEE SECTION ==================== */}
+        {userType === 'employee' && (
+          <div className="section-content">
+            {/* If an employee is identified, render OneTapPunchInterface directly! */}
+            {selectedEmployee ? (
+              <div>
+                <OneTapPunchInterface
+                  employee={selectedEmployee}
+                  onBack={() => setSelectedEmployee(null)}
+                  onSuccess={() => {
+                    // Refetch status or reset after timeout
+                  }}
+                  autoResetSeconds={4}
+                />
+              </div>
+            ) : (
+              <div>
+                <div className="card-header">
+                  <div className="brand-badge emerald-badge">
+                    <span>⚡</span>
+                    <span>STAFF ATTENDANCE • NO PASSWORD NEEDED</span>
+                  </div>
+                  <h1 className="card-title">One-Tap Punch In / Out</h1>
+                  <p className="card-subtitle">
+                    Enter your Staff ID or tap your profile to record Check-In or Check-Out instantly.
+                  </p>
+                </div>
+
+                {/* Sub-mode switcher: Direct Punch vs Portal Login */}
+                <div className="tab-switcher">
+                  <button
+                    type="button"
+                    onClick={() => setEmpMode('direct-punch')}
+                    className={`tab-btn ${empMode === 'direct-punch' ? 'active' : ''}`}
+                  >
+                    <span>⚡</span> Direct Punch (1-Tap)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmpMode('portal-login')}
+                    className={`tab-btn ${empMode === 'portal-login' ? 'active' : ''}`}
+                  >
+                    <span>🔑</span> Staff Portal Login
+                  </button>
+                </div>
+
+                {empMode === 'direct-punch' ? (
+                  <div>
+                    {/* Direct Punch Identification Form */}
+                    <form onSubmit={handleIdentifyStaff} className="auth-form">
+                      {identifyError && (
+                        <div className="alert-box error-alert">
+                          <span className="alert-icon">⚠️</span>
+                          <span>{identifyError}</span>
+                        </div>
+                      )}
+
+                      <div className="input-group">
+                        <label className="input-label">Staff ID or Full Name</label>
+                        <div className="input-wrapper focus-emerald">
+                          <span className="input-icon">🆔</span>
+                          <input
+                            type="text"
+                            required
+                            autoFocus
+                            value={staffSearch}
+                            onChange={(e) => {
+                              setStaffSearch(e.target.value);
+                              setIdentifyError('');
+                            }}
+                            placeholder="e.g. GG-1002, GG-1001, or Priya"
+                            className="form-input"
+                          />
+                          <button
+                            type="submit"
+                            className="inline-identify-btn"
+                          >
+                            Punch ➔
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Quick Staff Selection Chips */}
+                      <div className="quick-staff-section">
+                        <div className="quick-staff-header">
+                          <span>Or tap your staff profile:</span>
+                          {loadingEmployees && <span style={{ fontSize: '0.7rem' }}>Loading...</span>}
+                        </div>
+                        <div className="quick-staff-chips">
+                          {employees.slice(0, 6).map((emp) => (
+                            <button
+                              key={emp.id}
+                              type="button"
+                              onClick={() => setSelectedEmployee(emp)}
+                              className="staff-chip"
+                            >
+                              <span className="chip-avatar">
+                                {emp.photo ? (
+                                  <img src={emp.photo} alt={emp.firstName} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                ) : (
+                                  `${emp.firstName[0]}${emp.lastName[0] || ''}`
+                                )}
+                              </span>
+                              <div className="chip-info">
+                                <span className="chip-name">{emp.firstName} {emp.lastName}</span>
+                                <span className="chip-id">{emp.employeeId} • {emp.department}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Wall Kiosk Link */}
+                      <div className="kiosk-shortcut-box">
+                        <span className="shortcut-icon">🖥️</span>
+                        <div className="shortcut-text">
+                          <div className="shortcut-title">Using Tablet or Wall Screen?</div>
+                          <Link href="/kiosk" className="shortcut-link">
+                            Open Full-Screen Kiosk Terminal ➔
+                          </Link>
+                        </div>
+                      </div>
+
+                      {/* Switch to Admin Login Prompt */}
+                      <div className="switch-helper-box">
+                        <div className="helper-content">
+                          <span className="helper-icon">👔</span>
+                          <span className="helper-label">Are you a manager or administrator?</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleSwitchMode('admin')}
+                          className="switch-action-btn to-admin-action"
+                        >
+                          Switch to Admin Login ➔
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  /* Employee Portal Login (With Password) */
+                  <form onSubmit={handleEmployeeLogin} className="auth-form">
+                    {empError && (
+                      <div className="alert-box error-alert">
+                        <span className="alert-icon">⚠️</span>
+                        <span>{empError}</span>
+                      </div>
+                    )}
+
+                    <div className="input-group">
+                      <label className="input-label">Employee ID or Staff Email</label>
+                      <div className="input-wrapper focus-emerald">
+                        <span className="input-icon">🆔</span>
+                        <input
+                          type="text"
+                          required
+                          autoComplete="username"
+                          value={empIdentifier}
+                          onChange={(e) => setEmpIdentifier(e.target.value)}
+                          placeholder="GG-1002 or staff@godwinhotels.com"
+                          className="form-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="input-group">
+                      <label className="input-label">Staff Password / PIN</label>
+                      <div className="input-wrapper focus-emerald">
+                        <span className="input-icon">🔑</span>
+                        <input
+                          type={showEmpPassword ? 'text' : 'password'}
+                          required
+                          autoComplete="current-password"
+                          value={empPassword}
+                          onChange={(e) => setEmpPassword(e.target.value)}
+                          placeholder="••••••••••••"
+                          className="form-input"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowEmpPassword(!showEmpPassword)}
+                          className="toggle-password-btn"
+                          aria-label={showEmpPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showEmpPassword ? '🙈' : '👁️'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={empSubmitting}
+                      className="submit-btn emerald-btn"
+                    >
+                      {empSubmitting ? (
+                        <>
+                          <span className="btn-spinner" />
+                          Verifying Staff Access...
+                        </>
+                      ) : (
+                        <>
+                          <span>⚡</span> Access Staff Dashboard ➔
+                        </>
+                      )}
+                    </button>
+
+                    {/* Quick Demo Fill */}
+                    <div className="demo-credentials-card">
+                      <div className="demo-card-header">
+                        <span className="demo-badge emerald-text">👤 Staff Demo (Priya Sharma - Front Desk)</span>
+                        <button
+                          type="button"
+                          onClick={fillEmployeeCredentials}
+                          className="auto-fill-btn emerald-fill-btn"
+                        >
+                          ⚡ Auto-Fill
+                        </button>
+                      </div>
+                      <div className="demo-card-body">
+                        <span>ID: <strong className="mono-text">GG-1002</strong></span>
+                        <span className="divider">|</span>
+                        <span>Pass: <strong className="mono-text">Godwin@123</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Switch to Direct Punch */}
+                    <button
+                      type="button"
+                      onClick={() => setEmpMode('direct-punch')}
+                      className="text-mode-btn"
+                    >
+                      ⚡ Just need to punch in/out? Tap here (No Password)
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ==================== ADMIN SECTION ==================== */}
         {userType === 'admin' && (
@@ -349,18 +661,18 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                {/* Switch to Employee Login Card */}
+                {/* Switch to Employee Punch */}
                 <div className="switch-helper-box">
                   <div className="helper-content">
-                    <span className="helper-icon">👤</span>
-                    <span className="helper-label">Are you a hotel staff member?</span>
+                    <span className="helper-icon">⚡</span>
+                    <span className="helper-label">Need Staff 1-Tap Punch or Shift Access?</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleSwitchMode('employee')}
                     className="switch-action-btn to-employee-action"
                   >
-                    Switch to Employee Login ➔
+                    Switch to Employee Punch ➔
                   </button>
                 </div>
               </form>
@@ -408,133 +720,6 @@ export default function LoginPage() {
                 </button>
               </form>
             )}
-          </div>
-        )}
-
-        {/* ==================== EMPLOYEE SECTION ==================== */}
-        {userType === 'employee' && (
-          <div className="section-content">
-            <div className="card-header">
-              <div className="brand-badge emerald-badge">
-                <span>🏨</span>
-                <span>STAFF ATTENDANCE &amp; SHIFT PORTAL</span>
-              </div>
-              <h1 className="card-title">Employee Portal</h1>
-              <p className="card-subtitle">
-                Sign in with your Staff ID (e.g. GG-1002) or official email to access your shifts and attendance timeline.
-              </p>
-            </div>
-
-            <form onSubmit={handleEmployeeLogin} className="auth-form">
-              {empError && (
-                <div className="alert-box error-alert">
-                  <span className="alert-icon">⚠️</span>
-                  <span>{empError}</span>
-                </div>
-              )}
-
-              <div className="input-group">
-                <label className="input-label">Employee ID or Staff Email</label>
-                <div className="input-wrapper focus-emerald">
-                  <span className="input-icon">🆔</span>
-                  <input
-                    type="text"
-                    required
-                    autoComplete="username"
-                    value={empIdentifier}
-                    onChange={(e) => setEmpIdentifier(e.target.value)}
-                    placeholder="GG-1002 or staff@godwinhotels.com"
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Staff Password / PIN</label>
-                <div className="input-wrapper focus-emerald">
-                  <span className="input-icon">🔑</span>
-                  <input
-                    type={showEmpPassword ? 'text' : 'password'}
-                    required
-                    autoComplete="current-password"
-                    value={empPassword}
-                    onChange={(e) => setEmpPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="form-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowEmpPassword(!showEmpPassword)}
-                    className="toggle-password-btn"
-                    aria-label={showEmpPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showEmpPassword ? '🙈' : '👁️'}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={empSubmitting}
-                className="submit-btn emerald-btn"
-              >
-                {empSubmitting ? (
-                  <>
-                    <span className="btn-spinner" />
-                    Verifying Staff Access...
-                  </>
-                ) : (
-                  <>
-                    <span>⚡</span> Access Staff Dashboard ➔
-                  </>
-                )}
-              </button>
-
-              {/* Quick Auto-Fill Demo Employee Credentials */}
-              <div className="demo-credentials-card">
-                <div className="demo-card-header">
-                  <span className="demo-badge emerald-text">👤 Staff Demo (Priya Sharma - Front Desk)</span>
-                  <button
-                    type="button"
-                    onClick={fillEmployeeCredentials}
-                    className="auto-fill-btn emerald-fill-btn"
-                  >
-                    ⚡ Auto-Fill
-                  </button>
-                </div>
-                <div className="demo-card-body">
-                  <span>ID: <strong className="mono-text">GG-1002</strong></span>
-                  <span className="divider">|</span>
-                  <span>Pass: <strong className="mono-text">Godwin@123</strong></span>
-                </div>
-              </div>
-
-              {/* Fast 1-Tap Kiosk Punch Terminal Shortcut */}
-              <div className="kiosk-shortcut-box">
-                <span className="shortcut-icon">⏱️</span>
-                <div className="shortcut-text">
-                  <div className="shortcut-title">Need to punch in/out quickly?</div>
-                  <Link href="/kiosk" className="shortcut-link">
-                    Open Wall Kiosk Terminal for 1-Tap Punch ➔
-                  </Link>
-                </div>
-              </div>
-
-              {/* Switch to Admin Login Card */}
-              <div className="switch-helper-box">
-                <div className="helper-content">
-                  <span className="helper-icon">👔</span>
-                  <span className="helper-label">Are you a manager or administrator?</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleSwitchMode('admin')}
-                  className="switch-action-btn to-admin-action"
-                >
-                  Switch to Admin Login ➔
-                </button>
-              </div>
-            </form>
           </div>
         )}
 
@@ -605,14 +790,14 @@ export default function LoginPage() {
 
         .login-card {
           width: 100%;
-          max-width: 490px;
-          background: rgba(15, 23, 42, 0.84);
+          max-width: 530px;
+          background: rgba(15, 23, 42, 0.86);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 24px;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
-          padding: clamp(1.75rem, 4vw, 2.5rem);
+          padding: clamp(1.6rem, 3.8vw, 2.35rem);
           position: relative;
           z-index: 1;
           box-sizing: border-box;
@@ -644,7 +829,7 @@ export default function LoginPage() {
           background: rgba(2, 6, 23, 0.75);
           padding: 0.35rem;
           border-radius: 14px;
-          margin-bottom: 1.75rem;
+          margin-bottom: 1.6rem;
           border: 1px solid rgba(255, 255, 255, 0.08);
           gap: 0.35rem;
         }
@@ -724,7 +909,7 @@ export default function LoginPage() {
 
         .card-header {
           text-align: center;
-          margin-bottom: 1.5rem;
+          margin-bottom: 1.35rem;
         }
 
         .brand-badge {
@@ -737,7 +922,7 @@ export default function LoginPage() {
           font-weight: 800;
           letter-spacing: 0.05em;
           text-transform: uppercase;
-          margin-bottom: 0.85rem;
+          margin-bottom: 0.75rem;
         }
 
         .gold-badge {
@@ -754,7 +939,7 @@ export default function LoginPage() {
 
         .card-title {
           color: #ffffff;
-          font-size: clamp(1.45rem, 3vw, 1.8rem);
+          font-size: clamp(1.4rem, 3vw, 1.75rem);
           font-weight: 900;
           margin: 0 0 0.35rem 0;
           letter-spacing: -0.02em;
@@ -775,7 +960,7 @@ export default function LoginPage() {
           background: rgba(0, 0, 0, 0.4);
           padding: 0.25rem;
           border-radius: 11px;
-          margin-bottom: 1.35rem;
+          margin-bottom: 1.25rem;
           border: 1px solid rgba(255, 255, 255, 0.06);
           gap: 0.25rem;
         }
@@ -884,7 +1069,7 @@ export default function LoginPage() {
           border: none;
           padding: 0.85rem 0;
           color: #ffffff;
-          font-size: 16px; /* Prevents auto-zoom on iOS Safari */
+          font-size: 16px;
           outline: none;
           font-weight: 600;
         }
@@ -893,6 +1078,99 @@ export default function LoginPage() {
           color: #475569;
           font-weight: 500;
           font-size: 0.9rem;
+        }
+
+        .inline-identify-btn {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 800;
+          padding: 0.45rem 0.85rem;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.15s ease;
+        }
+
+        .inline-identify-btn:hover {
+          transform: translateY(-1px);
+        }
+
+        /* Quick Staff Chips */
+        .quick-staff-section {
+          margin-top: 0.25rem;
+        }
+
+        .quick-staff-header {
+          font-size: 0.74rem;
+          color: #94a3b8;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+          display: flex;
+          justify-content: space-between;
+        }
+
+        .quick-staff-chips {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 0.5rem;
+        }
+
+        .staff-chip {
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 10px;
+          padding: 0.5rem 0.6rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.15s ease;
+        }
+
+        .staff-chip:hover {
+          background: rgba(16, 185, 129, 0.14);
+          border-color: rgba(16, 185, 129, 0.3);
+          transform: translateY(-1px);
+        }
+
+        .chip-avatar {
+          width: 26px;
+          height: 26px;
+          border-radius: 50%;
+          background: rgba(16, 185, 129, 0.25);
+          color: #34d399;
+          font-size: 0.68rem;
+          font-weight: 800;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .chip-info {
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .chip-name {
+          color: #ffffff;
+          font-size: 0.74rem;
+          font-weight: 700;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .chip-id {
+          color: #64748b;
+          font-size: 0.65rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .password-header {
@@ -1007,6 +1285,18 @@ export default function LoginPage() {
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
           display: inline-block;
+        }
+
+        .text-mode-btn {
+          background: transparent;
+          border: none;
+          color: #34d399;
+          font-size: 0.8rem;
+          font-weight: 700;
+          cursor: pointer;
+          text-align: center;
+          padding: 0.4rem;
+          text-decoration: underline;
         }
 
         /* Demo credentials card */
@@ -1266,7 +1556,7 @@ export default function LoginPage() {
           }
 
           .portal-hint {
-            display: none; /* Hide hint on very narrow screens for clean look */
+            display: none;
           }
 
           .card-title {
@@ -1276,6 +1566,10 @@ export default function LoginPage() {
           .brand-badge {
             font-size: 0.65rem;
             padding: 0.3rem 0.65rem;
+          }
+
+          .quick-staff-chips {
+            grid-template-columns: 1fr;
           }
 
           .switch-helper-box {

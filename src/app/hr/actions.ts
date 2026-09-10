@@ -247,6 +247,8 @@ export async function createEmployee(data: {
     employeeId,
     firstName: data.firstName,
     lastName: data.lastName,
+    email: data.email,
+    password: data.password || 'Godwin@123',
     contactNo: data.contactNo,
     branchId: data.branchId,
     departmentId: data.departmentId,

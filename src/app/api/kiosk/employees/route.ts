@@ -4,21 +4,28 @@ import path from 'path'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
+const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees.json')
 const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
+const LOCAL_ATTENDANCE_FILE = path.join(process.cwd(), 'data', 'hr_attendance.json')
 
-function readJson<T>(file: string, fallback: T): T {
-  try {
-    if (fs.existsSync(file)) {
-      return JSON.parse(fs.readFileSync(file, 'utf-8'))
-    }
-  } catch {}
+function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
+  for (const f of [file, fallbackFile]) {
+    try {
+      if (fs.existsSync(f)) {
+        const raw = fs.readFileSync(f, 'utf-8')
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed as unknown as T
+        if (!Array.isArray(parsed) && parsed) return parsed as unknown as T
+      }
+    } catch {}
+  }
   return fallback
 }
 
 export async function GET() {
   try {
-    const employees = readJson<any[]>(EMPLOYEES_FILE, [])
-    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, [])
+    const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
     const dateStr = new Date().toISOString().split('T')[0]
 
     const activeList = employees

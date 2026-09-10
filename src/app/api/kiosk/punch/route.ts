@@ -4,23 +4,39 @@ import path from 'path'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
+const LOCAL_ATTENDANCE_FILE = path.join(process.cwd(), 'data', 'hr_attendance.json')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
+const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees.json')
 
-function readJson<T>(file: string, fallback: T): T {
-  try {
-    if (fs.existsSync(file)) {
-      return JSON.parse(fs.readFileSync(file, 'utf-8'))
-    }
-  } catch {}
-  return fallback
+function readJson<T>(file: string, fallbackFile: string = '', fallback: T = [] as unknown as T): T {
+  const list = [file]
+  if (fallbackFile && typeof fallbackFile === 'string') list.push(fallbackFile)
+  for (const f of list) {
+    try {
+      if (fs.existsSync(f)) {
+        const raw = fs.readFileSync(f, 'utf-8')
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed as unknown as T
+        if (!Array.isArray(parsed) && parsed) return parsed as unknown as T
+      }
+    } catch {}
+  }
+  return (typeof fallbackFile !== 'string' && fallbackFile ? fallbackFile : fallback) as T
 }
 
 function writeJson(file: string, data: any) {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true })
+    const dir = path.dirname(file)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
     }
     fs.writeFileSync(file, JSON.stringify(data, null, 2))
+    // Also mirror to local if different
+    if (file !== LOCAL_ATTENDANCE_FILE && fs.existsSync(path.dirname(LOCAL_ATTENDANCE_FILE))) {
+      try {
+        fs.writeFileSync(LOCAL_ATTENDANCE_FILE, JSON.stringify(data, null, 2))
+      } catch {}
+    }
   } catch (err) {
     console.error('Error writing json to', file, err)
   }
@@ -36,10 +52,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'employeeId required' }, { status: 400 })
     }
 
-    const employees = readJson<any[]>(EMPLOYEES_FILE, [])
+    const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
     const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId)
 
-    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, [])
+    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
     const record = allAttendance.find(a => 
       (a.employeeId === employeeId || (emp && (a.employeeId === emp.id || a.employeeId === emp.employeeId))) && 
       a.date === dateStr
@@ -67,11 +83,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'employeeId and action required' }, { status: 400 })
     }
 
-    const employees = readJson<any[]>(EMPLOYEES_FILE, [])
+    const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
     const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId)
     const normalizedEmpId = emp ? (emp.employeeId || emp.id) : employeeId
 
-    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, [])
+    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
     const dateStr = new Date().toISOString().split('T')[0]
 
     let existingIndex = allAttendance.findIndex(a => 
