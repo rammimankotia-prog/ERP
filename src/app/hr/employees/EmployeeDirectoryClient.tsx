@@ -7,6 +7,21 @@ import { toggleEmployeeStatus, deleteEmployee, updateEmployee } from '../actions
 
 const LOCAL_STORAGE_KEY = 'godwin_erp_employees_cache'
 
+// Known dummy/seed employee IDs to permanently purge from localStorage
+const DUMMY_EMPLOYEE_IDS = new Set([
+  'emp-gg-1001', 'emp-gg-1002', 'emp-gd-1001',
+  'GG-1001', 'GG-1002', 'GD-1001',
+])
+
+function isPurgeableEmployee(emp: any): boolean {
+  return (
+    DUMMY_EMPLOYEE_IDS.has(emp?.id) ||
+    DUMMY_EMPLOYEE_IDS.has(emp?.employeeId) ||
+    emp?.id?.startsWith('mock-') ||
+    emp?.employeeId?.startsWith('mock-')
+  )
+}
+
 interface Branch {
   id: string
   name: string
@@ -73,18 +88,18 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     try {
       const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
       if (!cachedStr) {
-        return incomingList.filter(e => !e.id?.startsWith('mock-') && !e.employeeId?.startsWith('mock-'))
+        return incomingList.filter(e => !isPurgeableEmployee(e))
       }
       const rawCache: any[] = JSON.parse(cachedStr)
-      if (!Array.isArray(rawCache)) return incomingList
+      if (!Array.isArray(rawCache)) return incomingList.filter(e => !isPurgeableEmployee(e))
 
-      // Purge any legacy mock entries permanently from client localStorage
-      const cache = rawCache.filter((c: any) => !c.id?.startsWith('mock-') && !c.employeeId?.startsWith('mock-'))
+      // Purge any legacy dummy/mock entries permanently from client localStorage
+      const cache = rawCache.filter((c: any) => !isPurgeableEmployee(c))
       if (cache.length !== rawCache.length) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache))
       }
 
-      const cleanIncoming = incomingList.filter(e => !e.id?.startsWith('mock-') && !e.employeeId?.startsWith('mock-'))
+      const cleanIncoming = incomingList.filter(e => !isPurgeableEmployee(e))
 
       const merged = cleanIncoming.map(serverEmp => {
         const cachedEmp = cache.find((c: any) => c.id === serverEmp.id || c.employeeId === serverEmp.employeeId)
@@ -99,7 +114,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
 
       return merged
     } catch {
-      return incomingList.filter(e => !e.id?.startsWith('mock-') && !e.employeeId?.startsWith('mock-'))
+      return incomingList.filter(e => !isPurgeableEmployee(e))
     }
   }, [])
 

@@ -20,40 +20,5 @@
       "userAccess": { "view": true, "edit": true },
       "settings": { "view": true, "edit": true }
     }
-  },
-  {
-    "id": "manager-001",
-    "username": "manager@godwinhotels.com",
-    "name": "Duty Roster Manager",
-    "email": "manager@godwinhotels.com",
-    "password": "Manager@99",
-    "role": "Manager",
-    "status": "Active",
-    "createdAt": "2024-01-01",
-    "permissions": {
-      "hr": {
-        "employees": { "view": true, "edit": false, "delete": false },
-        "attendance": { "view": true, "edit": true },
-        "shifts": { "view": true, "edit": true },
-        "leave": { "view": true, "approve": true },
-        "payroll": { "view": false, "edit": false },
-        "reports": { "view": true }
-      },
-      "userAccess": { "view": false, "edit": false },
-      "settings": { "view": false, "edit": false }
-    }
-  },
-  {
-    "id": "guard-001",
-    "username": "guard@godwinhotels.com",
-    "name": "Gate Security Guard",
-    "email": "guard@godwinhotels.com",
-    "password": "Guard@99",
-    "role": "Security Guard",
-    "status": "Active",
-    "createdAt": "2024-01-01",
-    "permissions": {
-      "kiosk": true
-    }
   }
 ]
