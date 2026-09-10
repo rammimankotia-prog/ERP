@@ -107,6 +107,17 @@ export default function Sidebar() {
           overflowY: 'auto',
           paddingRight: '0.25rem'
         }}>
+          {/* Quick Punch Terminal */}
+          <NavLink
+            href="/kiosk"
+            icon="⚡"
+            label="Punch In / Out"
+            badge="1-Tap"
+            active={pathname.startsWith('/kiosk')}
+            theme={theme}
+            onClick={closeMobileSidebar}
+          />
+
           {showHR && (
             <>
               <NavLink
@@ -135,13 +146,22 @@ export default function Sidebar() {
                   />
                 )}
                 {canSee('hr.attendance') && (
-                  <SubLink
-                    href="/hr/attendance"
-                    label="Attendance"
-                    active={pathname.startsWith('/hr/attendance')}
-                    theme={theme}
-                    onClick={closeMobileSidebar}
-                  />
+                  <>
+                    <SubLink
+                      href="/hr/attendance"
+                      label="Attendance Sheet"
+                      active={pathname.startsWith('/hr/attendance')}
+                      theme={theme}
+                      onClick={closeMobileSidebar}
+                    />
+                    <SubLink
+                      href="/kiosk"
+                      label="⚡ Punch Terminal"
+                      active={pathname.startsWith('/kiosk')}
+                      theme={theme}
+                      onClick={closeMobileSidebar}
+                    />
+                  </>
                 )}
                 {canSee('hr.shifts') && (
                   <SubLink
@@ -297,6 +317,7 @@ function NavLink({
   href,
   icon,
   label,
+  badge,
   active,
   theme,
   onClick
@@ -304,6 +325,7 @@ function NavLink({
   href: string;
   icon: string;
   label: string;
+  badge?: string;
   active?: boolean;
   theme?: string;
   onClick?: () => void;
@@ -336,7 +358,24 @@ function NavLink({
       }}>
         {icon}
       </span>
-      <span>{label}</span>
+      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+        <span>{label}</span>
+        {badge && (
+          <span style={{
+            fontSize: '0.65rem',
+            padding: '2px 7px',
+            borderRadius: '999px',
+            fontWeight: 800,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            backgroundColor: isLight ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.25)',
+            color: isLight ? '#059669' : '#34d399',
+            border: isLight ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(16, 185, 129, 0.4)',
+          }}>
+            {badge}
+          </span>
+        )}
+      </span>
     </Link>
   );
 }
