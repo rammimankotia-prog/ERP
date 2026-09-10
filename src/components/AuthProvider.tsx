@@ -96,11 +96,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
 
-    // 4. Force hard redirect to /login to completely flush in-memory React tree and caches
+    // 4. Force hard redirect to /admin/login to completely flush in-memory React tree and caches
     if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+      window.location.href = '/admin/login';
     } else {
-      router.push('/login');
+      router.push('/admin/login');
     }
   }, [router]);
 
@@ -132,10 +132,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isPublic = 
       cleanPath === '/login' || 
       cleanPath.startsWith('/login/') ||
+      cleanPath === '/admin/login' ||
+      cleanPath.startsWith('/admin/login') ||
       cleanPath === '/logout' || 
       cleanPath.startsWith('/logout/') ||
       cleanPath === '/kiosk' ||
       cleanPath.startsWith('/kiosk/');
+
+    // Decide where to redirect unauthenticated users based on which portal they were on
+    const getLoginUrl = () => {
+      // If they were on an admin-area page, send to admin login
+      if (
+        cleanPath.startsWith('/admin') ||
+        cleanPath.startsWith('/hr') ||
+        cleanPath.startsWith('/users') ||
+        cleanPath.startsWith('/settings') ||
+        cleanPath.startsWith('/operations') ||
+        cleanPath === '/'
+      ) {
+        return '/admin/login';
+      }
+      return '/login';
+    };
+
+    const redirectToLogin = () => {
+      const url = getLoginUrl();
+      if (typeof window !== 'undefined') {
+        window.location.href = url;
+      } else {
+        router.push(url);
+      }
+    };
 
     // 1. Initial storage check on load / refresh
     try {
@@ -143,13 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (isExplicitlyLoggedOut) {
         setUser(null);
-        if (!isPublic) {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          } else {
-            router.push('/login');
-          }
-        }
+        if (!isPublic) redirectToLogin();
       } else {
         const saved = localStorage.getItem('GODWIN_LOGGED_IN_USER') || sessionStorage.getItem('GODWIN_LOGGED_IN_USER');
         if (saved) {
@@ -166,13 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           // If no user is logged in, redirect if on protected route
           setUser(null);
-          if (!isPublic) {
-            if (typeof window !== 'undefined') {
-              window.location.href = '/login';
-            } else {
-              router.push('/login');
-            }
-          }
+          if (!isPublic) redirectToLogin();
         }
       }
     } catch (err) {
@@ -194,13 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               localStorage.removeItem('GODWIN_LOGGED_IN_USER');
               localStorage.removeItem('kiosk_employee');
             } catch {}
-            if (!isPublic) {
-              if (typeof window !== 'undefined') {
-                window.location.href = '/login';
-              } else {
-                router.push('/login');
-              }
-            }
+            if (!isPublic) redirectToLogin();
           } else if (event.data?.type === 'LOGIN' && event.data?.user) {
             setUser(event.data.user);
           }
@@ -218,24 +227,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem('GODWIN_LOGGED_IN_USER');
           localStorage.removeItem('kiosk_employee');
         } catch {}
-        if (!isPublic) {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          } else {
-            router.push('/login');
-          }
-        }
+        if (!isPublic) redirectToLogin();
       } else if (e.key === 'GODWIN_LOGGED_IN_USER') {
         if (!e.newValue) {
           // User was logged out in another tab
           setUser(null);
-          if (!isPublic) {
-            if (typeof window !== 'undefined') {
-              window.location.href = '/login';
-            } else {
-              router.push('/login');
-            }
-          }
+          if (!isPublic) redirectToLogin();
         } else {
           // User logged in in another tab
           try {
@@ -253,12 +250,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       if (bc) {
-        try {
-          bc.close();
-        } catch {}
+        try { bc.close(); } catch {}
       }
     };
   }, [pathname, router]);
+
 
   // RBAC route enforcement for Security Guard role
   useEffect(() => {
@@ -317,6 +313,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isPublicRoute = 
     cleanPath === '/login' || 
     cleanPath.startsWith('/login') || 
+    cleanPath === '/admin/login' || 
+    cleanPath.startsWith('/admin/login') || 
     cleanPath === '/logout' || 
     cleanPath.startsWith('/logout') || 
     cleanPath === '/kiosk' || 
