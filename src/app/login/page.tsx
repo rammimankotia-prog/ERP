@@ -35,6 +35,31 @@ export default function LoginPage() {
   const [empError, setEmpError] = useState('');
   const [empSubmitting, setEmpSubmitting] = useState(false);
 
+  // Read URL query params on mount to support direct links like ?mode=employee or ?mode=admin
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get('mode') || params.get('type') || params.get('role') || params.get('tab');
+      if (mode === 'employee' || mode === 'staff') {
+        setUserType('employee');
+      } else if (mode === 'admin' || mode === 'manager') {
+        setUserType('admin');
+      }
+    }
+  }, []);
+
+  // Function to switch between modes and synchronize URL cleanly
+  const handleSwitchMode = (newMode: UserType) => {
+    setUserType(newMode);
+    setAdminError('');
+    setEmpError('');
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('mode', newMode);
+      window.history.replaceState(null, '', url.toString());
+    }
+  };
+
   // If already logged in as Admin, redirect to dashboard
   useEffect(() => {
     if (user) {
@@ -153,23 +178,33 @@ export default function LoginPage() {
         {/* Dynamic Color Accent Bar */}
         <div className={`accent-bar ${userType === 'admin' ? 'admin-accent' : 'emp-accent'}`} />
 
-        {/* Portal Type Switcher (Admin vs Employee) */}
-        <div className="portal-selector">
+        {/* Portal Type Switcher (Top Segmented Control) */}
+        <div className="portal-selector" role="tablist" aria-label="Login Role Selection">
           <button
             type="button"
-            onClick={() => { setUserType('admin'); setAdminError(''); }}
+            role="tab"
+            aria-selected={userType === 'admin'}
+            onClick={() => handleSwitchMode('admin')}
             className={`portal-tab ${userType === 'admin' ? 'active admin-active' : ''}`}
           >
             <span className="portal-icon">👔</span>
-            <span className="portal-label">Admin / Manager</span>
+            <div className="portal-tab-content">
+              <span className="portal-title">Admin Login</span>
+              <span className="portal-hint">Management &amp; ERP</span>
+            </div>
           </button>
           <button
             type="button"
-            onClick={() => { setUserType('employee'); setEmpError(''); }}
+            role="tab"
+            aria-selected={userType === 'employee'}
+            onClick={() => handleSwitchMode('employee')}
             className={`portal-tab ${userType === 'employee' ? 'active emp-active' : ''}`}
           >
             <span className="portal-icon">👤</span>
-            <span className="portal-label">Staff / Employee</span>
+            <div className="portal-tab-content">
+              <span className="portal-title">Employee Login</span>
+              <span className="portal-hint">Staff Shifts &amp; Punch</span>
+            </div>
           </button>
         </div>
 
@@ -312,6 +347,21 @@ export default function LoginPage() {
                     <span className="divider">|</span>
                     <span>Pass: <strong className="mono-text">Godwindeluxe@99</strong></span>
                   </div>
+                </div>
+
+                {/* Switch to Employee Login Card */}
+                <div className="switch-helper-box">
+                  <div className="helper-content">
+                    <span className="helper-icon">👤</span>
+                    <span className="helper-label">Are you a hotel staff member?</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchMode('employee')}
+                    className="switch-action-btn to-employee-action"
+                  >
+                    Switch to Employee Login ➔
+                  </button>
                 </div>
               </form>
             ) : (
@@ -469,6 +519,21 @@ export default function LoginPage() {
                   </Link>
                 </div>
               </div>
+
+              {/* Switch to Admin Login Card */}
+              <div className="switch-helper-box">
+                <div className="helper-content">
+                  <span className="helper-icon">👔</span>
+                  <span className="helper-label">Are you a manager or administrator?</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchMode('admin')}
+                  className="switch-action-btn to-admin-action"
+                >
+                  Switch to Admin Login ➔
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -572,11 +637,11 @@ export default function LoginPage() {
           background: linear-gradient(90deg, #059669 0%, #10b981 50%, #06b6d4 100%);
         }
 
-        /* Primary Portal Switcher: Admin vs Employee */
+        /* Top Segmented Role Switcher */
         .portal-selector {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          background: rgba(2, 6, 23, 0.7);
+          background: rgba(2, 6, 23, 0.75);
           padding: 0.35rem;
           border-radius: 14px;
           margin-bottom: 1.75rem;
@@ -585,24 +650,48 @@ export default function LoginPage() {
         }
 
         .portal-tab {
-          padding: 0.75rem 0.6rem;
+          padding: 0.65rem 0.5rem;
           border-radius: 10px;
           border: none;
           background: transparent;
           color: #94a3b8;
-          font-weight: 800;
-          font-size: 0.85rem;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.25s ease;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 0.5rem;
-          min-height: 44px;
+          gap: 0.6rem;
+          min-height: 48px;
+          text-align: left;
+        }
+
+        .portal-tab:hover:not(.active) {
+          background: rgba(255, 255, 255, 0.04);
+          color: #cbd5e1;
         }
 
         .portal-icon {
-          font-size: 1.1rem;
+          font-size: 1.35rem;
+          flex-shrink: 0;
+        }
+
+        .portal-tab-content {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .portal-title {
+          font-size: 0.86rem;
+          font-weight: 800;
+          line-height: 1.2;
+        }
+
+        .portal-hint {
+          font-size: 0.68rem;
+          font-weight: 500;
+          color: #64748b;
+          line-height: 1.2;
+          margin-top: 2px;
         }
 
         .portal-tab.active.admin-active {
@@ -612,6 +701,11 @@ export default function LoginPage() {
           box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
         }
 
+        .portal-tab.active.admin-active .portal-hint {
+          color: #fde68a;
+          opacity: 0.85;
+        }
+
         .portal-tab.active.emp-active {
           background: rgba(16, 185, 129, 0.18);
           color: #34d399;
@@ -619,8 +713,13 @@ export default function LoginPage() {
           box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
         }
 
+        .portal-tab.active.emp-active .portal-hint {
+          color: #a7f3d0;
+          opacity: 0.85;
+        }
+
         .section-content {
-          animation: fadeIn 0.25s ease;
+          animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .card-header {
@@ -988,6 +1087,72 @@ export default function LoginPage() {
           color: #475569;
         }
 
+        /* Switch Helper Box at Bottom of Form */
+        .switch-helper-box {
+          margin-top: 0.5rem;
+          padding: 0.85rem 1rem;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px dashed rgba(255, 255, 255, 0.15);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 0.6rem;
+        }
+
+        .helper-content {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .helper-icon {
+          font-size: 1.1rem;
+        }
+
+        .helper-label {
+          color: #94a3b8;
+          font-size: 0.78rem;
+          font-weight: 500;
+        }
+
+        .switch-action-btn {
+          background: transparent;
+          border: none;
+          font-size: 0.8rem;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 0.3rem 0.6rem;
+          border-radius: 6px;
+          transition: all 0.15s ease;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+        }
+
+        .to-employee-action {
+          color: #34d399;
+          background: rgba(16, 185, 129, 0.1);
+          border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .to-employee-action:hover {
+          background: rgba(16, 185, 129, 0.22);
+          transform: translateX(2px);
+        }
+
+        .to-admin-action {
+          color: #fbbf24;
+          background: rgba(245, 158, 11, 0.1);
+          border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+
+        .to-admin-action:hover {
+          background: rgba(245, 158, 11, 0.22);
+          transform: translateX(2px);
+        }
+
         .kiosk-shortcut-box {
           margin-top: 0.35rem;
           padding: 0.8rem 0.95rem;
@@ -1092,8 +1257,16 @@ export default function LoginPage() {
           }
 
           .portal-tab {
-            font-size: 0.78rem;
-            min-height: 42px;
+            padding: 0.5rem 0.4rem;
+            min-height: 44px;
+          }
+
+          .portal-title {
+            font-size: 0.8rem;
+          }
+
+          .portal-hint {
+            display: none; /* Hide hint on very narrow screens for clean look */
           }
 
           .card-title {
@@ -1103,6 +1276,16 @@ export default function LoginPage() {
           .brand-badge {
             font-size: 0.65rem;
             padding: 0.3rem 0.65rem;
+          }
+
+          .switch-helper-box {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .switch-action-btn {
+            width: 100%;
+            justify-content: center;
           }
         }
       `}</style>
