@@ -289,18 +289,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return current === true;
   }, [user, isMasterAdmin]);
 
-  const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
+  const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
+  const cleanPath = (currentPath || '').split('?')[0].replace(/\/$/, '') || '/';
   const isPublicRoute = 
     cleanPath === '/login' || 
-    cleanPath.startsWith('/login/') ||
+    cleanPath.startsWith('/login') || 
     cleanPath === '/logout' || 
-    cleanPath.startsWith('/logout/') ||
-    cleanPath === '/kiosk' ||
-    cleanPath.startsWith('/kiosk/');
+    cleanPath.startsWith('/logout') || 
+    cleanPath === '/kiosk' || 
+    cleanPath.startsWith('/kiosk');
 
   return (
     <AuthContext.Provider value={{ user, login, logout, hasPermission, isMasterAdmin }}>
-      {!authChecked && !isPublicRoute ? (
+      {/* Public routes (login, logout, kiosk) are always rendered instantly without blocking */}
+      {isPublicRoute ? (
+        children
+      ) : !authChecked ? (
         <div style={{
           minHeight: '100vh',
           width: '100%',
@@ -327,7 +331,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
           `}</style>
         </div>
-      ) : !user && !isPublicRoute ? (
+      ) : !user ? (
         <div style={{
           minHeight: '100vh',
           width: '100%',
