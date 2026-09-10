@@ -94,271 +94,224 @@ export default function LoginPage() {
 
   return (
     <div className="login-page-wrapper">
-      {/* Subtle decorative gold ambient light */}
+      {/* Subtle ambient lighting */}
       <div className="ambient-light gold-light" />
       <div className="ambient-light blue-light" />
 
-      {/* Main Login Portal Card Container */}
-      <div className="login-card-container">
-        {/* Top Gold Accent Line */}
+      {/* Main Centered Login Card */}
+      <div className="login-card">
+        {/* Top Gold Accent Bar */}
         <div className="gold-accent-bar" />
 
-        {/* Left Column: Brand & Luxury Hotel Showcase */}
-        <div className="brand-column">
-          <div>
-            {/* Header Badge */}
-            <div className="brand-badge">
-              <span>👑</span>
-              <span>HOTEL GRAND GODWIN &amp; GODWIN DELUXE</span>
-            </div>
-
-            <h1 className="brand-title">
-              Enterprise ERP Terminal
-            </h1>
-
-            <p className="brand-subtitle">
-              New Delhi&apos;s premier luxury hospitality destination. Centralized executive control for reservations, dynamic room inventory, HR operations, and tour management.
-            </p>
-
-            {/* Feature Highlights Grid - Optimized for Desktop & Tablet */}
-            <div className="feature-highlights-list">
-              <div className="feature-item">
-                <div className="feature-icon icon-gold">🏨</div>
-                <div>
-                  <h4 className="feature-title">Live Inventory &amp; Reservations</h4>
-                  <p className="feature-desc">Real-time rate management across all room categories</p>
-                </div>
-              </div>
-
-              <div className="feature-item">
-                <div className="feature-icon icon-blue">🌍</div>
-                <div>
-                  <h4 className="feature-title">Tour Packages &amp; Quotations</h4>
-                  <p className="feature-desc">End-to-end B2B agent itinerary pricing and ledger tracking</p>
-                </div>
-              </div>
-
-              <div className="feature-item">
-                <div className="feature-icon icon-green">⚡</div>
-                <div>
-                  <h4 className="feature-title">1-Tap Staff Punch &amp; HR</h4>
-                  <p className="feature-desc">Real-time kiosk punch-in/out, biometric sync &amp; payroll</p>
-                </div>
-              </div>
-            </div>
+        {/* Brand Header */}
+        <div className="card-header">
+          <div className="brand-badge">
+            <span>👑</span>
+            <span>HOTEL GRAND GODWIN &amp; GODWIN DELUXE</span>
           </div>
 
-          {/* Footer Official Link & Info */}
-          <div className="brand-footer">
-            <div className="address-text">
-              📍 8502/41, Arakshan Road, Pahar Ganj, New Delhi
+          <h1 className="card-title">
+            {activeTab === 'login' ? 'Executive ERP Login' : 'Password Recovery'}
+          </h1>
+          <p className="card-subtitle">
+            {activeTab === 'login'
+              ? 'Please sign in to access your administrative dashboard.'
+              : 'Enter your registered email to receive recovery instructions.'}
+          </p>
+        </div>
+
+        {/* Tab Switcher */}
+        <div className="tab-switcher">
+          <button
+            type="button"
+            onClick={() => { setActiveTab('login'); setErrorMsg(''); }}
+            className={`tab-btn ${activeTab === 'login' ? 'active' : ''}`}
+          >
+            <span>🔐</span> Secure Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('reset'); setResetError(''); setResetSuccess(''); }}
+            className={`tab-btn ${activeTab === 'reset' ? 'active' : ''}`}
+          >
+            <span>❓</span> Reset Password
+          </button>
+        </div>
+
+        {/* Login Form */}
+        {activeTab === 'login' ? (
+          <form onSubmit={handleLoginSubmit} className="auth-form">
+            {errorMsg && (
+              <div className="alert-box error-alert">
+                <span className="alert-icon">⚠️</span>
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            <div className="input-group">
+              <label className="input-label">
+                Username or Email Address
+              </label>
+              <div className="input-wrapper">
+                <span className="input-icon">👤</span>
+                <input
+                  type="text"
+                  required
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Godwinhotels"
+                  className="form-input"
+                />
+              </div>
             </div>
+
+            <div className="input-group">
+              <div className="password-header">
+                <label className="input-label" style={{ margin: 0 }}>
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('reset')}
+                  className="forgot-link"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <div className="input-wrapper">
+                <span className="input-icon">🔑</span>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="form-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="toggle-password-btn"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
+
+            <div className="remember-row">
+              <input
+                type="checkbox"
+                id="remember"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="remember-checkbox"
+              />
+              <label htmlFor="remember" className="remember-label">
+                Remember executive session for 30 days
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="submit-btn login-submit"
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="btn-spinner" />
+                  Authenticating Credentials...
+                </>
+              ) : (
+                <>
+                  <span>🚀</span> Access Executive Dashboard ➔
+                </>
+              )}
+            </button>
+
+            {/* Quick Demo Credentials Card with 1-Tap Auto Fill */}
+            <div className="demo-credentials-card">
+              <div className="demo-card-header">
+                <span className="demo-badge">🔒 Root Admin Access</span>
+                <button
+                  type="button"
+                  onClick={quickFillCredentials}
+                  className="auto-fill-btn"
+                >
+                  ⚡ Auto-Fill Credentials
+                </button>
+              </div>
+              <div className="demo-card-body">
+                <span>User: <strong className="mono-text">Godwinhotels</strong></span>
+                <span className="divider">|</span>
+                <span>Pass: <strong className="mono-text">Godwindeluxe@99</strong></span>
+              </div>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleResetSubmit} className="auth-form">
+            {resetError && (
+              <div className="alert-box error-alert">
+                <span className="alert-icon">⚠️</span>
+                <span>{resetError}</span>
+              </div>
+            )}
+            {resetSuccess && (
+              <div className="alert-box success-alert">
+                <span className="alert-icon">✅</span>
+                <span>{resetSuccess}</span>
+              </div>
+            )}
+
+            <p className="reset-helper-text">
+              Enter your registered administrative contact (<strong style={{ color: '#fbbf24' }}>mail@godwinhotels.com</strong>). An automated verification email with temporary login token will be generated.
+            </p>
+
+            <div className="input-group">
+              <label className="input-label">
+                Admin / Registered Email Address
+              </label>
+              <div className="input-wrapper">
+                <span className="input-icon">✉️</span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="mail@godwinhotels.com"
+                  className="form-input"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="submit-btn reset-submit"
+            >
+              {isSubmitting ? 'Processing Request...' : '📧 Send Recovery Instructions'}
+            </button>
+          </form>
+        )}
+
+        {/* Card Footer: Security Note & Official Link */}
+        <div className="card-footer">
+          <p className="security-text">
+            🔒 Protected by Godwin Security Protocol v3.0.<br />
+            For technical assistance, contact: <a href="mailto:mail@godwinhotels.com" className="support-link">mail@godwinhotels.com</a>
+          </p>
+          <div className="footer-links">
             <a
               href="https://grandgodwin.com/"
               target="_blank"
               rel="noopener noreferrer"
               className="website-link"
             >
-              <span>🌐</span> Official Website ➔
+              🌐 grandgodwin.com
             </a>
-          </div>
-        </div>
-
-        {/* Right Column: Secure Login & Password Recovery Form */}
-        <div className="form-column">
-          <div className="form-header">
-            <h2 className="form-title">
-              {activeTab === 'login' ? 'Welcome Back, Executive' : 'Credential Recovery'}
-            </h2>
-            <p className="form-subtitle">
-              {activeTab === 'login'
-                ? 'Please sign in to access your hotel management dashboard.'
-                : 'Verify your administrative email to receive recovery instructions.'}
-            </p>
-          </div>
-
-          {/* Tab Switcher */}
-          <div className="tab-switcher">
-            <button
-              type="button"
-              onClick={() => { setActiveTab('login'); setErrorMsg(''); }}
-              className={`tab-btn ${activeTab === 'login' ? 'active' : ''}`}
-            >
-              <span>🔐</span> Secure Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('reset'); setResetError(''); setResetSuccess(''); }}
-              className={`tab-btn ${activeTab === 'reset' ? 'active' : ''}`}
-            >
-              <span>❓</span> Reset Password
-            </button>
-          </div>
-
-          {activeTab === 'login' ? (
-            <form onSubmit={handleLoginSubmit} className="auth-form">
-              {errorMsg && (
-                <div className="alert-box error-alert">
-                  <span className="alert-icon">⚠️</span>
-                  <span>{errorMsg}</span>
-                </div>
-              )}
-
-              <div className="input-group">
-                <label className="input-label">
-                  Username or Email Address
-                </label>
-                <div className="input-wrapper">
-                  <span className="input-icon">👤</span>
-                  <input
-                    type="text"
-                    required
-                    autoComplete="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Godwinhotels"
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <div className="input-group">
-                <div className="password-header">
-                  <label className="input-label" style={{ margin: 0 }}>
-                    Password
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('reset')}
-                    className="forgot-link"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-                <div className="input-wrapper">
-                  <span className="input-icon">🔑</span>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="form-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="toggle-password-btn"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? '🙈' : '👁️'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="remember-row">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="remember-checkbox"
-                />
-                <label htmlFor="remember" className="remember-label">
-                  Remember executive session for 30 days
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="submit-btn login-submit"
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="btn-spinner" />
-                    Authenticating Credentials...
-                  </>
-                ) : (
-                  <>
-                    <span>🚀</span> Access Executive Dashboard ➔
-                  </>
-                )}
-              </button>
-
-              {/* Quick Credentials Card with 1-Tap Auto Fill */}
-              <div className="demo-credentials-card">
-                <div className="demo-card-header">
-                  <span className="demo-badge">🔒 Root Admin Access</span>
-                  <button
-                    type="button"
-                    onClick={quickFillCredentials}
-                    className="auto-fill-btn"
-                  >
-                    ⚡ Auto-Fill Credentials
-                  </button>
-                </div>
-                <div className="demo-card-body">
-                  <span>User: <strong className="mono-text">Godwinhotels</strong></span>
-                  <span className="divider">|</span>
-                  <span>Pass: <strong className="mono-text">Godwindeluxe@99</strong></span>
-                </div>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handleResetSubmit} className="auth-form">
-              {resetError && (
-                <div className="alert-box error-alert">
-                  <span className="alert-icon">⚠️</span>
-                  <span>{resetError}</span>
-                </div>
-              )}
-              {resetSuccess && (
-                <div className="alert-box success-alert">
-                  <span className="alert-icon">✅</span>
-                  <span>{resetSuccess}</span>
-                </div>
-              )}
-
-              <p className="reset-helper-text">
-                Enter your registered administrative contact (<strong style={{ color: '#fbbf24' }}>mail@godwinhotels.com</strong>). An automated verification email with temporary login token will be generated.
-              </p>
-
-              <div className="input-group">
-                <label className="input-label">
-                  Admin / Registered Email Address
-                </label>
-                <div className="input-wrapper">
-                  <span className="input-icon">✉️</span>
-                  <input
-                    type="email"
-                    required
-                    autoComplete="email"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="mail@godwinhotels.com"
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="submit-btn reset-submit"
-              >
-                {isSubmitting ? 'Processing Request...' : '📧 Send Recovery Instructions'}
-              </button>
-            </form>
-          )}
-
-          {/* Bottom Security Audit Notice */}
-          <div className="security-notice">
-            <p className="security-text">
-              🔒 Protected by Godwin Security Protocol v3.0. All access attempts are logged.<br />
-              For technical assistance, contact: <a href="mailto:mail@godwinhotels.com" className="support-link">mail@godwinhotels.com</a>
-            </p>
           </div>
         </div>
       </div>
@@ -367,11 +320,11 @@ export default function LoginPage() {
         .login-page-wrapper {
           min-height: 100vh;
           width: 100%;
-          background: radial-gradient(circle at 20% 20%, #1e293b 0%, #0f172a 60%, #020617 100%);
+          background: radial-gradient(circle at 50% 20%, #1e293b 0%, #0f172a 60%, #020617 100%);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 2rem 1.25rem;
+          padding: 1.5rem 1rem;
           position: relative;
           overflow-x: hidden;
           font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -387,33 +340,32 @@ export default function LoginPage() {
         .gold-light {
           top: -10%;
           right: -5%;
-          width: clamp(350px, 45vw, 650px);
-          height: clamp(350px, 45vw, 650px);
-          background: radial-gradient(circle, rgba(245, 158, 11, 0.09) 0%, transparent 70%);
+          width: clamp(300px, 40vw, 550px);
+          height: clamp(300px, 40vw, 550px);
+          background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
         }
 
         .blue-light {
           bottom: -15%;
           left: -5%;
-          width: clamp(320px, 40vw, 600px);
-          height: clamp(320px, 40vw, 600px);
-          background: radial-gradient(circle, rgba(59, 130, 246, 0.07) 0%, transparent 70%);
+          width: clamp(280px, 35vw, 500px);
+          height: clamp(280px, 35vw, 500px);
+          background: radial-gradient(circle, rgba(59, 130, 246, 0.06) 0%, transparent 70%);
         }
 
-        .login-card-container {
+        .login-card {
           width: 100%;
-          max-width: 1120px;
-          background: rgba(15, 23, 42, 0.78);
+          max-width: 480px;
+          background: rgba(15, 23, 42, 0.82);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
           border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 26px;
-          box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(245, 158, 11, 0.15);
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-          overflow: hidden;
+          border-radius: 24px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(245, 158, 11, 0.12);
+          padding: clamp(1.75rem, 4vw, 2.5rem);
           position: relative;
           z-index: 1;
+          box-sizing: border-box;
         }
 
         .gold-accent-bar {
@@ -423,171 +375,45 @@ export default function LoginPage() {
           right: 0;
           height: 4px;
           background: linear-gradient(90deg, #d97706 0%, #f59e0b 50%, #d97706 100%);
-          z-index: 10;
+          border-top-left-radius: 24px;
+          border-top-right-radius: 24px;
         }
 
-        /* Brand Column */
-        .brand-column {
-          background: linear-gradient(145deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.92) 100%);
-          padding: clamp(2rem, 3.5vw, 3.5rem) clamp(1.5rem, 3vw, 3rem);
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          border-right: 1px solid rgba(255, 255, 255, 0.08);
-          position: relative;
+        .card-header {
+          text-align: center;
+          margin-bottom: 1.75rem;
         }
 
         .brand-badge {
           display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
-          background: rgba(245, 158, 11, 0.15);
-          border: 1px solid rgba(245, 158, 11, 0.3);
-          padding: 0.4rem 0.85rem;
+          gap: 0.45rem;
+          background: rgba(245, 158, 11, 0.14);
+          border: 1px solid rgba(245, 158, 11, 0.28);
+          padding: 0.35rem 0.8rem;
           border-radius: 20px;
           color: #fbbf24;
-          font-size: 0.72rem;
+          font-size: 0.7rem;
           font-weight: 800;
-          letter-spacing: 0.06em;
+          letter-spacing: 0.05em;
           text-transform: uppercase;
-          margin-bottom: 1.5rem;
-          flex-wrap: wrap;
+          margin-bottom: 1rem;
         }
 
-        .brand-title {
+        .card-title {
           color: #ffffff;
-          font-size: clamp(1.65rem, 3.2vw, 2.35rem);
-          font-weight: 900;
-          margin: 0 0 0.75rem 0;
-          letter-spacing: -0.03em;
-          line-height: 1.18;
-        }
-
-        .brand-subtitle {
-          color: #94a3b8;
-          font-size: clamp(0.9rem, 1.2vw, 1.02rem);
-          line-height: 1.6;
-          margin: 0 0 2rem 0;
-          font-weight: 500;
-        }
-
-        .feature-highlights-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          margin-bottom: 2rem;
-        }
-
-        .feature-item {
-          display: flex;
-          align-items: center;
-          gap: 0.9rem;
-          background: rgba(2, 6, 23, 0.5);
-          padding: 0.85rem 1.1rem;
-          border-radius: 14px;
-          border: 1px solid rgba(255, 255, 255, 0.06);
-        }
-
-        .feature-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.2rem;
-          flex-shrink: 0;
-        }
-
-        .icon-gold {
-          background: rgba(245, 158, 11, 0.15);
-        }
-
-        .icon-blue {
-          background: rgba(59, 130, 246, 0.15);
-        }
-
-        .icon-green {
-          background: rgba(16, 185, 129, 0.15);
-        }
-
-        .feature-title {
-          color: #ffffff;
-          margin: 0;
-          font-size: 0.9rem;
-          font-weight: 800;
-        }
-
-        .feature-desc {
-          color: #64748b;
-          margin: 0.15rem 0 0 0;
-          font-size: 0.78rem;
-          line-height: 1.4;
-        }
-
-        .brand-footer {
-          padding-top: 1.25rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 0.75rem;
-        }
-
-        .address-text {
-          font-size: 0.78rem;
-          color: #64748b;
-          line-height: 1.4;
-        }
-
-        .website-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          color: #fbbf24;
-          font-size: 0.82rem;
-          font-weight: 700;
-          text-decoration: none;
-          padding: 0.4rem 0.8rem;
-          background: rgba(245, 158, 11, 0.1);
-          border-radius: 8px;
-          border: 1px solid rgba(245, 158, 11, 0.2);
-          transition: all 0.2s ease;
-          white-space: nowrap;
-        }
-
-        .website-link:hover {
-          background: rgba(245, 158, 11, 0.2);
-          transform: translateY(-1px);
-        }
-
-        /* Form Column */
-        .form-column {
-          padding: clamp(2rem, 3.5vw, 3.5rem) clamp(1.5rem, 3vw, 3rem);
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-
-        .form-header {
-          margin-bottom: 1.75rem;
-        }
-
-        .form-title {
-          color: #ffffff;
-          font-size: clamp(1.4rem, 2.5vw, 1.75rem);
+          font-size: clamp(1.5rem, 3vw, 1.85rem);
           font-weight: 900;
           margin: 0 0 0.4rem 0;
           letter-spacing: -0.02em;
         }
 
-        .form-subtitle {
+        .card-subtitle {
           color: #94a3b8;
-          font-size: 0.88rem;
+          font-size: 0.85rem;
           margin: 0;
           font-weight: 500;
-          line-height: 1.5;
+          line-height: 1.45;
         }
 
         .tab-switcher {
@@ -596,7 +422,7 @@ export default function LoginPage() {
           background: rgba(0, 0, 0, 0.5);
           padding: 0.3rem;
           border-radius: 12px;
-          margin-bottom: 1.75rem;
+          margin-bottom: 1.5rem;
           border: 1px solid rgba(255, 255, 255, 0.06);
           gap: 0.25rem;
         }
@@ -627,7 +453,7 @@ export default function LoginPage() {
         .auth-form {
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 1.15rem;
         }
 
         .alert-box {
@@ -701,7 +527,7 @@ export default function LoginPage() {
           border: none;
           padding: 0.85rem 0;
           color: #ffffff;
-          font-size: 16px; /* Prevents auto-zoom on iOS */
+          font-size: 16px; /* Prevents auto-zoom on iOS Safari */
           outline: none;
           font-weight: 600;
         }
@@ -772,17 +598,17 @@ export default function LoginPage() {
           font-weight: 800;
           cursor: pointer;
           transition: all 0.2s ease;
-          margin-top: 0.5rem;
+          margin-top: 0.4rem;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 0.6rem;
           min-height: 48px;
-          box-shadow: 0 10px 20px -5px rgba(217, 119, 6, 0.4);
         }
 
         .login-submit {
           background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          box-shadow: 0 10px 20px -5px rgba(217, 119, 6, 0.4);
         }
 
         .login-submit:hover:not(:disabled) {
@@ -818,7 +644,7 @@ export default function LoginPage() {
 
         /* Demo credentials card */
         .demo-credentials-card {
-          margin-top: 0.5rem;
+          margin-top: 0.35rem;
           padding: 0.85rem 1rem;
           background: rgba(2, 6, 23, 0.55);
           border-radius: 12px;
@@ -886,11 +712,15 @@ export default function LoginPage() {
           margin: 0;
         }
 
-        .security-notice {
-          margin-top: 2rem;
+        .card-footer {
+          margin-top: 1.75rem;
           padding-top: 1.25rem;
           border-top: 1px solid rgba(255, 255, 255, 0.08);
           text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
         }
 
         .security-text {
@@ -906,64 +736,46 @@ export default function LoginPage() {
           font-weight: 700;
         }
 
+        .footer-links {
+          display: flex;
+          justify-content: center;
+        }
+
+        .website-link {
+          color: #94a3b8;
+          font-size: 0.75rem;
+          text-decoration: none;
+          font-weight: 600;
+          transition: color 0.15s ease;
+        }
+
+        .website-link:hover {
+          color: #fbbf24;
+        }
+
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
 
-        /* Responsive Breakpoints */
-        @media (max-width: 960px) {
-          .login-card-container {
-            grid-template-columns: 1fr;
-            border-radius: 22px;
-            max-width: 560px;
-          }
-
-          .brand-column {
-            border-right: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          }
-
-          .feature-highlights-list {
-            display: none; /* Hide heavy marketing cards on mobile/tablet so form is reachable immediately */
-          }
-
-          .brand-subtitle {
-            margin-bottom: 1rem;
-          }
-        }
-
-        @media (max-width: 640px) {
+        /* Mobile Adjustments */
+        @media (max-width: 480px) {
           .login-page-wrapper {
-            padding: 1rem 0.6rem;
-            align-items: flex-start;
+            padding: 1rem 0.75rem;
           }
 
-          .login-card-container {
-            border-radius: 18px;
-            margin: 0.5rem 0;
-          }
-
-          .brand-column {
+          .login-card {
             padding: 1.5rem 1.15rem;
-          }
-
-          .form-column {
-            padding: 1.5rem 1.15rem;
+            border-radius: 20px;
           }
 
           .brand-badge {
-            font-size: 0.68rem;
-            padding: 0.35rem 0.7rem;
-            margin-bottom: 1rem;
+            font-size: 0.65rem;
+            padding: 0.3rem 0.65rem;
           }
 
-          .brand-title {
-            font-size: 1.5rem;
-          }
-
-          .brand-footer {
-            display: none; /* Compact header on mobile */
+          .card-title {
+            font-size: 1.4rem;
           }
         }
       `}</style>
