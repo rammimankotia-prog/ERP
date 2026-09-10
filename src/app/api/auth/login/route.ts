@@ -25,7 +25,7 @@ const DEFAULT_USERS = [
     username: "mail@godwinhotels.com",
     name: "Raman Mankotia",
     email: "mail@godwinhotels.com",
-    password: "Jaimatadi@24",
+    password: "Jaimatadi@24", // Fallback if env variable is not set
     role: "Master Admin",
     status: "Active",
     createdAt: new Date().toISOString().split("T")[0],
@@ -33,25 +33,56 @@ const DEFAULT_USERS = [
   }
 ];
 
-
 function getUsers() {
+  let users: any[] = [];
   // Try persistent dir first, then local data/
   for (const file of [USERS_FILE, LOCAL_USERS_FILE]) {
     try {
       if (fs.existsSync(file)) {
         const data = fs.readFileSync(file, "utf-8");
-        const users = JSON.parse(data);
-        if (Array.isArray(users) && users.length > 0) return users;
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+           users = parsed;
+           break;
+        }
       }
     } catch {}
   }
-  // Write defaults to local data/ as fallback
-  try {
-    const dir = path.dirname(LOCAL_USERS_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(LOCAL_USERS_FILE, JSON.stringify(DEFAULT_USERS, null, 2));
-  } catch {}
-  return DEFAULT_USERS;
+
+  if (users.length === 0) {
+    // Write defaults to local data/ as fallback
+    try {
+      const dir = path.dirname(LOCAL_USERS_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(LOCAL_USERS_FILE, JSON.stringify(DEFAULT_USERS, null, 2));
+    } catch {}
+    users = [...DEFAULT_USERS];
+  }
+
+  // Security: Always ensure the Master Admin password and email match environment variables if set,
+  // overriding whatever might be stored in plaintext in the JSON files.
+  const adminEmail = process.env.ADMIN_EMAIL || "mail@godwinhotels.com";
+  const adminPassword = process.env.ADMIN_PASSWORD || "Jaimatadi@24";
+  
+  const adminIndex = users.findIndex(u => u.id === "admin-001");
+  const adminData = {
+    id: "admin-001",
+    username: adminEmail,
+    name: "Raman Mankotia",
+    email: adminEmail,
+    password: adminPassword,
+    role: "Master Admin",
+    status: "Active",
+    permissions: MASTER_ADMIN_PERMISSIONS,
+  };
+
+  if (adminIndex >= 0) {
+    users[adminIndex] = { ...users[adminIndex], ...adminData };
+  } else {
+    users.unshift(adminData);
+  }
+
+  return users;
 }
 
 export async function POST(req: Request) {
