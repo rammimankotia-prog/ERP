@@ -35,26 +35,35 @@ const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')
 })()
 
 function readJsonFile<T>(filePath: string, fallback: T): T {
-  try {
-    if (!fs.existsSync(filePath)) {
-      return fallback
-    }
-    const raw = fs.readFileSync(filePath, 'utf-8')
-    return JSON.parse(raw) as T
-  } catch (err) {
-    console.error(`Error reading ${filePath}:`, err)
-    return fallback
+  const localDataDir = path.join(process.cwd(), 'data')
+  const fileName = path.basename(filePath)
+  const localFile = path.join(localDataDir, fileName)
+  for (const f of [filePath, localFile]) {
+    try {
+      if (fs.existsSync(f)) {
+        const raw = fs.readFileSync(f, 'utf-8')
+        const parsed = JSON.parse(raw)
+        if (parsed !== undefined && parsed !== null) return parsed as T
+      }
+    } catch (err) {}
   }
+  return fallback
 }
 
 function writeJsonFile(filePath: string, data: any): void {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true })
+  const localDataDir = path.join(process.cwd(), 'data')
+  const fileName = path.basename(filePath)
+  const localFile = path.join(localDataDir, fileName)
+  for (const target of [filePath, localFile]) {
+    try {
+      const dir = path.dirname(target)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+      fs.writeFileSync(target, JSON.stringify(data, null, 2), 'utf-8')
+    } catch (err) {
+      console.error(`Error writing ${target}:`, err)
     }
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
-  } catch (err) {
-    console.error(`Error writing ${filePath}:`, err)
   }
 }
 
@@ -151,30 +160,7 @@ export async function getEmployees() {
   }
 
   const fileEmployees = readJsonFile<any[]>(EMPLOYEES_FILE, [])
-  if (fileEmployees.length > 0) {
-    return fileEmployees
-  }
-
-  // Initial seed employee if file is empty
-  const initial = [
-    {
-      id: "mock-emp-1",
-      employeeId: "GG-1001",
-      firstName: "Raman",
-      lastName: "Mankotia",
-      designation: "General Manager",
-      branch: { id: "mock-1", name: "Hotel Grand Godwin", prefix: "GG" },
-      department: { id: "dept-1", name: "Front Office" },
-      status: "ACTIVE",
-      doj: new Date().toISOString(),
-      employmentType: "PERMANENT",
-      contactNo: "9811122233",
-      morningTime: "08:30",
-      eveningTime: "18:00"
-    }
-  ]
-  writeJsonFile(EMPLOYEES_FILE, initial)
-  return initial
+  return fileEmployees
 }
 
 export async function getEmployeeById(id: string) {
@@ -413,8 +399,28 @@ export async function updateEmployee(id: string, data: any) {
 
   writeJsonFile(EMPLOYEES_FILE, fileEmployees)
 
+  // Sync with users.json
+  try {
+    const USERS_FILE = path.join(DATA_DIR, 'users.json')
+    const users = readJsonFile<any[]>(USERS_FILE, [])
+    const uIdx = users.findIndex((u: any) => u.id === id || (updatedRecord.email && u.email?.toLowerCase() === updatedRecord.email.toLowerCase()))
+    if (uIdx !== -1) {
+      users[uIdx] = {
+        ...users[uIdx],
+        name: `${updatedRecord.firstName} ${updatedRecord.lastName}`.trim(),
+        email: updatedRecord.email || users[uIdx].email,
+        username: updatedRecord.email || users[uIdx].username,
+        status: updatedRecord.status === 'ACTIVE' ? 'Active' : 'Inactive',
+      }
+      writeJsonFile(USERS_FILE, users)
+    }
+  } catch (e) {
+    console.warn('Failed to sync updated user in users.json:', e)
+  }
+
   revalidatePath('/hr/employees')
   revalidatePath(`/hr/employees/${id}`)
+  revalidatePath('/users')
   return updatedRecord
 }
 

@@ -72,11 +72,21 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
   const mergeWithLocalStorage = useCallback((incomingList: Employee[]) => {
     try {
       const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
-      if (!cachedStr) return incomingList
-      const cache: any[] = JSON.parse(cachedStr)
-      if (!Array.isArray(cache) || cache.length === 0) return incomingList
+      if (!cachedStr) {
+        return incomingList.filter(e => !e.id?.startsWith('mock-') && !e.employeeId?.startsWith('mock-'))
+      }
+      const rawCache: any[] = JSON.parse(cachedStr)
+      if (!Array.isArray(rawCache)) return incomingList
 
-      const merged = incomingList.map(serverEmp => {
+      // Purge any legacy mock entries permanently from client localStorage
+      const cache = rawCache.filter((c: any) => !c.id?.startsWith('mock-') && !c.employeeId?.startsWith('mock-'))
+      if (cache.length !== rawCache.length) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache))
+      }
+
+      const cleanIncoming = incomingList.filter(e => !e.id?.startsWith('mock-') && !e.employeeId?.startsWith('mock-'))
+
+      const merged = cleanIncoming.map(serverEmp => {
         const cachedEmp = cache.find((c: any) => c.id === serverEmp.id || c.employeeId === serverEmp.employeeId)
         if (cachedEmp) {
           return {
@@ -87,29 +97,22 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
         return serverEmp
       })
 
-      // Include any locally created/added records not yet returned by server
-      cache.forEach(cachedEmp => {
-        if (!merged.some(m => m.id === cachedEmp.id || m.employeeId === cachedEmp.employeeId)) {
-          merged.push(cachedEmp)
-        }
-      })
-
       return merged
     } catch {
-      return incomingList
+      return incomingList.filter(e => !e.id?.startsWith('mock-') && !e.employeeId?.startsWith('mock-'))
     }
   }, [])
 
   // On initial mount: restore from localStorage & fetch latest from server
   useEffect(() => {
-    // 1. Instantly merge with localStorage
+    // 1. Instantly clean and merge
     setEmployees(prev => mergeWithLocalStorage(prev))
 
     // 2. Background fetch to sync from live server API
     fetch('/api/hr/employees')
       .then(res => res.json())
       .then(data => {
-        if (data.employees && Array.isArray(data.employees) && data.employees.length > 0) {
+        if (data && Array.isArray(data.employees)) {
           const merged = mergeWithLocalStorage(data.employees)
           setEmployees(merged)
         }
@@ -281,6 +284,18 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
 
     // Optimistic remove
     setEmployees((prev) => prev.filter((item) => item.id !== target.id))
+
+    // Remove from localStorage cache
+    try {
+      const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
+      if (cachedStr) {
+        const cache: any[] = JSON.parse(cachedStr)
+        if (Array.isArray(cache)) {
+          const clean = cache.filter((c: any) => c.id !== target.id && c.employeeId !== target.employeeId)
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(clean))
+        }
+      }
+    } catch {}
 
     try {
       const res = await deleteEmployee(target.id)

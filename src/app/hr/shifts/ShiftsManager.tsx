@@ -32,11 +32,7 @@ export type EmployeeItem = {
   dept: string
 }
 
-export const DEFAULT_ROSTER_EMPLOYEES: EmployeeItem[] = [
-  { id: 'emp-gg-1001', code: 'GG-1001', name: 'Raman Mankotia', designation: 'General Manager', branch: 'Hotel Grand Godwin', dept: 'Management' },
-  { id: 'emp-gg-1002', code: 'GG-1002', name: 'Vikram Rathore', designation: 'Head Security Guard', branch: 'Hotel Grand Godwin', dept: 'Security Guard' },
-  { id: 'emp-gd-1001', code: 'GD-1001', name: 'Rajesh Sharma', designation: 'Duty Roster Manager', branch: 'Hotel Godwin Deluxe', dept: 'Operations' },
-]
+export const DEFAULT_ROSTER_EMPLOYEES: EmployeeItem[] = []
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -203,8 +199,10 @@ export default function ShiftsManager() {
     fetch('/api/hr/employees')
       .then(r => r.json())
       .then(d => {
-        if (Array.isArray(d) && d.length > 0) {
-          const mapped: EmployeeItem[] = d.map((e: any) => ({
+        const rawList = Array.isArray(d) ? d : (Array.isArray(d?.employees) ? d.employees : [])
+        const mapped: EmployeeItem[] = rawList
+          .filter((e: any) => e.status === 'ACTIVE' || !e.status)
+          .map((e: any) => ({
             id: e.id,
             code: e.employeeId || e.code || 'EMP',
             name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff',
@@ -212,7 +210,8 @@ export default function ShiftsManager() {
             branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
             dept: e.department?.name || e.department || e.dept || 'Front Office',
           }))
-          setEmployeesList(mapped)
+        setEmployeesList(mapped)
+        if (mapped.length > 0) {
           setMonthlyRoster(prev => ({
             ...generateInitialMonthlyRoster(selectedYear, selectedMonth, mapped),
             ...prev
@@ -221,6 +220,9 @@ export default function ShiftsManager() {
             ...generateInitialWeeklyRoster(mapped),
             ...prev
           }))
+        } else {
+          setMonthlyRoster({})
+          setRoster({})
         }
       })
       .catch(() => {})

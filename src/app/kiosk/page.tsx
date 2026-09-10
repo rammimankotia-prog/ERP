@@ -19,8 +19,8 @@ export default function KioskPage() {
       user.role === 'Manager')
   );
 
-  const [guardLoginUser, setGuardLoginUser] = useState('guard@godwinhotels.com');
-  const [guardLoginPass, setGuardLoginPass] = useState('Guard@99');
+  const [guardLoginUser, setGuardLoginUser] = useState('');
+  const [guardLoginPass, setGuardLoginPass] = useState('');
   const [guardLoginError, setGuardLoginError] = useState('');
   const [guardLoginLoading, setGuardLoginLoading] = useState(false);
 

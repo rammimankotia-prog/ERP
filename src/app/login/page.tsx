@@ -219,17 +219,11 @@ export default function LoginPage() {
     }
   };
 
-  // Quick fill helpers
+  // Quick fill helper for Admin
   const fillAdminCredentials = () => {
     setAdminUsername('Godwinhotels');
     setAdminPassword('Godwindeluxe@99');
     setAdminError('');
-  };
-
-  const fillEmployeeCredentials = () => {
-    setEmpIdentifier('GG-1002');
-    setEmpPassword('Godwin@123');
-    setEmpError('');
   };
 
   return (
@@ -343,7 +337,7 @@ export default function LoginPage() {
                               setStaffSearch(e.target.value);
                               setIdentifyError('');
                             }}
-                            placeholder="e.g. GG-1002, GG-1001, or Priya"
+                            placeholder="e.g. Enter Staff ID (e.g. GG-1001) or Name"
                             className="form-input"
                           />
                           <button
@@ -478,25 +472,6 @@ export default function LoginPage() {
                         </>
                       )}
                     </button>
-
-                    {/* Quick Demo Fill */}
-                    <div className="demo-credentials-card">
-                      <div className="demo-card-header">
-                        <span className="demo-badge emerald-text">👤 Staff Demo (Priya Sharma - Front Desk)</span>
-                        <button
-                          type="button"
-                          onClick={fillEmployeeCredentials}
-                          className="auto-fill-btn emerald-fill-btn"
-                        >
-                          ⚡ Auto-Fill
-                        </button>
-                      </div>
-                      <div className="demo-card-body">
-                        <span>ID: <strong className="mono-text">GG-1002</strong></span>
-                        <span className="divider">|</span>
-                        <span>Pass: <strong className="mono-text">Godwin@123</strong></span>
-                      </div>
-                    </div>
 
                     {/* Switch to Direct Punch */}
                     <button

@@ -56,11 +56,11 @@ function getUsers() {
 
 function saveUsers(users: any[]) {
   try {
-    // Save to active file (PERSISTENT_DATA_DIR if set, otherwise local)
-    const targetFile = fs.existsSync(DATA_DIR) ? USERS_FILE : LOCAL_USERS_FILE;
-    const dir = path.dirname(targetFile);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(targetFile, JSON.stringify(users, null, 2));
+    for (const targetFile of [USERS_FILE, LOCAL_USERS_FILE]) {
+      const dir = path.dirname(targetFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(targetFile, JSON.stringify(users, null, 2), 'utf-8');
+    }
     return true;
   } catch (error) {
     console.error("Error saving users file:", error);

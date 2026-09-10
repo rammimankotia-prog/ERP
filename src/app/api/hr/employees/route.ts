@@ -19,8 +19,7 @@ function readJson<T>(file: string, fallbackFile: string = '', fallback: T = [] a
         if (fs.existsSync(f)) {
           const content = fs.readFileSync(f, 'utf-8')
           const parsed = JSON.parse(content)
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed as unknown as T
-          if (!Array.isArray(parsed) && parsed) return parsed as unknown as T
+          if (parsed !== undefined && parsed !== null) return parsed as unknown as T
         }
       } catch {}
     }
@@ -29,13 +28,19 @@ function readJson<T>(file: string, fallbackFile: string = '', fallback: T = [] a
 }
 
 function writeJson(file: string, data: any): void {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true })
+  const localDataDir = path.join(process.cwd(), 'data')
+  const fileName = path.basename(file)
+  const localFile = path.join(localDataDir, fileName)
+  for (const target of [file, localFile]) {
+    try {
+      const dir = path.dirname(target)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+      fs.writeFileSync(target, JSON.stringify(data, null, 2), 'utf-8')
+    } catch (err) {
+      console.error(`Error writing ${target}:`, err)
     }
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8')
-  } catch (err) {
-    console.error(`Error writing ${file}:`, err)
   }
 }
 

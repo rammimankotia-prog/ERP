@@ -139,6 +139,35 @@ export default function AttendanceReports() {
   const [deptFilter, setDeptFilter] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Live filter sources
+  const [liveEmployees, setLiveEmployees] = useState<{ id: string; employeeId: string; name: string; designation: string }[]>([])
+  const [liveBranches, setLiveBranches] = useState<{ id: string; name: string }[]>([])
+  const [liveDepartments, setLiveDepartments] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/hr/employees')
+      .then(r => r.json())
+      .then(d => {
+        if (d) {
+          if (Array.isArray(d.employees)) {
+            setLiveEmployees(d.employees.map((e: any) => ({
+              id: e.id,
+              employeeId: e.employeeId || e.id,
+              name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff',
+              designation: e.designation || 'Staff'
+            })))
+          }
+          if (Array.isArray(d.branches)) {
+            setLiveBranches(d.branches)
+          }
+          if (Array.isArray(d.departments)) {
+            setLiveDepartments(d.departments)
+          }
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   // Data state
   const [reportData, setReportData] = useState<ReportResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -603,11 +632,11 @@ export default function AttendanceReports() {
               onChange={e => setEmployeeFilter(e.target.value)}
             >
               <option value="ALL">👥 All Employees (Entire Team)</option>
-              <option value="mock-emp-1">GG-1001 Raman Mankotia (GM)</option>
-              <option value="mock-emp-2">GG-1002 Priya Sharma (Front Desk)</option>
-              <option value="mock-emp-3">GD-1001 Rajiv Kumar (Housekeeping)</option>
-              <option value="mock-emp-4">GD-1002 Sunita Verma (Security)</option>
-              <option value="mock-emp-5">GG-1003 Amit Singh (Accounts)</option>
+              {liveEmployees.map(emp => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.employeeId} {emp.name} ({emp.designation})
+                </option>
+              ))}
             </select>
           </div>
 
@@ -621,8 +650,11 @@ export default function AttendanceReports() {
               onChange={e => setBranchFilter(e.target.value)}
             >
               <option value="ALL">🏨 All Branches</option>
-              <option value="mock-1">Hotel Grand Godwin (Pahar Ganj)</option>
-              <option value="mock-2">Hotel Godwin Deluxe (Pahar Ganj)</option>
+              {liveBranches.map(b => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -636,10 +668,11 @@ export default function AttendanceReports() {
               onChange={e => setDeptFilter(e.target.value)}
             >
               <option value="ALL">🏢 All Departments</option>
-              <option value="dept-1">Front Office</option>
-              <option value="dept-2">Housekeeping</option>
-              <option value="dept-3">Security</option>
-              <option value="dept-4">Accounts</option>
+              {liveDepartments.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
             </select>
           </div>
 

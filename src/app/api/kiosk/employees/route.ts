@@ -14,8 +14,7 @@ function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
       if (fs.existsSync(f)) {
         const raw = fs.readFileSync(f, 'utf-8')
         const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed as unknown as T
-        if (!Array.isArray(parsed) && parsed) return parsed as unknown as T
+        if (parsed !== undefined && parsed !== null) return parsed as unknown as T
       }
     } catch {}
   }

@@ -24,13 +24,12 @@ type LeaveRequest = {
   createdAt: string
 }
 
-const EMPLOYEES = [
-  { id: 'e1', name: 'Raman Mankotia', designation: 'General Manager' },
-  { id: 'e2', name: 'Priya Sharma', designation: 'Front Desk Executive' },
-  { id: 'e3', name: 'Rajiv Kumar', designation: 'Housekeeping Supervisor' },
-  { id: 'e4', name: 'Sunita Verma', designation: 'Security Officer' },
-  { id: 'e5', name: 'Amit Singh', designation: 'Accounts Executive' },
-]
+type LeaveStaff = {
+  id: string
+  name: string
+  designation: string
+  employeeId?: string
+}
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING: '#f59e0b',
@@ -46,80 +45,11 @@ const MOCK_LEAVE_TYPES: LeaveType[] = [
   { id: 'lt-4', name: 'Unpaid Leave', category: 'UNPAID', maxDaysPerYear: 30 },
 ]
 
-const DEFAULT_REQUESTS: LeaveRequest[] = [
-  {
-    id: 'leave-2',
-    employeeId: 'e2',
-    employeeName: 'Priya Sharma',
-    designation: 'Front Desk Executive',
-    leaveType: { name: 'Sick Leave', category: 'SICK' },
-    fromDate: '2026-09-05',
-    toDate: '2026-09-06',
-    totalDays: 2,
-    reason: 'Viral Fever & Doctor Advised Bed Rest',
-    status: 'APPROVED',
-    approvedAt: '2026-09-04T10:00:00.000Z',
-    createdAt: '2026-09-04T09:00:00.000Z'
-  },
-  {
-    id: 'leave-3',
-    employeeId: 'e3',
-    employeeName: 'Rajiv Kumar',
-    designation: 'Housekeeping Supervisor',
-    leaveType: { name: 'Casual Leave', category: 'CASUAL' },
-    fromDate: '2026-09-09',
-    toDate: '2026-09-10',
-    totalDays: 2,
-    reason: 'Urgent Family Work at Village',
-    status: 'APPROVED',
-    approvedAt: '2026-09-08T11:30:00.000Z',
-    createdAt: '2026-09-08T08:00:00.000Z'
-  },
-  {
-    id: 'leave-4',
-    employeeId: 'e4',
-    employeeName: 'Sunita Verma',
-    designation: 'Security Officer',
-    leaveType: { name: 'Earned Leave', category: 'EARNED' },
-    fromDate: '2026-09-09',
-    toDate: '2026-09-11',
-    totalDays: 3,
-    reason: 'Attending Sister Wedding Out of Town',
-    status: 'APPROVED',
-    approvedAt: '2026-09-07T14:00:00.000Z',
-    createdAt: '2026-09-07T10:00:00.000Z'
-  },
-  {
-    id: 'leave-5',
-    employeeId: 'e5',
-    employeeName: 'Amit Singh',
-    designation: 'Accounts Executive',
-    leaveType: { name: 'Casual Leave', category: 'CASUAL' },
-    fromDate: '2026-09-14',
-    toDate: '2026-09-15',
-    totalDays: 2,
-    reason: 'Personal Bank & Property Registration',
-    status: 'APPROVED',
-    approvedAt: '2026-09-12T16:00:00.000Z',
-    createdAt: '2026-09-12T11:00:00.000Z'
-  },
-  {
-    id: 'leave-1',
-    employeeId: 'e1',
-    employeeName: 'Raman Mankotia',
-    designation: 'General Manager',
-    leaveType: { name: 'Casual Leave', category: 'CASUAL' },
-    fromDate: '2026-09-24',
-    toDate: '2026-09-25',
-    totalDays: 2,
-    reason: 'Hotel Operations Conference & Personal Work',
-    status: 'PENDING',
-    createdAt: '2026-09-09T09:30:00.000Z'
-  }
-]
+const DEFAULT_REQUESTS: LeaveRequest[] = []
 
 export default function LeaveManagement() {
-  const [requests, setRequests] = useState<LeaveRequest[]>(DEFAULT_REQUESTS)
+  const [employees, setEmployees] = useState<LeaveStaff[]>([])
+  const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [tab, setTab] = useState<'calendar' | 'requests' | 'apply'>('calendar')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
@@ -140,12 +70,33 @@ export default function LeaveManagement() {
 
   // Apply Form State
   const [form, setForm] = useState({
-    employeeId: 'e1',
+    employeeId: '',
     leaveTypeId: 'lt-1',
     fromDate: todayStr,
     toDate: todayStr,
     reason: ''
   })
+
+  // Load real employees
+  useEffect(() => {
+    fetch('/api/kiosk/employees')
+      .then(res => res.json())
+      .then(data => {
+        if (data && Array.isArray(data.employees)) {
+          const mapped: LeaveStaff[] = data.employees.map((e: any) => ({
+            id: e.id,
+            name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff',
+            designation: e.designation || 'Staff',
+            employeeId: e.employeeId || e.id
+          }))
+          setEmployees(mapped)
+          if (mapped.length > 0) {
+            setForm(prev => ({ ...prev, employeeId: prev.employeeId || mapped[0].id }))
+          }
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Fetch all leaves from server
   const fetchRequests = useCallback(async () => {
@@ -153,9 +104,9 @@ export default function LeaveManagement() {
       const res = await fetch('/api/hr/leave')
       if (res.ok) {
         const data = await res.json()
-        if (data.requests && Array.isArray(data.requests) && data.requests.length > 0) {
+        if (data.requests && Array.isArray(data.requests)) {
           const enriched = data.requests.map((r: LeaveRequest) => {
-            const emp = EMPLOYEES.find(e => e.id === r.employeeId)
+            const emp = employees.find(e => e.id === r.employeeId || e.employeeId === r.employeeId)
             return {
               ...r,
               employeeName: r.employeeName || emp?.name || r.employeeId,
@@ -167,9 +118,9 @@ export default function LeaveManagement() {
         }
       }
     } catch {
-      // Offline fallback to DEFAULT_REQUESTS
+      // Offline fallback
     }
-  }, [])
+  }, [employees])
 
   useEffect(() => {
     fetchRequests()
@@ -197,7 +148,7 @@ export default function LeaveManagement() {
       return
     }
     setLoading(true)
-    const emp = EMPLOYEES.find(e => e.id === form.employeeId)
+    const emp = employees.find(e => e.id === form.employeeId || e.employeeId === form.employeeId)
     const lt = MOCK_LEAVE_TYPES.find(l => l.id === form.leaveTypeId)
     const totalDays = Math.max(1, Math.ceil((new Date(form.toDate).getTime() - new Date(form.fromDate).getTime()) / 86400000) + 1)
 
@@ -1103,7 +1054,8 @@ export default function LeaveManagement() {
                 value={form.employeeId}
                 onChange={e => setForm(p => ({ ...p, employeeId: e.target.value }))}
               >
-                {EMPLOYEES.map(emp => (
+                {employees.length === 0 && <option value="">No employees found</option>}
+                {employees.map(emp => (
                   <option key={emp.id} value={emp.id}>
                     {emp.name} ({emp.designation})
                   </option>
