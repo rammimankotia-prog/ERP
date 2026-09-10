@@ -19,7 +19,8 @@ export default function Sidebar() {
   }, [pathname, closeMobileSidebar]);
 
   const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
-  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout')) return null;
+  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout') || cleanPath.startsWith('/admin/login')) return null;
+
 
   // Helper: show HR sublink only if user has view permission
   const canSee = (module: string) => isMasterAdmin || hasPermission(module, 'view');

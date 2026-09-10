@@ -30,7 +30,8 @@ export default function TopNavbar() {
   };
 
   const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
-  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout')) return null;
+  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout') || cleanPath.startsWith('/admin/login')) return null;
+
 
   const isLight = theme === 'light';
 

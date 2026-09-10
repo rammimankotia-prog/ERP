@@ -22,7 +22,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  viewportFit: "cover", // Enables safe-area-inset for iPhone notch/Dynamic Island
 };
+
 
 export const metadata: Metadata = {
   title: "Godwin ERP | Hotel & Tour Management",

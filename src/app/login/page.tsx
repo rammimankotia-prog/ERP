@@ -26,14 +26,18 @@ export default function LoginPage() {
   const [secError, setSecError] = useState('');
   const [secLoading, setSecLoading] = useState(false);
 
-  // If already logged in, redirect
+  // Redirect ?mode=admin links to the proper admin portal
   useEffect(() => {
-    if (user) {
-      if (user.role === 'Master Admin' || user.role === 'Manager') {
-        router.replace('/');
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const m = params.get('mode') || params.get('type') || params.get('role') || params.get('tab');
+      if (m === 'admin' || m === 'manager') {
+        router.replace('/admin/login');
       }
     }
-  }, [user, router]);
+  }, [router]);
+
+
 
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();

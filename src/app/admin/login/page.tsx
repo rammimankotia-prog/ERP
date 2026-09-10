@@ -97,7 +97,7 @@ export default function AdminLoginPage() {
         <div className="al-header">
           <div className="al-badge">
             <span>🔐</span>
-            <span>ADMIN & MANAGEMENT PORTAL</span>
+            <span>ADMIN &amp; MANAGEMENT PORTAL</span>
           </div>
           <h1 className="al-title">
             {tab === 'login' ? 'Admin Login' : 'Reset Password'}
@@ -147,7 +147,7 @@ export default function AdminLoginPage() {
                   autoComplete="username"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="Godwinhotels"
+                  placeholder="Enter your username"
                   className="al-input"
                 />
               </div>
@@ -219,7 +219,7 @@ export default function AdminLoginPage() {
             )}
 
             <p className="al-reset-info">
-              Enter your registered admin email (<strong>mail@godwinhotels.com</strong>) to receive a secure recovery link.
+              Enter your registered admin email to receive a secure password recovery link.
             </p>
 
             <div className="al-field">
@@ -233,7 +233,7 @@ export default function AdminLoginPage() {
                   autoComplete="email"
                   value={resetEmail}
                   onChange={e => setResetEmail(e.target.value)}
-                  placeholder="mail@godwinhotels.com"
+                  placeholder="admin@godwinhotels.com"
                   className="al-input"
                 />
               </div>
@@ -273,24 +273,24 @@ export default function AdminLoginPage() {
         }
         .al-glow-top {
           position: absolute; top: -15%; right: -10%;
-          width: clamp(350px, 50vw, 650px); height: clamp(350px, 50vw, 650px);
+          width: clamp(300px, 50vw, 600px); height: clamp(300px, 50vw, 600px);
           border-radius: 50%; pointer-events: none;
           background: radial-gradient(circle, rgba(245,158,11,0.11) 0%, transparent 70%);
         }
         .al-glow-bottom {
           position: absolute; bottom: -15%; left: -10%;
-          width: clamp(280px, 40vw, 500px); height: clamp(280px, 40vw, 500px);
+          width: clamp(250px, 40vw, 480px); height: clamp(250px, 40vw, 480px);
           border-radius: 50%; pointer-events: none;
           background: radial-gradient(circle, rgba(239,68,68,0.06) 0%, transparent 70%);
         }
         .al-card {
-          width: 100%; max-width: 490px;
+          width: 100%; max-width: 480px;
           background: rgba(10, 8, 3, 0.93);
           backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
           border: 1px solid rgba(245,158,11,0.15);
           border-radius: 24px;
           box-shadow: 0 30px 60px -12px rgba(0,0,0,0.85), 0 0 0 1px rgba(245,158,11,0.07);
-          padding: clamp(1.6rem, 4vw, 2.4rem);
+          padding: clamp(1.5rem, 5vw, 2.4rem);
           position: relative; z-index: 1;
         }
         .al-accent-bar {
@@ -304,10 +304,10 @@ export default function AdminLoginPage() {
           border-bottom: 1px solid rgba(245,158,11,0.12);
         }
         .al-brand-logo {
-          width: 46px; height: 46px;
+          width: 44px; height: 44px; min-width: 44px;
           background: rgba(245,158,11,0.12);
           border-radius: 12px; display: flex; align-items: center;
-          justify-content: center; font-size: 1.5rem; flex-shrink: 0;
+          justify-content: center; font-size: 1.4rem;
         }
         .al-brand-name { font-size: 1rem; font-weight: 800; color: #f1f5f9; line-height: 1.2; }
         .al-brand-sub { font-size: 0.7rem; color: #64748b; font-weight: 500; margin-top: 2px; }
@@ -319,7 +319,7 @@ export default function AdminLoginPage() {
           text-transform: uppercase; margin-bottom: 0.75rem;
           background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.28); color: #fbbf24;
         }
-        .al-title { font-size: clamp(1.5rem,3.5vw,1.85rem); font-weight: 900; color: #fff; margin: 0 0 0.4rem 0; letter-spacing: -0.02em; }
+        .al-title { font-size: clamp(1.45rem,5vw,1.85rem); font-weight: 900; color: #fff; margin: 0 0 0.4rem 0; letter-spacing: -0.02em; }
         .al-subtitle { font-size: 0.83rem; color: #64748b; line-height: 1.5; margin: 0; }
         .al-tabs {
           display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
@@ -327,9 +327,9 @@ export default function AdminLoginPage() {
           border-radius: 12px; padding: 0.3rem; margin-bottom: 1.5rem;
         }
         .al-tab {
-          padding: 0.58rem; border-radius: 9px; border: none; background: transparent;
-          color: #64748b; font-weight: 700; font-size: 0.8rem; cursor: pointer;
-          transition: all 0.2s; min-height: 38px;
+          padding: 0.58rem 0.4rem; border-radius: 9px; border: none; background: transparent;
+          color: #64748b; font-weight: 700; font-size: 0.78rem; cursor: pointer;
+          transition: all 0.2s; min-height: 40px;
         }
         .al-tab-active { background: rgba(245,158,11,0.18); color: #fbbf24; }
         .al-form { display: flex; flex-direction: column; gap: 1.1rem; }
@@ -355,29 +355,32 @@ export default function AdminLoginPage() {
         .al-input::placeholder { color: #2d3748; font-weight: 500; }
         .al-eye { background: transparent; border: none; color: #475569; cursor: pointer; padding: 0.35rem; font-size: 1.1rem; display: flex; align-items: center; }
         .al-remember { display: flex; align-items: center; gap: 0.6rem; font-size: 0.82rem; }
-        .al-checkbox { width: 17px; height: 17px; cursor: pointer; accent-color: #d97706; }
+        .al-checkbox { width: 17px; height: 17px; cursor: pointer; accent-color: #d97706; flex-shrink: 0; }
         .al-remember-label { color: #94a3b8; cursor: pointer; font-weight: 600; }
         .al-submit {
           color: #fff; border: none; border-radius: 12px; padding: 1rem 1.25rem;
           font-size: 0.96rem; font-weight: 800; cursor: pointer; transition: all 0.2s;
           display: flex; align-items: center; justify-content: center; gap: 0.6rem;
-          min-height: 50px; margin-top: 0.25rem;
+          min-height: 52px; margin-top: 0.25rem; width: 100%;
           background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
           box-shadow: 0 10px 24px -6px rgba(217,119,6,0.45);
         }
-        .al-submit:hover:not(:disabled) { background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%); transform: translateY(-1px); box-shadow: 0 14px 28px -6px rgba(217,119,6,0.55); }
-        .al-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+        .al-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 14px 28px -6px rgba(217,119,6,0.55); }
+        .al-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
         .al-submit-blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); box-shadow: 0 10px 24px -6px rgba(37,99,235,0.4); }
         .al-spinner { width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.75s linear infinite; display: inline-block; }
         .al-reset-info { font-size: 0.83rem; color: #64748b; line-height: 1.5; margin: 0; }
-        .al-reset-info strong { color: #fbbf24; }
         .al-back { margin-top: 1.75rem; padding: 0.9rem 1rem; background: rgba(255,255,255,0.025); border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.6rem; font-size: 0.8rem; color: #475569; }
-        .al-back-btn { font-size: 0.78rem; font-weight: 700; color: #34d399; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 0.3rem 0.75rem; text-decoration: none; transition: background 0.15s; white-space: nowrap; }
+        .al-back-btn { font-size: 0.78rem; font-weight: 700; color: #34d399; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 0.35rem 0.85rem; text-decoration: none; transition: background 0.15s; white-space: nowrap; }
         .al-back-btn:hover { background: rgba(16,185,129,0.2); }
         .al-footer { margin-top: 1.25rem; text-align: center; font-size: 0.7rem; color: #2d3748; }
         .al-footer-link { color: #374151; text-decoration: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        @media (max-width: 480px) { .al-card { padding: 1.4rem 1.1rem; border-radius: 18px; } }
+        @media (max-width: 480px) {
+          .al-card { border-radius: 20px; }
+          .al-title { font-size: 1.4rem; }
+          .al-back { flex-direction: column; align-items: flex-start; }
+        }
       `}</style>
     </div>
   );
