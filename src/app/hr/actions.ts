@@ -80,10 +80,10 @@ export async function getBranches() {
   }
 
   const branches = readJsonFile(BRANCHES_FILE, [
-    { id: 'mock-1', name: 'Hotel Grand Godwin', prefix: 'GG' },
-    { id: 'mock-2', name: 'Hotel Godwin Deluxe', prefix: 'GD' },
-    { id: 'mock-3', name: 'Indian Grill', prefix: 'IG' },
-    { id: 'mock-4', name: 'Cafe Brownie', prefix: 'CB' },
+    { id: 'branch-gg', name: 'Hotel Grand Godwin', prefix: 'GG', address: '8502/41, Arakashan Road, Ram Nagar, Paharganj, New Delhi' },
+    { id: 'branch-gd', name: 'Hotel Godwin Deluxe', prefix: 'GD', address: '8501/42, Arakashan Road, Ram Nagar, Paharganj, New Delhi' },
+    { id: 'branch-ig', name: 'Indian Grill', prefix: 'IG', address: 'Hotel Grand Godwin Rooftop, New Delhi' },
+    { id: 'branch-cb', name: 'Cafe Brownie', prefix: 'CB', address: 'Hotel Godwin Deluxe Lobby, New Delhi' },
   ])
   return branches
 }
@@ -117,12 +117,16 @@ export async function getDepartments() {
   }
 
   const depts = readJsonFile<any[]>(DEPARTMENTS_FILE, [
-    { id: 'dept-1', name: 'Front Office' },
-    { id: 'dept-2', name: 'Housekeeping' },
-    { id: 'dept-3', name: 'Security' },
-    { id: 'dept-4', name: 'Accounts' },
-    { id: 'dept-5', name: 'Reservation' },
-    { id: 'dept-6', name: 'Food & Beverage' },
+    { id: 'dept-1', name: 'Management', branchId: 'branch-gg' },
+    { id: 'dept-2', name: 'Front Office', branchId: 'branch-gg' },
+    { id: 'dept-3', name: 'Housekeeping', branchId: 'branch-gg' },
+    { id: 'dept-4', name: 'Security Guard', branchId: 'branch-gg' },
+    { id: 'dept-5', name: 'Accounts', branchId: 'branch-gg' },
+    { id: 'dept-6', name: 'Reservation', branchId: 'branch-gg' },
+    { id: 'dept-7', name: 'Food & Beverage', branchId: 'branch-gg' },
+    { id: 'dept-8', name: 'Management', branchId: 'branch-gd' },
+    { id: 'dept-9', name: 'Front Office', branchId: 'branch-gd' },
+    { id: 'dept-10', name: 'Security Guard', branchId: 'branch-gd' },
   ])
   return depts
 }

@@ -13,14 +13,14 @@ const DUMMY_EMPLOYEE_IDS = new Set([
   'GG-1001', 'GG-1002', 'GD-1001',
 ])
 
+// Only checks the employee's own id/employeeId — NOT branchId
 function isPurgeableEmployee(emp: any): boolean {
   return (
     DUMMY_EMPLOYEE_IDS.has(emp?.id) ||
-    DUMMY_EMPLOYEE_IDS.has(emp?.employeeId) ||
-    emp?.id?.startsWith('mock-') ||
-    emp?.employeeId?.startsWith('mock-')
+    DUMMY_EMPLOYEE_IDS.has(emp?.employeeId)
   )
 }
+
 
 interface Branch {
   id: string

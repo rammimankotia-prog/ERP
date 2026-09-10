@@ -1,6 +1,6 @@
 [
-  { "id": "mock-1", "name": "Hotel Grand Godwin", "prefix": "GG", "address": "8502/41, Arakashan Road, Ram Nagar, Paharganj, New Delhi" },
-  { "id": "mock-2", "name": "Hotel Godwin Deluxe", "prefix": "GD", "address": "8501/42, Arakashan Road, Ram Nagar, Paharganj, New Delhi" },
-  { "id": "mock-3", "name": "Indian Grill", "prefix": "IG", "address": "Hotel Grand Godwin Rooftop, New Delhi" },
-  { "id": "mock-4", "name": "Cafe Brownie", "prefix": "CB", "address": "Hotel Godwin Deluxe Lobby, New Delhi" }
+  { "id": "branch-gg", "name": "Hotel Grand Godwin", "prefix": "GG", "address": "8502/41, Arakashan Road, Ram Nagar, Paharganj, New Delhi" },
+  { "id": "branch-gd", "name": "Hotel Godwin Deluxe", "prefix": "GD", "address": "8501/42, Arakashan Road, Ram Nagar, Paharganj, New Delhi" },
+  { "id": "branch-ig", "name": "Indian Grill", "prefix": "IG", "address": "Hotel Grand Godwin Rooftop, New Delhi" },
+  { "id": "branch-cb", "name": "Cafe Brownie", "prefix": "CB", "address": "Hotel Godwin Deluxe Lobby, New Delhi" }
 ]

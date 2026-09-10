@@ -1,9 +1,17 @@
 [
-  { "id": "dept-1", "name": "Front Office", "branchId": "mock-1" },
-  { "id": "dept-2", "name": "Housekeeping", "branchId": "mock-1" },
-  { "id": "dept-3", "name": "Security Guard", "branchId": "mock-1" },
-  { "id": "dept-4", "name": "Accounts", "branchId": "mock-1" },
-  { "id": "dept-5", "name": "Reservation", "branchId": "mock-1" },
-  { "id": "dept-6", "name": "Food & Beverage", "branchId": "mock-1" },
-  { "id": "dept-7", "name": "Kitchen & Culinary", "branchId": "mock-3" }
+  { "id": "dept-1", "name": "Management", "branchId": "branch-gg" },
+  { "id": "dept-2", "name": "Front Office", "branchId": "branch-gg" },
+  { "id": "dept-3", "name": "Housekeeping", "branchId": "branch-gg" },
+  { "id": "dept-4", "name": "Security Guard", "branchId": "branch-gg" },
+  { "id": "dept-5", "name": "Accounts", "branchId": "branch-gg" },
+  { "id": "dept-6", "name": "Reservation", "branchId": "branch-gg" },
+  { "id": "dept-7", "name": "Food & Beverage", "branchId": "branch-gg" },
+  { "id": "dept-8", "name": "Management", "branchId": "branch-gd" },
+  { "id": "dept-9", "name": "Front Office", "branchId": "branch-gd" },
+  { "id": "dept-10", "name": "Housekeeping", "branchId": "branch-gd" },
+  { "id": "dept-11", "name": "Security Guard", "branchId": "branch-gd" },
+  { "id": "dept-12", "name": "Accounts", "branchId": "branch-gd" },
+  { "id": "dept-13", "name": "Reservation", "branchId": "branch-gd" },
+  { "id": "dept-14", "name": "Kitchen & Culinary", "branchId": "branch-ig" },
+  { "id": "dept-15", "name": "Kitchen & Culinary", "branchId": "branch-cb" }
 ]
