@@ -47,22 +47,12 @@ interface AuthContextType {
   isMasterAdmin: boolean;
 }
 
-export const DEFAULT_USER: User = {
-  id: 'admin-001',
-  username: 'Godwinhotels',
-  name: 'Raman Mankotia',
-  email: 'mail@godwinhotels.com',
-  role: 'Master Admin',
-  status: 'Active',
-  permissions: MASTER_ADMIN_PERMISSIONS,
-};
-
 const AuthContext = createContext<AuthContextType>({
   user: null,
   login: () => {},
   logout: () => {},
-  hasPermission: () => true,
-  isMasterAdmin: true,
+  hasPermission: () => false,
+  isMasterAdmin: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -71,6 +61,7 @@ const BROADCAST_AUTH_CHANNEL = 'GODWIN_AUTH_BROADCAST_CHANNEL';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -144,7 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isExplicitlyLoggedOut) {
         setUser(null);
         if (pathname && !['/login', '/logout'].includes(pathname) && !pathname.startsWith('/kiosk')) {
-          router.push('/login');
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          } else {
+            router.push('/login');
+          }
         }
       } else {
         const saved = localStorage.getItem('GODWIN_LOGGED_IN_USER') || sessionStorage.getItem('GODWIN_LOGGED_IN_USER');
@@ -163,12 +158,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // If no user is logged in, redirect if on protected route
           setUser(null);
           if (pathname && !['/login', '/logout'].includes(pathname) && !pathname.startsWith('/kiosk')) {
-            router.push('/login');
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            } else {
+              router.push('/login');
+            }
           }
         }
       }
     } catch (err) {
       console.warn('Storage access warning', err);
+    } finally {
+      setAuthChecked(true);
     }
 
     // 2. BroadcastChannel listener for all modern browsers & web workers
@@ -279,9 +280,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return current === true;
   }, [user, isMasterAdmin]);
 
+  const isPublicRoute = !pathname || ['/login', '/logout'].includes(pathname) || pathname.startsWith('/kiosk');
+
   return (
     <AuthContext.Provider value={{ user, login, logout, hasPermission, isMasterAdmin }}>
-      {children}
+      {!authChecked && !isPublicRoute ? (
+        <div style={{
+          minHeight: '100vh',
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0f172a',
+          color: '#94a3b8',
+          fontFamily: 'system-ui, sans-serif'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              border: '3px solid rgba(255, 255, 255, 0.1)',
+              borderTopColor: '#d97706',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 0.75rem auto'
+            }} />
+            <p style={{ fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.05em' }}>VERIFYING SESSION...</p>
+          </div>
+          <style jsx>{`
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          `}</style>
+        </div>
+      ) : !user && !isPublicRoute ? (
+        <div style={{
+          minHeight: '100vh',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.75rem',
+          background: '#0f172a',
+          color: '#f8fafc',
+          fontFamily: 'system-ui, sans-serif'
+        }}>
+          <span style={{ fontSize: '2rem' }}>🔒</span>
+          <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>Authentication Required</h2>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>Redirecting to secure login portal...</p>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 }
