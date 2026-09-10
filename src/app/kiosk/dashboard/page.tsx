@@ -28,11 +28,11 @@ export default function KioskDashboard() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
-  // Load employee and check status
+  // Load employee and check status with multi-window synchronization
   useEffect(() => {
     const saved = localStorage.getItem('kiosk_employee')
     if (!saved) {
-      router.push('/kiosk')
+      router.push('/login?mode=employee')
       return
     }
     try {
@@ -40,7 +40,39 @@ export default function KioskDashboard() {
       setEmployee(emp)
       checkStatus(emp.id)
     } catch {
-      router.push('/kiosk')
+      router.push('/login?mode=employee')
+      return
+    }
+
+    // BroadcastChannel listener
+    let bc: BroadcastChannel | null = null
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'LOGOUT' || event.data?.type === 'KIOSK_LOGOUT') {
+            setEmployee(null)
+            try { localStorage.removeItem('kiosk_employee') } catch {}
+            router.push('/login?mode=employee')
+          }
+        }
+      }
+    } catch {}
+
+    // Storage event listener for cross-window logout sync
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'GODWIN_LOGOUT_EVENT' || (e.key === 'kiosk_employee' && !e.newValue)) {
+        setEmployee(null)
+        router.push('/login?mode=employee')
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      if (bc) {
+        try { bc.close() } catch {}
+      }
     }
   }, [router])
 
@@ -73,6 +105,7 @@ export default function KioskDashboard() {
   const handlePunch = async (action: 'IN' | 'OUT') => {
     setProcessing(true)
     setMessage('')
+
     try {
       const res = await fetch('/api/kiosk/punch', {
         method: 'POST',
@@ -96,8 +129,17 @@ export default function KioskDashboard() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('kiosk_employee')
-    router.push('/kiosk')
+    const now = Date.now().toString()
+    try {
+      localStorage.removeItem('kiosk_employee')
+      localStorage.setItem('GODWIN_LOGOUT_EVENT', now)
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+        bc.postMessage({ type: 'KIOSK_LOGOUT', timestamp: now })
+        bc.close()
+      }
+    } catch {}
+    router.push('/login?mode=employee')
   }
 
   if (loading || !employee) {

@@ -9,12 +9,27 @@ export default function LogoutPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Instantly clear session credentials
+    // 1. Comprehensive multi-window and cross-tab logout triggers
+    const now = Date.now().toString();
     try {
+      localStorage.setItem('GODWIN_LOGGED_OUT', 'true');
+      localStorage.setItem('GODWIN_LOGOUT_EVENT', now);
       localStorage.removeItem('GODWIN_LOGGED_IN_USER');
-      sessionStorage.removeItem('GODWIN_LOGGED_IN_USER');
+      localStorage.removeItem('kiosk_employee');
+      sessionStorage.clear();
+
+      // Clear cookies across all paths
+      document.cookie = 'GODWIN_LOGGED_IN_USER=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+      document.cookie = 'kiosk_employee=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+
+      // Broadcast instant logout signal to all other open tabs and windows
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL');
+        bc.postMessage({ type: 'LOGOUT', timestamp: now });
+        bc.close();
+      }
     } catch (e) {
-      console.error('Error clearing session storage:', e);
+      console.error('Error during global logout cleanup:', e);
     }
     
     if (logout) {
@@ -50,7 +65,7 @@ export default function LogoutPage() {
           🚪 Signing Out...
         </h3>
         <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Terminating Executive Session &amp; Locking Terminal
+          Terminating All Active Windows &amp; Locking Terminal
         </p>
       </div>
       <style jsx>{`
