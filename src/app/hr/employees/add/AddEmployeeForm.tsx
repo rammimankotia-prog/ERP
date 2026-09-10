@@ -34,6 +34,10 @@ export default function AddEmployeeForm({
   const [eveningTime, setEveningTime] = useState('18:00')
   const [breakStart, setBreakStart] = useState('14:00')
   const [breakEnd, setBreakEnd] = useState('18:00')
+  const [autoGeneratePassword, setAutoGeneratePassword] = useState(true)
+  const [manualPassword, setManualPassword] = useState('')
+  const [createdResult, setCreatedResult] = useState<any | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const selectedBranch = branches.find((b) => b.id === selectedBranchId)
 
@@ -56,17 +60,17 @@ export default function AddEmployeeForm({
       const firstName = (formData.get('firstName') as string)?.trim()
       const lastName = (formData.get('lastName') as string)?.trim()
       const email = (formData.get('email') as string)?.trim()
-      const password = (formData.get('password') as string)?.trim()
+      const password = autoGeneratePassword ? '' : manualPassword.trim()
       const contactNo = (formData.get('contactNo') as string)?.trim()
       const designation = (formData.get('designation') as string)?.trim()
       const dojStr = formData.get('doj') as string
       const dobStr = formData.get('dob') as string
 
-      if (!firstName || !lastName || !email || !password || !contactNo || !branchId || !departmentId || !designation) {
+      if (!firstName || !lastName || !email || (!autoGeneratePassword && !password) || !contactNo || !branchId || !departmentId || !designation) {
         throw new Error('Please fill in all required fields.')
       }
 
-      await createEmployee({
+      const res = await createEmployee({
         firstName,
         lastName,
         email,
@@ -86,8 +90,7 @@ export default function AddEmployeeForm({
         address: (formData.get('address') as string) || undefined,
       })
 
-      router.push('/hr/employees')
-      router.refresh()
+      setCreatedResult(res)
     } catch (err: any) {
       setError(err.message || 'Failed to create employee record')
     } finally {
@@ -96,27 +99,267 @@ export default function AddEmployeeForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      {/* Error Alert */}
-      {error && (
+    <>
+      {/* Onboarding Success Modal */}
+      {createdResult && (
         <div
           style={{
-            padding: '1rem 1.25rem',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            color: 'var(--error)',
-            borderRadius: '10px',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.75rem',
-            fontSize: '0.92rem',
-            fontWeight: 500,
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1.25rem',
           }}
         >
-          <span style={{ fontSize: '1.2rem' }}>⚠️</span>
-          <span>{error}</span>
+          <div
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '16px',
+              maxWidth: '560px',
+              width: '100%',
+              padding: '2rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              animation: 'fadeIn 0.25s ease-out',
+            }}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                  color: '#10b981',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '2rem',
+                  margin: '0 auto 1rem auto',
+                }}
+              >
+                ✓
+              </div>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 0.4rem 0' }}>
+                Employee Onboarded Successfully
+              </h2>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: 0 }}>
+                Profile created, credentials generated, and synchronized across attendance and payroll systems.
+              </p>
+            </div>
+
+            {/* Credential summary card */}
+            <div
+              style={{
+                backgroundColor: 'var(--bg-main)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Staff Name:</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.95rem' }}>
+                  {createdResult.firstName} {createdResult.lastName}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Staff ID:</span>
+                <span style={{ fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace', fontSize: '1rem' }}>
+                  {createdResult.employeeId}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Official Email (Login ID):</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                  {createdResult.email}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>System Role:</span>
+                <span
+                  style={{
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                    color: 'var(--primary)',
+                  }}
+                >
+                  {createdResult.assignedRole || 'Employee'}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingTop: '0.6rem',
+                  borderTop: '1px dashed var(--border)',
+                }}
+              >
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Login Password:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <code
+                    style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: '6px',
+                      fontSize: '0.95rem',
+                      fontWeight: 800,
+                      letterSpacing: '1px',
+                      color: '#f59e0b',
+                    }}
+                  >
+                    {createdResult.generatedPassword || createdResult.password}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdResult.generatedPassword || createdResult.password)
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 2000)
+                    }}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.6rem',
+                      cursor: 'pointer',
+                      color: copied ? '#10b981' : 'var(--text-muted)',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Email dispatch alert */}
+            <div
+              style={{
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                color: '#10b981',
+                fontSize: '0.82rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginBottom: '1.5rem',
+              }}
+            >
+              <span>📧</span>
+              <span>
+                Login credentials have been securely emailed to <strong>{createdResult.email}</strong>.
+              </span>
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = `Godwin Hotels Staff Credentials:\nName: ${createdResult.firstName} ${createdResult.lastName}\nStaff ID: ${createdResult.employeeId}\nRole: ${createdResult.assignedRole}\nLogin Email: ${createdResult.email}\nPassword: ${createdResult.generatedPassword || createdResult.password}\nLogin URL: https://grandgodwin.com/login`
+                  navigator.clipboard.writeText(summary)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                }}
+              >
+                📋 {copied ? 'Credentials Copied to Clipboard!' : 'Copy All Credentials'}
+              </button>
+
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatedResult(null)
+                    setManualPassword('')
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ➕ Add Another
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push('/hr/employees')
+                    router.refresh()
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'var(--primary)',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  View Directory →
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        {/* Error Alert */}
+        {error && (
+          <div
+            style={{
+              padding: '1rem 1.25rem',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              color: 'var(--error)',
+              borderRadius: '10px',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              fontSize: '0.92rem',
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
 
       {/* SECTION 1: PERSONAL INFORMATION */}
       <div
@@ -239,29 +482,64 @@ export default function AddEmployeeForm({
             />
           </div>
 
-          {/* Password */}
-          <div className="form-group">
-            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
-              Password (Kiosk Login) <span style={{ color: 'var(--error)' }}>*</span>
-            </label>
-            <input
-              required
-              name="password"
-              type="text"
-              placeholder="e.g. Godwin@123"
-              className="form-input"
-              style={{
-                width: '100%',
-                height: '42px',
-                padding: '0 12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--bg-main)',
-                color: 'var(--text-main)',
-                fontSize: '0.9rem',
-                outline: 'none',
-              }}
-            />
+          {/* Password Section */}
+          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <label style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-main)', margin: 0 }}>
+                Portal & Kiosk Login Password <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={autoGeneratePassword}
+                  onChange={(e) => setAutoGeneratePassword(e.target.checked)}
+                  style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                />
+                Auto-generate secure password
+              </label>
+            </div>
+
+            {autoGeneratePassword ? (
+              <div
+                style={{
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                  border: '1px dashed rgba(37, 99, 235, 0.35)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.86rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>🔐</span>
+                <span>
+                  <strong>Automatic Password Generation Active:</strong> A secure Godwin-standard credential will be auto-generated, synced to the user directory, and dispatched to the employee's official email address.
+                </span>
+              </div>
+            ) : (
+              <input
+                required
+                name="password"
+                type="text"
+                value={manualPassword}
+                onChange={(e) => setManualPassword(e.target.value)}
+                placeholder="Enter custom login password (e.g. Godwin@123)"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            )}
           </div>
 
           {/* Contact Number */}
@@ -979,5 +1257,6 @@ export default function AddEmployeeForm({
         </button>
       </div>
     </form>
+    </>
   )
 }

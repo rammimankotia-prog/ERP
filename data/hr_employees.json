@@ -1,11 +1,13 @@
 [
   {
-    "id": "mock-emp-1",
+    "id": "emp-gg-1001",
     "employeeId": "GG-1001",
     "firstName": "Raman",
     "lastName": "Mankotia",
     "designation": "General Manager",
     "contactNo": "9811122233",
+    "email": "mail@godwinhotels.com",
+    "password": "Godwindeluxe@99",
     "branchId": "mock-1",
     "branch": {
       "id": "mock-1",
@@ -15,278 +17,73 @@
     "departmentId": "dept-1",
     "department": {
       "id": "dept-1",
-      "name": "Front Office"
+      "name": "Management"
     },
     "status": "ACTIVE",
     "employmentType": "PERMANENT",
-    "doj": "2024-01-15T00:00:00.000Z",
-    "morningTime": "08:30",
+    "doj": "2024-01-01T00:00:00.000Z",
+    "morningTime": "09:00",
     "eveningTime": "18:00",
     "gender": "Male",
-    "createdAt": "2024-01-15T00:00:00.000Z",
-    "updatedAt": "2026-09-09T11:17:50.640Z",
-    "email": "raman@godwinhotels.com",
-    "password": "Godwin@123"
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2026-09-10T12:00:00.000Z"
   },
   {
-    "id": "mock-emp-2",
+    "id": "emp-gg-1002",
     "employeeId": "GG-1002",
-    "firstName": "Priya",
-    "lastName": "Sharma",
-    "designation": "Front Desk Executive",
-    "contactNo": "9812345678",
-    "branchId": "mock-1",
-    "branch": {
-      "id": "mock-1",
-      "name": "Hotel Grand Godwin",
-      "prefix": "GG"
-    },
-    "departmentId": "dept-1",
-    "department": {
-      "id": "dept-1",
-      "name": "Front Office"
-    },
-    "status": "ACTIVE",
-    "employmentType": "PERMANENT",
-    "doj": "2024-03-01T00:00:00.000Z",
-    "morningTime": "07:00",
-    "eveningTime": "15:30",
-    "gender": "Female",
-    "createdAt": "2024-03-01T00:00:00.000Z",
-    "updatedAt": "2024-03-01T00:00:00.000Z",
-    "email": "priya@godwinhotels.com",
-    "password": "Godwin@123"
-  },
-  {
-    "id": "mock-emp-3",
-    "employeeId": "GD-1001",
-    "firstName": "Rajiv",
-    "lastName": "Kumar",
-    "designation": "Housekeeping Supervisor",
-    "contactNo": "9823456789",
-    "branchId": "mock-2",
-    "branch": {
-      "id": "mock-2",
-      "name": "Hotel Godwin Deluxe",
-      "prefix": "GD"
-    },
-    "departmentId": "dept-2",
-    "department": {
-      "id": "dept-2",
-      "name": "Housekeeping"
-    },
-    "status": "ACTIVE",
-    "employmentType": "PERMANENT",
-    "doj": "2024-02-10T00:00:00.000Z",
-    "morningTime": "08:00",
-    "eveningTime": "17:00",
-    "gender": "Male",
-    "createdAt": "2024-02-10T00:00:00.000Z",
-    "updatedAt": "2024-02-10T00:00:00.000Z",
-    "email": "rajiv@godwinhotels.com",
-    "password": "Godwin@123"
-  },
-  {
-    "id": "mock-emp-4",
-    "employeeId": "GD-1002",
-    "firstName": "Sunita",
-    "lastName": "Verma",
-    "designation": "Security Officer",
-    "contactNo": "9834567890",
-    "branchId": "mock-2",
-    "branch": {
-      "id": "mock-2",
-      "name": "Hotel Godwin Deluxe",
-      "prefix": "GD"
-    },
-    "departmentId": "dept-3",
-    "department": {
-      "id": "dept-3",
-      "name": "Security"
-    },
-    "status": "ACTIVE",
-    "employmentType": "PERMANENT",
-    "doj": "2024-04-15T00:00:00.000Z",
-    "morningTime": "22:00",
-    "eveningTime": "06:00",
-    "gender": "Female",
-    "createdAt": "2024-04-15T00:00:00.000Z",
-    "updatedAt": "2024-04-15T00:00:00.000Z",
-    "email": "sunita@godwinhotels.com",
-    "password": "Godwin@123"
-  },
-  {
-    "id": "mock-emp-5",
-    "employeeId": "GG-1003",
-    "firstName": "Amit",
-    "lastName": "Singh",
-    "designation": "Accounts Executive",
-    "contactNo": "9845678901",
-    "branchId": "mock-1",
-    "branch": {
-      "id": "mock-1",
-      "name": "Hotel Grand Godwin",
-      "prefix": "GG"
-    },
-    "departmentId": "dept-4",
-    "department": {
-      "id": "dept-4",
-      "name": "Accounts"
-    },
-    "status": "ACTIVE",
-    "employmentType": "PERMANENT",
-    "doj": "2024-05-01T00:00:00.000Z",
-    "morningTime": "10:00",
-    "eveningTime": "19:00",
-    "gender": "Male",
-    "createdAt": "2024-05-01T00:00:00.000Z",
-    "updatedAt": "2024-05-01T00:00:00.000Z",
-    "email": "amit@godwinhotels.com",
-    "password": "Godwin@123"
-  },
-  {
-    "id": "mock-emp-6",
-    "employeeId": "CB-1001",
-    "firstName": "Karan",
-    "lastName": "Mehta",
-    "designation": "Cafe Manager & Head Barista",
-    "contactNo": "9856789012",
-    "branchId": "mock-4",
-    "branch": {
-      "id": "mock-4",
-      "name": "Cafe Brownie",
-      "prefix": "CB"
-    },
-    "departmentId": "dept-6",
-    "department": {
-      "id": "dept-6",
-      "name": "Food & Beverage"
-    },
-    "status": "ACTIVE",
-    "employmentType": "PERMANENT",
-    "doj": "2024-06-01T00:00:00.000Z",
-    "morningTime": "08:00",
-    "eveningTime": "17:00",
-    "gender": "Male",
-    "createdAt": "2024-06-01T00:00:00.000Z",
-    "updatedAt": "2024-06-01T00:00:00.000Z",
-    "email": "karan@godwinhotels.com",
-    "password": "Godwin@123"
-  },
-  {
-    "id": "mock-emp-7",
-    "employeeId": "CB-1002",
-    "firstName": "Rohan",
-    "lastName": "Joshi",
-    "designation": "Senior Barista",
-    "contactNo": "9867890123",
-    "branchId": "mock-4",
-    "branch": {
-      "id": "mock-4",
-      "name": "Cafe Brownie",
-      "prefix": "CB"
-    },
-    "departmentId": "dept-6",
-    "department": {
-      "id": "dept-6",
-      "name": "Food & Beverage"
-    },
-    "status": "ACTIVE",
-    "employmentType": "PERMANENT",
-    "doj": "2024-06-15T00:00:00.000Z",
-    "morningTime": "12:00",
-    "eveningTime": "21:00",
-    "gender": "Male",
-    "createdAt": "2024-06-15T00:00:00.000Z",
-    "updatedAt": "2024-06-15T00:00:00.000Z",
-    "email": "rohan@godwinhotels.com",
-    "password": "Godwin@123"
-  },
-  {
-    "id": "mock-emp-8",
-    "employeeId": "GG-1004",
     "firstName": "Vikram",
     "lastName": "Rathore",
     "designation": "Head Security Guard",
-    "contactNo": "9878901234",
+    "contactNo": "9811144556",
+    "email": "guard@godwinhotels.com",
+    "password": "Guard@99",
     "branchId": "mock-1",
     "branch": {
       "id": "mock-1",
       "name": "Hotel Grand Godwin",
       "prefix": "GG"
     },
-    "departmentId": "dept-3",
+    "departmentId": "dept-sec",
     "department": {
-      "id": "dept-3",
+      "id": "dept-sec",
       "name": "Security Guard"
     },
     "status": "ACTIVE",
     "employmentType": "PERMANENT",
     "doj": "2024-02-01T00:00:00.000Z",
-    "morningTime": "20:00",
-    "eveningTime": "08:00",
+    "morningTime": "07:00",
+    "eveningTime": "19:00",
     "gender": "Male",
     "createdAt": "2024-02-01T00:00:00.000Z",
-    "updatedAt": "2024-02-01T00:00:00.000Z",
-    "email": "vikram@godwinhotels.com",
-    "password": "Godwin@123"
+    "updatedAt": "2026-09-10T12:00:00.000Z"
   },
   {
-    "id": "mock-emp-9",
-    "employeeId": "GD-1003",
-    "firstName": "Sunil",
-    "lastName": "Thakur",
-    "designation": "Security Guard",
-    "contactNo": "9889012345",
+    "id": "emp-gd-1001",
+    "employeeId": "GD-1001",
+    "firstName": "Rajesh",
+    "lastName": "Sharma",
+    "designation": "Duty Roster Manager",
+    "contactNo": "9812233445",
+    "email": "manager@godwinhotels.com",
+    "password": "Manager@99",
     "branchId": "mock-2",
     "branch": {
       "id": "mock-2",
       "name": "Hotel Godwin Deluxe",
       "prefix": "GD"
     },
-    "departmentId": "dept-3",
+    "departmentId": "dept-ops",
     "department": {
-      "id": "dept-3",
-      "name": "Security Guard"
+      "id": "dept-ops",
+      "name": "Operations"
     },
     "status": "ACTIVE",
     "employmentType": "PERMANENT",
-    "doj": "2024-03-10T00:00:00.000Z",
-    "morningTime": "08:00",
-    "eveningTime": "20:00",
+    "doj": "2024-02-15T00:00:00.000Z",
+    "morningTime": "09:00",
+    "eveningTime": "18:00",
     "gender": "Male",
-    "createdAt": "2024-03-10T00:00:00.000Z",
-    "updatedAt": "2024-03-10T00:00:00.000Z",
-    "email": "sunil@godwinhotels.com",
-    "password": "Godwin@123"
-  },
-  {
-    "id": "mock-emp-10",
-    "employeeId": "GD-1004",
-    "firstName": "Anita",
-    "lastName": "Rawat",
-    "designation": "Housekeeping Attendant",
-    "contactNo": "9890123456",
-    "branchId": "mock-2",
-    "branch": {
-      "id": "mock-2",
-      "name": "Hotel Godwin Deluxe",
-      "prefix": "GD"
-    },
-    "departmentId": "dept-2",
-    "department": {
-      "id": "dept-2",
-      "name": "Housekeeping"
-    },
-    "status": "ACTIVE",
-    "employmentType": "PERMANENT",
-    "doj": "2024-04-01T00:00:00.000Z",
-    "morningTime": "07:30",
-    "eveningTime": "16:30",
-    "gender": "Female",
-    "createdAt": "2024-04-01T00:00:00.000Z",
-    "updatedAt": "2024-04-01T00:00:00.000Z",
-    "email": "anita@godwinhotels.com",
-    "password": "Godwin@123"
+    "createdAt": "2024-02-15T00:00:00.000Z",
+    "updatedAt": "2026-09-10T12:00:00.000Z"
   }
 ]

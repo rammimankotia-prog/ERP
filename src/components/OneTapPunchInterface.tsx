@@ -25,6 +25,7 @@ interface Props {
   onBack: () => void;
   onSuccess?: () => void;
   autoResetSeconds?: number;
+  mode?: 'KIOSK' | 'MOBILE_GEOFENCE';
 }
 
 export default function OneTapPunchInterface({
@@ -32,10 +33,12 @@ export default function OneTapPunchInterface({
   onBack,
   onSuccess,
   autoResetSeconds = 3,
+  mode = 'KIOSK',
 }: Props) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
+  const [punchMode, setPunchMode] = useState<'KIOSK' | 'MOBILE_GEOFENCE'>(mode);
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedOut, setCheckedOut] = useState(false);
@@ -47,6 +50,7 @@ export default function OneTapPunchInterface({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(autoResetSeconds);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [geoLocating, setGeoLocating] = useState(false);
 
   // Live clock
   useEffect(() => {
@@ -96,7 +100,6 @@ export default function OneTapPunchInterface({
         setPunchInTime(data.punchInTime);
         setPunchOutTime(data.punchOutTime);
       } else {
-        // Fallback to employee's initial state if available
         setCheckedIn(!!employee.checkedIn);
         setCheckedOut(!!employee.checkedOut);
         setPunchInTime(employee.punchInTime || null);
@@ -116,11 +119,45 @@ export default function OneTapPunchInterface({
     checkStatus();
   }, [checkStatus]);
 
-  // Handle One-Tap Action
+  // Handle One-Tap Action with Dual Option Support (Kiosk vs Mobile Geo-Fence)
   const handlePunch = async (action: 'IN' | 'OUT') => {
-    if (processing) return;
+    if (processing || geoLocating) return;
     setProcessing(true);
     setErrorMsg(null);
+
+    let lat: number | undefined;
+    let lng: number | undefined;
+
+    // Mobile GPS boundary acquisition
+    if (punchMode === 'MOBILE_GEOFENCE') {
+      setGeoLocating(true);
+      try {
+        if (typeof window === 'undefined' || !navigator.geolocation) {
+          throw new Error('Geolocation is not supported by your browser.');
+        }
+
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          });
+        });
+
+        lat = position.coords.latitude;
+        lng = position.coords.longitude;
+      } catch (geoErr: any) {
+        setProcessing(false);
+        setGeoLocating(false);
+        setErrorMsg(
+          geoErr.message ||
+            'Location permission is mandatory for mobile punch-in to verify you are on hotel premises. Please enable GPS.'
+        );
+        return;
+      } finally {
+        setGeoLocating(false);
+      }
+    }
 
     try {
       const res = await fetch('/api/kiosk/punch', {
@@ -129,6 +166,9 @@ export default function OneTapPunchInterface({
         body: JSON.stringify({
           employeeId: employee.id || employee.employeeId,
           action,
+          punchMode,
+          lat,
+          lng,
         }),
       });
 
@@ -146,14 +186,17 @@ export default function OneTapPunchInterface({
         hour12: true,
       });
 
+      const lateNote = data.status === 'LATE' ? ' ⚠️ (Marked Late - Grace Period Exceeded)' : '';
+      const geoNote = punchMode === 'MOBILE_GEOFENCE' ? ` [📍 GPS Verified: ${data.record?.punchInCoordinates?.distanceMeters ?? 0}m]` : '';
+
       if (action === 'IN') {
         setCheckedIn(true);
         setPunchInTime(new Date().toISOString());
-        setPunchSuccess(`Check-In (Arrival) Recorded at ${timeFormatted}`);
+        setPunchSuccess(`Check-In (Arrival) Recorded at ${timeFormatted}${lateNote}${geoNote}`);
       } else {
         setCheckedOut(true);
         setPunchOutTime(new Date().toISOString());
-        setPunchSuccess(`Check-Out (Departure) Recorded at ${timeFormatted}`);
+        setPunchSuccess(`Check-Out (Departure) Recorded at ${timeFormatted}${geoNote}`);
       }
 
       if (onSuccess) onSuccess();
@@ -172,6 +215,7 @@ export default function OneTapPunchInterface({
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Could not record punch');
+    } finally {
       setProcessing(false);
     }
   };
@@ -570,6 +614,78 @@ export default function OneTapPunchInterface({
           </div>
         </div>
       </div>
+
+      {/* Dual Punch Mode Selector (Fixed Gate Kiosk vs Mobile Geo-Fence) */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+          margin: '0.25rem 0',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setPunchMode('KIOSK')}
+          style={{
+            padding: '0.55rem 1.1rem',
+            borderRadius: '10px',
+            border: punchMode === 'KIOSK' ? '2px solid var(--primary)' : '1px solid var(--border)',
+            backgroundColor: punchMode === 'KIOSK' ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
+            color: punchMode === 'KIOSK' ? 'var(--primary)' : 'var(--text-muted)',
+            fontWeight: 700,
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <span>🏢</span>
+          <span>Option 1: Security Gate Kiosk</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPunchMode('MOBILE_GEOFENCE')}
+          style={{
+            padding: '0.55rem 1.1rem',
+            borderRadius: '10px',
+            border: punchMode === 'MOBILE_GEOFENCE' ? '2px solid #10b981' : '1px solid var(--border)',
+            backgroundColor: punchMode === 'MOBILE_GEOFENCE' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+            color: punchMode === 'MOBILE_GEOFENCE' ? '#10b981' : 'var(--text-muted)',
+            fontWeight: 700,
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <span>📱</span>
+          <span>Option 2: Mobile (150m GPS Geo-Fence)</span>
+        </button>
+      </div>
+
+      {punchMode === 'MOBILE_GEOFENCE' && (
+        <div
+          style={{
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+            border: '1px dashed rgba(16, 185, 129, 0.3)',
+            color: 'var(--text-main)',
+            fontSize: '0.78rem',
+            textAlign: 'center',
+          }}
+        >
+          📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (150m boundary).
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* THE TWO BIG PUNCH BUTTONS (ONE-TAP ACTION WITH SMART HIGHLIGHTING) */}

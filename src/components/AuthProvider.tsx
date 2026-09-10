@@ -260,6 +260,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, router]);
 
+  // RBAC route enforcement for Security Guard role
+  useEffect(() => {
+    if (!user || !authChecked) return;
+    const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
+    const cleanPath = (currentPath || '').split('?')[0].replace(/\/$/, '') || '/';
+
+    if (user.role === 'Security Guard') {
+      const isAllowed = 
+        cleanPath === '/kiosk' || 
+        cleanPath.startsWith('/kiosk') || 
+        cleanPath === '/logout' || 
+        cleanPath === '/login';
+
+      if (!isAllowed) {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/kiosk';
+        } else {
+          router.push('/kiosk');
+        }
+      }
+    }
+  }, [user, pathname, router, authChecked]);
+
   // Check if current user is Master Admin
   const isMasterAdmin = !!(
     user &&

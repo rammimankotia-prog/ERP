@@ -201,7 +201,7 @@ export async function createEmployee(data: {
   firstName: string
   lastName: string
   email: string
-  password: string
+  password?: string
   contactNo: string
   branchId: string
   departmentId: string
@@ -242,13 +242,30 @@ export async function createEmployee(data: {
   const employeeId = `${branchPrefix}-${nextSequence}`
   const newId = `emp-${Date.now()}`
 
+  // 1. Auto-generate secure password if not provided
+  const generatedPassword = data.password && data.password.trim() !== '' && data.password !== 'Godwin@123'
+    ? data.password.trim()
+    : `Godwin#${Math.floor(1000 + Math.random() * 9000)}`
+
+  // 2. Determine RBAC Role based on designation and department
+  const lowerDesig = (data.designation || '').toLowerCase()
+  const lowerDept = (department?.name || '').toLowerCase()
+  let assignedRole = 'Employee'
+  if (lowerDesig.includes('guard') || lowerDept.includes('security') || lowerDesig.includes('security')) {
+    assignedRole = 'Security Guard'
+  } else if (lowerDesig.includes('general manager') || lowerDesig.includes('root admin')) {
+    assignedRole = 'Master Admin'
+  } else if (lowerDesig.includes('manager') || lowerDesig.includes('supervisor')) {
+    assignedRole = 'Manager'
+  }
+
   const newRecord = {
     id: newId,
     employeeId,
     firstName: data.firstName,
     lastName: data.lastName,
     email: data.email,
-    password: data.password || 'Godwin@123',
+    password: generatedPassword,
     contactNo: data.contactNo,
     branchId: data.branchId,
     departmentId: data.departmentId,
@@ -264,29 +281,80 @@ export async function createEmployee(data: {
     address: data.address || '',
     branch: branch ? { id: branch.id, name: branch.name, prefix: branch.prefix } : undefined,
     department: department ? { id: department.id, name: department.name } : undefined,
+    role: assignedRole,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
 
-  // Try DB persistence
+  // 3. Try DB persistence
   try {
+    const { password: _p, ...prismaData } = data
     const created = await prisma.employee.create({
       data: {
-        ...data,
+        ...prismaData,
         employeeId
       }
     })
     newRecord.id = created.id
   } catch (e) {
-    console.warn("Prisma DB not available. Successfully stored in persistent JSON storage.")
+    // Persistent JSON storage fallback
   }
 
-  // Always write to persistent JSON storage
+  // 4. Write to persistent JSON storage
   fileEmployees.push(newRecord)
   writeJsonFile(EMPLOYEES_FILE, fileEmployees)
 
+  // 5. Automatically create login account in users.json for portal authentication
+  const USERS_FILE = path.join(DATA_DIR, 'users.json')
+  const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
+  try {
+    const users = readJsonFile<any[]>(USERS_FILE, readJsonFile<any[]>(LOCAL_USERS_FILE, []))
+    const existingIndex = users.findIndex(u => (u.email && u.email.toLowerCase() === data.email.toLowerCase()) || u.id === newRecord.id)
+    const userPayload = {
+      id: newRecord.id,
+      username: data.email,
+      name: `${data.firstName} ${data.lastName}`,
+      email: data.email,
+      password: generatedPassword,
+      role: assignedRole,
+      status: 'Active',
+      createdAt: new Date().toISOString().split('T')[0],
+      permissions: assignedRole === 'Security Guard' ? { kiosk: true } : undefined
+    }
+
+    if (existingIndex >= 0) {
+      users[existingIndex] = { ...users[existingIndex], ...userPayload }
+    } else {
+      users.push(userPayload)
+    }
+    writeJsonFile(USERS_FILE, users)
+    if (USERS_FILE !== LOCAL_USERS_FILE) {
+      writeJsonFile(LOCAL_USERS_FILE, users)
+    }
+  } catch (e) {
+    console.warn('Failed to sync user account in users.json:', e)
+  }
+
+  // 6. Automatically dispatch credentials email
+  try {
+    const { sendEmployeeCredentials } = await import('@/lib/email')
+    await sendEmployeeCredentials({
+      to: data.email,
+      name: `${data.firstName} ${data.lastName}`,
+      employeeId,
+      password: generatedPassword,
+      role: assignedRole
+    })
+  } catch (e) {
+    console.warn('Email dispatch warning:', e)
+  }
+
   revalidatePath('/hr/employees')
-  return newRecord
+  return {
+    ...newRecord,
+    generatedPassword,
+    assignedRole
+  }
 }
 
 export async function updateEmployee(id: string, data: any) {
@@ -361,8 +429,33 @@ export async function deleteEmployee(id: string): Promise<{ success: boolean; er
 
   // Always delete from persistent JSON storage
   const fileEmployees = readJsonFile<any[]>(EMPLOYEES_FILE, [])
+  const targetEmp = fileEmployees.find((e: any) => e.id === id || e.employeeId === id)
   const filtered = fileEmployees.filter((e: any) => e.id !== id && e.employeeId !== id)
   writeJsonFile(EMPLOYEES_FILE, filtered)
+
+  // Relational Integrity: Remove associated user account from users.json
+  try {
+    const USERS_FILE = path.join(DATA_DIR, 'users.json')
+    const users = readJsonFile<any[]>(USERS_FILE, [])
+    const cleanUsers = users.filter(u => u.id !== id && (!targetEmp || u.email !== targetEmp.email))
+    writeJsonFile(USERS_FILE, cleanUsers)
+  } catch {}
+
+  // Relational Integrity: Remove punch attendance logs for this employee
+  try {
+    const ATT_FILE = path.join(DATA_DIR, 'hr_attendance.json')
+    const atts = readJsonFile<any[]>(ATT_FILE, [])
+    const cleanAtts = atts.filter(a => a.employeeId !== id && (!targetEmp || a.employeeId !== targetEmp.employeeId))
+    writeJsonFile(ATT_FILE, cleanAtts)
+  } catch {}
+
+  // Relational Integrity: Remove leave requests for this employee
+  try {
+    const LEAVE_FILE = path.join(DATA_DIR, 'hr_leaves.json')
+    const leaves = readJsonFile<any[]>(LEAVE_FILE, [])
+    const cleanLeaves = leaves.filter(l => l.employeeId !== id && (!targetEmp || (l.employeeId !== targetEmp.employeeId && l.employeeCode !== targetEmp.employeeId)))
+    writeJsonFile(LEAVE_FILE, cleanLeaves)
+  } catch {}
 
   revalidatePath('/hr/employees')
   return { success: true }

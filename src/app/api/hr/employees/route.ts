@@ -6,15 +6,25 @@ export const dynamic = 'force-dynamic'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
+const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees.json')
 const BRANCHES_FILE = path.join(DATA_DIR, 'hr_branches.json')
+const LOCAL_BRANCHES_FILE = path.join(process.cwd(), 'data', 'hr_branches.json')
 const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')
+const LOCAL_DEPARTMENTS_FILE = path.join(process.cwd(), 'data', 'hr_departments.json')
 
-function readJson<T>(file: string, fallback: T): T {
-  try {
-    if (fs.existsSync(file)) {
-      return JSON.parse(fs.readFileSync(file, 'utf-8'))
+function readJson<T>(file: string, fallbackFile: string = '', fallback: T = [] as unknown as T): T {
+  for (const f of [file, fallbackFile]) {
+    if (f) {
+      try {
+        if (fs.existsSync(f)) {
+          const content = fs.readFileSync(f, 'utf-8')
+          const parsed = JSON.parse(content)
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed as unknown as T
+          if (!Array.isArray(parsed) && parsed) return parsed as unknown as T
+        }
+      } catch {}
     }
-  } catch {}
+  }
   return fallback
 }
 
@@ -36,9 +46,9 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status')
   const search = searchParams.get('search')
 
-  let employees = readJson<any[]>(EMPLOYEES_FILE, [])
-  const branches = readJson<any[]>(BRANCHES_FILE, [])
-  const departments = readJson<any[]>(DEPARTMENTS_FILE, [])
+  let employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+  const branches = readJson<any[]>(BRANCHES_FILE, LOCAL_BRANCHES_FILE, [])
+  const departments = readJson<any[]>(DEPARTMENTS_FILE, LOCAL_DEPARTMENTS_FILE, [])
 
   if (branchId) {
     employees = employees.filter(e => e.branchId === branchId || e.branch?.id === branchId)
@@ -80,7 +90,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 })
     }
 
-    const employees = readJson<any[]>(EMPLOYEES_FILE, [])
+    const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
     const index = employees.findIndex((e: any) => e.id === targetId || e.employeeId === targetId)
 
     let updatedRecord: any = null

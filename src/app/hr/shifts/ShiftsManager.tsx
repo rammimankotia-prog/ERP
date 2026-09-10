@@ -33,18 +33,9 @@ export type EmployeeItem = {
 }
 
 export const DEFAULT_ROSTER_EMPLOYEES: EmployeeItem[] = [
-  { id: 'mock-emp-1', code: 'GG-1001', name: 'Raman Mankotia', designation: 'General Manager', branch: 'Hotel Grand Godwin', dept: 'Front Office' },
-  { id: 'mock-emp-2', code: 'GG-1002', name: 'Priya Sharma', designation: 'Front Desk Executive', branch: 'Hotel Grand Godwin', dept: 'Front Office' },
-  { id: 'mock-emp-8', code: 'GG-1004', name: 'Vikram Rathore', designation: 'Head Security Guard', branch: 'Hotel Grand Godwin', dept: 'Security Guard' },
-  { id: 'mock-emp-5', code: 'GG-1003', name: 'Amit Singh', designation: 'Accounts Executive', branch: 'Hotel Grand Godwin', dept: 'Accounts' },
-  
-  { id: 'mock-emp-3', code: 'GD-1001', name: 'Rajiv Kumar', designation: 'Housekeeping Supervisor', branch: 'Hotel Godwin Deluxe', dept: 'Housekeeping' },
-  { id: 'mock-emp-10', code: 'GD-1004', name: 'Anita Rawat', designation: 'Housekeeping Attendant', branch: 'Hotel Godwin Deluxe', dept: 'Housekeeping' },
-  { id: 'mock-emp-4', code: 'GD-1002', name: 'Sunita Verma', designation: 'Security Officer', branch: 'Hotel Godwin Deluxe', dept: 'Security Guard' },
-  { id: 'mock-emp-9', code: 'GD-1003', name: 'Sunil Thakur', designation: 'Security Guard', branch: 'Hotel Godwin Deluxe', dept: 'Security Guard' },
-  
-  { id: 'mock-emp-6', code: 'CB-1001', name: 'Karan Mehta', designation: 'Cafe Manager & Head Barista', branch: 'Cafe Brownie', dept: 'Food & Beverage' },
-  { id: 'mock-emp-7', code: 'CB-1002', name: 'Rohan Joshi', designation: 'Senior Barista', branch: 'Cafe Brownie', dept: 'Food & Beverage' },
+  { id: 'emp-gg-1001', code: 'GG-1001', name: 'Raman Mankotia', designation: 'General Manager', branch: 'Hotel Grand Godwin', dept: 'Management' },
+  { id: 'emp-gg-1002', code: 'GG-1002', name: 'Vikram Rathore', designation: 'Head Security Guard', branch: 'Hotel Grand Godwin', dept: 'Security Guard' },
+  { id: 'emp-gd-1001', code: 'GD-1001', name: 'Rajesh Sharma', designation: 'Duty Roster Manager', branch: 'Hotel Godwin Deluxe', dept: 'Operations' },
 ]
 
 const MONTH_NAMES = [

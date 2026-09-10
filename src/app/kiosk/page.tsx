@@ -3,11 +3,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/components/ThemeProvider';
+import { useAuth } from '@/components/AuthProvider';
 import OneTapPunchInterface, { EmployeeInfo } from '@/components/OneTapPunchInterface';
 
 export default function KioskPage() {
   const { theme, toggleTheme } = useTheme();
   const isLight = theme === 'light';
+  const { user, login, logout } = useAuth();
+
+  const isGuardAuthenticated = !!(
+    user &&
+    (user.role === 'Security Guard' ||
+      user.role === 'Master Admin' ||
+      user.role === 'ADMIN' ||
+      user.role === 'Manager')
+  );
+
+  const [guardLoginUser, setGuardLoginUser] = useState('guard@godwinhotels.com');
+  const [guardLoginPass, setGuardLoginPass] = useState('Guard@99');
+  const [guardLoginError, setGuardLoginError] = useState('');
+  const [guardLoginLoading, setGuardLoginLoading] = useState(false);
 
   const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +123,43 @@ export default function KioskPage() {
     }
   };
 
+  const handleGuardAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGuardLoginError('');
+    setGuardLoginLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: guardLoginUser.trim(),
+          password: guardLoginPass.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Authentication failed');
+      }
+
+      if (
+        data.user.role !== 'Security Guard' &&
+        data.user.role !== 'Master Admin' &&
+        data.user.role !== 'Manager' &&
+        data.user.role !== 'ADMIN'
+      ) {
+        throw new Error('Access restricted: Only Security Guard, Manager, or Admin accounts can unlock this Kiosk Terminal.');
+      }
+
+      login(data.user);
+    } catch (err: any) {
+      setGuardLoginError(err.message || 'Failed to authenticate guard');
+    } finally {
+      setGuardLoginLoading(false);
+    }
+  };
+
   const getInitials = (first: string, last: string) => {
     return `${(first?.[0] || '').toUpperCase()}${(last?.[0] || '').toUpperCase()}` || 'GH';
   };
@@ -163,7 +215,7 @@ export default function KioskPage() {
                 letterSpacing: '-0.01em',
               }}
             >
-              Godwin ERP • Attendance Kiosk Terminal
+              Godwin ERP • Security Gate Kiosk
             </h1>
             <p
               style={{
@@ -175,13 +227,13 @@ export default function KioskPage() {
                 letterSpacing: '0.04em',
               }}
             >
-              Self-Service Punch-In / Punch-Out System
+              Fixed Station Punch-In / Punch-Out Terminal
             </p>
           </div>
         </div>
 
         {/* Right side live clock & controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <div style={{ textAlign: 'right' }}>
             <div
               style={{
@@ -226,33 +278,202 @@ export default function KioskPage() {
             {isLight ? '🌙' : '☀️'}
           </button>
 
-          <Link
-            href="/hr/attendance"
-            style={{
-              padding: '0.45rem 0.85rem',
-              borderRadius: '9px',
-              border: '1px solid var(--border)',
-              background: 'transparent',
-              color: 'var(--text-muted)',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              textDecoration: 'none',
-            }}
-          >
-            ← ERP Dashboard
-          </Link>
+          {isGuardAuthenticated && user && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.35rem 0.75rem',
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+              }}
+            >
+              <span style={{ fontSize: '1rem' }}>🛡️</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#10b981' }}>
+                {user.name} ({user.role})
+              </span>
+            </div>
+          )}
+
+          {isGuardAuthenticated && (
+            <button
+              type="button"
+              onClick={logout}
+              title="Lock terminal and sign out guard"
+              style={{
+                padding: '0.45rem 0.85rem',
+                borderRadius: '9px',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              🔒 Lock Terminal
+            </button>
+          )}
+
+          {isGuardAuthenticated && user?.role !== 'Security Guard' && (
+            <Link
+              href="/hr/attendance"
+              style={{
+                padding: '0.45rem 0.85rem',
+                borderRadius: '9px',
+                border: '1px solid var(--border)',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              ← ERP Dashboard
+            </Link>
+          )}
         </div>
       </header>
 
       {/* Main Container */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {selectedEmployee ? (
+        {!isGuardAuthenticated ? (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1.25rem' }}>
+            <div
+              style={{
+                maxWidth: '440px',
+                width: '100%',
+                background: isLight ? '#ffffff' : '#1e293b',
+                border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                borderRadius: '20px',
+                padding: '2.5rem 2rem',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25)',
+                textAlign: 'center',
+              }}
+            >
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '2rem',
+                  margin: '0 auto 1.25rem auto',
+                  boxShadow: '0 8px 18px rgba(217, 119, 6, 0.3)',
+                }}
+              >
+                🛡️
+              </div>
+              <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                Security Guard Station
+              </h2>
+              <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Gate Kiosk is locked. Please sign in with on-duty Security Guard or Admin credentials to activate attendance punch terminal.
+              </p>
+
+              {guardLoginError && (
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    color: '#ef4444',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    marginBottom: '1rem',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    textAlign: 'left',
+                  }}
+                >
+                  ⚠️ {guardLoginError}
+                </div>
+              )}
+
+              <form onSubmit={handleGuardAuth} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem', textAlign: 'left' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-main)' }}>
+                    Guard Email / Login ID
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={guardLoginUser}
+                    onChange={e => setGuardLoginUser(e.target.value)}
+                    placeholder="guard@godwinhotels.com"
+                    style={{
+                      width: '100%',
+                      height: '44px',
+                      padding: '0 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border)',
+                      backgroundColor: 'var(--bg-main)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-main)' }}>
+                    Guard Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={guardLoginPass}
+                    onChange={e => setGuardLoginPass(e.target.value)}
+                    placeholder="••••••••"
+                    style={{
+                      width: '100%',
+                      height: '44px',
+                      padding: '0 12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border)',
+                      backgroundColor: 'var(--bg-main)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={guardLoginLoading}
+                  style={{
+                    marginTop: '0.5rem',
+                    width: '100%',
+                    height: '46px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: 'var(--primary)',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    cursor: guardLoginLoading ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
+                  }}
+                >
+                  {guardLoginLoading ? 'Unlocking Kiosk...' : '🔓 Unlock Gate Kiosk'}
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : selectedEmployee ? (
           /* ========================================================================= */
           /* STAGE 2: PUNCH-IN / PUNCH-OUT INTERFACE (ONE-TAP ACTION)                 */
           /* ========================================================================= */
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <OneTapPunchInterface
               employee={selectedEmployee}
+              mode="KIOSK"
               onBack={() => {
                 setSelectedEmployee(null);
                 fetchEmployees();
