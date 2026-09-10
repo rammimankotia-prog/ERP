@@ -16,21 +16,23 @@ function readJson<T>(file: string, fallback: T): T {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json()
+    const body = await req.json()
+    const identifier = (body.identifier || body.email || body.employeeId || '').trim().toLowerCase()
+    const password = body.password
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password required' }, { status: 400 })
+    if (!identifier || !password) {
+      return NextResponse.json({ error: 'Employee ID / Email and password are required' }, { status: 400 })
     }
 
     const employees = readJson<any[]>(EMPLOYEES_FILE, [])
     
-    // Find employee
+    // Find employee by email or employee ID
     const employee = employees.find(
-      e => e.email?.toLowerCase() === email.toLowerCase() && e.password === password
+      e => (e.email?.toLowerCase() === identifier || e.employeeId?.toLowerCase() === identifier) && e.password === password
     )
 
     if (!employee) {
-      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+      return NextResponse.json({ error: 'Invalid Employee ID/Email or password' }, { status: 401 })
     }
 
     if (employee.status !== 'ACTIVE') {

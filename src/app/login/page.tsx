@@ -2,43 +2,57 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/components/AuthProvider';
+
+type UserType = 'admin' | 'employee';
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, login } = useAuth();
 
-  // Login Form States
-  const [activeTab, setActiveTab] = useState<'login' | 'reset'>('login');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Primary Mode: Admin vs Employee
+  const [userType, setUserType] = useState<UserType>('admin');
 
-  // Reset Form States
+  // Admin Login States
+  const [adminTab, setAdminTab] = useState<'login' | 'reset'>('login');
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [adminError, setAdminError] = useState('');
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
+
+  // Admin Reset States
   const [resetEmail, setResetEmail] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
   const [resetError, setResetError] = useState('');
 
-  // If already logged in, redirect to dashboard
+  // Employee Login States
+  const [empIdentifier, setEmpIdentifier] = useState('');
+  const [empPassword, setEmpPassword] = useState('');
+  const [showEmpPassword, setShowEmpPassword] = useState(false);
+  const [empError, setEmpError] = useState('');
+  const [empSubmitting, setEmpSubmitting] = useState(false);
+
+  // If already logged in as Admin, redirect to dashboard
   useEffect(() => {
     if (user) {
       router.push('/');
     }
   }, [user, router]);
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  // Handle Admin Login Submit
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg('');
-    setIsSubmitting(true);
+    setAdminError('');
+    setAdminSubmitting(true);
 
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username: adminUsername, password: adminPassword })
       });
 
       const data = await res.json();
@@ -50,20 +64,21 @@ export default function LoginPage() {
         }
         router.push('/');
       } else {
-        setErrorMsg(data.error || 'Invalid credentials. Please verify username and password.');
+        setAdminError(data.error || 'Invalid credentials. Please verify username and password.');
       }
     } catch {
-      setErrorMsg('Unable to connect to authentication server. Please check your network connection.');
+      setAdminError('Unable to connect to authentication server. Please check your network connection.');
     } finally {
-      setIsSubmitting(false);
+      setAdminSubmitting(false);
     }
   };
 
-  const handleResetSubmit = async (e: React.FormEvent) => {
+  // Handle Admin Password Reset
+  const handleAdminReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetError('');
     setResetSuccess('');
-    setIsSubmitting(true);
+    setAdminSubmitting(true);
 
     try {
       const res = await fetch('/api/auth/reset', {
@@ -82,226 +97,387 @@ export default function LoginPage() {
     } catch {
       setResetError('Server communication error.');
     } finally {
-      setIsSubmitting(false);
+      setAdminSubmitting(false);
     }
   };
 
-  const quickFillCredentials = () => {
-    setUsername('Godwinhotels');
-    setPassword('Godwindeluxe@99');
-    setErrorMsg('');
+  // Handle Employee Login Submit
+  const handleEmployeeLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmpError('');
+    setEmpSubmitting(true);
+
+    try {
+      const res = await fetch('/api/kiosk/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: empIdentifier, password: empPassword })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success && data.employee) {
+        localStorage.setItem('kiosk_employee', JSON.stringify(data.employee));
+        router.push('/kiosk/dashboard');
+      } else {
+        setEmpError(data.error || 'Invalid Employee ID / Email or Password.');
+      }
+    } catch {
+      setEmpError('Unable to connect to staff authentication service.');
+    } finally {
+      setEmpSubmitting(false);
+    }
+  };
+
+  // Demo auto-fill helpers
+  const fillAdminCredentials = () => {
+    setAdminUsername('Godwinhotels');
+    setAdminPassword('Godwindeluxe@99');
+    setAdminError('');
+  };
+
+  const fillEmployeeCredentials = () => {
+    setEmpIdentifier('GG-1002');
+    setEmpPassword('Godwin@123');
+    setEmpError('');
   };
 
   return (
     <div className="login-page-wrapper">
-      {/* Subtle ambient lighting */}
-      <div className="ambient-light gold-light" />
+      {/* Background ambient lighting */}
+      <div className={`ambient-light ${userType === 'admin' ? 'gold-light' : 'emerald-light'}`} />
       <div className="ambient-light blue-light" />
 
       {/* Main Centered Login Card */}
       <div className="login-card">
-        {/* Top Gold Accent Bar */}
-        <div className="gold-accent-bar" />
+        {/* Dynamic Color Accent Bar */}
+        <div className={`accent-bar ${userType === 'admin' ? 'admin-accent' : 'emp-accent'}`} />
 
-        {/* Brand Header */}
-        <div className="card-header">
-          <div className="brand-badge">
-            <span>👑</span>
-            <span>HOTEL GRAND GODWIN &amp; GODWIN DELUXE</span>
+        {/* Portal Type Switcher (Admin vs Employee) */}
+        <div className="portal-selector">
+          <button
+            type="button"
+            onClick={() => { setUserType('admin'); setAdminError(''); }}
+            className={`portal-tab ${userType === 'admin' ? 'active admin-active' : ''}`}
+          >
+            <span className="portal-icon">👔</span>
+            <span className="portal-label">Admin / Manager</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setUserType('employee'); setEmpError(''); }}
+            className={`portal-tab ${userType === 'employee' ? 'active emp-active' : ''}`}
+          >
+            <span className="portal-icon">👤</span>
+            <span className="portal-label">Staff / Employee</span>
+          </button>
+        </div>
+
+        {/* ==================== ADMIN SECTION ==================== */}
+        {userType === 'admin' && (
+          <div className="section-content">
+            <div className="card-header">
+              <div className="brand-badge gold-badge">
+                <span>👑</span>
+                <span>HOTEL GRAND GODWIN &amp; GODWIN DELUXE</span>
+              </div>
+              <h1 className="card-title">Executive ERP Portal</h1>
+              <p className="card-subtitle">
+                {adminTab === 'login'
+                  ? 'Sign in with administrative credentials to access centralized ERP controls.'
+                  : 'Enter your registered email to receive administrative recovery instructions.'}
+              </p>
+            </div>
+
+            {/* Sub-tab: Login vs Reset */}
+            <div className="tab-switcher">
+              <button
+                type="button"
+                onClick={() => { setAdminTab('login'); setAdminError(''); }}
+                className={`tab-btn ${adminTab === 'login' ? 'active' : ''}`}
+              >
+                <span>🔐</span> Secure Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAdminTab('reset'); setResetError(''); setResetSuccess(''); }}
+                className={`tab-btn ${adminTab === 'reset' ? 'active' : ''}`}
+              >
+                <span>❓</span> Reset Password
+              </button>
+            </div>
+
+            {adminTab === 'login' ? (
+              <form onSubmit={handleAdminLogin} className="auth-form">
+                {adminError && (
+                  <div className="alert-box error-alert">
+                    <span className="alert-icon">⚠️</span>
+                    <span>{adminError}</span>
+                  </div>
+                )}
+
+                <div className="input-group">
+                  <label className="input-label">Username or Admin Email</label>
+                  <div className="input-wrapper focus-gold">
+                    <span className="input-icon">👤</span>
+                    <input
+                      type="text"
+                      required
+                      autoComplete="username"
+                      value={adminUsername}
+                      onChange={(e) => setAdminUsername(e.target.value)}
+                      placeholder="Godwinhotels"
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <div className="password-header">
+                    <label className="input-label" style={{ margin: 0 }}>Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setAdminTab('reset')}
+                      className="forgot-link"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="input-wrapper focus-gold">
+                    <span className="input-icon">🔑</span>
+                    <input
+                      type={showAdminPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="current-password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="form-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      className="toggle-password-btn"
+                      aria-label={showAdminPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showAdminPassword ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="remember-row">
+                  <input
+                    type="checkbox"
+                    id="adminRemember"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="remember-checkbox gold-checkbox"
+                  />
+                  <label htmlFor="adminRemember" className="remember-label">
+                    Remember executive session for 30 days
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={adminSubmitting}
+                  className="submit-btn gold-btn"
+                >
+                  {adminSubmitting ? (
+                    <>
+                      <span className="btn-spinner" />
+                      Authenticating Credentials...
+                    </>
+                  ) : (
+                    <>
+                      <span>🚀</span> Access Executive Dashboard ➔
+                    </>
+                  )}
+                </button>
+
+                {/* Quick Auto-Fill Demo Credentials */}
+                <div className="demo-credentials-card">
+                  <div className="demo-card-header">
+                    <span className="demo-badge gold-text">🔒 Root Admin Credentials</span>
+                    <button
+                      type="button"
+                      onClick={fillAdminCredentials}
+                      className="auto-fill-btn gold-fill-btn"
+                    >
+                      ⚡ Auto-Fill
+                    </button>
+                  </div>
+                  <div className="demo-card-body">
+                    <span>User: <strong className="mono-text">Godwinhotels</strong></span>
+                    <span className="divider">|</span>
+                    <span>Pass: <strong className="mono-text">Godwindeluxe@99</strong></span>
+                  </div>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleAdminReset} className="auth-form">
+                {resetError && (
+                  <div className="alert-box error-alert">
+                    <span className="alert-icon">⚠️</span>
+                    <span>{resetError}</span>
+                  </div>
+                )}
+                {resetSuccess && (
+                  <div className="alert-box success-alert">
+                    <span className="alert-icon">✅</span>
+                    <span>{resetSuccess}</span>
+                  </div>
+                )}
+
+                <p className="reset-helper-text">
+                  Enter your registered administrator email (<strong style={{ color: '#fbbf24' }}>mail@godwinhotels.com</strong>) to receive a secure password recovery token.
+                </p>
+
+                <div className="input-group">
+                  <label className="input-label">Admin Email Address</label>
+                  <div className="input-wrapper focus-gold">
+                    <span className="input-icon">✉️</span>
+                    <input
+                      type="email"
+                      required
+                      autoComplete="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="mail@godwinhotels.com"
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={adminSubmitting}
+                  className="submit-btn blue-btn"
+                >
+                  {adminSubmitting ? 'Processing Request...' : '📧 Send Recovery Instructions'}
+                </button>
+              </form>
+            )}
           </div>
-
-          <h1 className="card-title">
-            {activeTab === 'login' ? 'Executive ERP Login' : 'Password Recovery'}
-          </h1>
-          <p className="card-subtitle">
-            {activeTab === 'login'
-              ? 'Please sign in to access your administrative dashboard.'
-              : 'Enter your registered email to receive recovery instructions.'}
-          </p>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="tab-switcher">
-          <button
-            type="button"
-            onClick={() => { setActiveTab('login'); setErrorMsg(''); }}
-            className={`tab-btn ${activeTab === 'login' ? 'active' : ''}`}
-          >
-            <span>🔐</span> Secure Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => { setActiveTab('reset'); setResetError(''); setResetSuccess(''); }}
-            className={`tab-btn ${activeTab === 'reset' ? 'active' : ''}`}
-          >
-            <span>❓</span> Reset Password
-          </button>
-        </div>
-
-        {/* Login Form */}
-        {activeTab === 'login' ? (
-          <form onSubmit={handleLoginSubmit} className="auth-form">
-            {errorMsg && (
-              <div className="alert-box error-alert">
-                <span className="alert-icon">⚠️</span>
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            <div className="input-group">
-              <label className="input-label">
-                Username or Email Address
-              </label>
-              <div className="input-wrapper">
-                <span className="input-icon">👤</span>
-                <input
-                  type="text"
-                  required
-                  autoComplete="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Godwinhotels"
-                  className="form-input"
-                />
-              </div>
-            </div>
-
-            <div className="input-group">
-              <div className="password-header">
-                <label className="input-label" style={{ margin: 0 }}>
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('reset')}
-                  className="forgot-link"
-                >
-                  Forgot password?
-                </button>
-              </div>
-              <div className="input-wrapper">
-                <span className="input-icon">🔑</span>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="form-input"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="toggle-password-btn"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
-            </div>
-
-            <div className="remember-row">
-              <input
-                type="checkbox"
-                id="remember"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="remember-checkbox"
-              />
-              <label htmlFor="remember" className="remember-label">
-                Remember executive session for 30 days
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="submit-btn login-submit"
-            >
-              {isSubmitting ? (
-                <>
-                  <span className="btn-spinner" />
-                  Authenticating Credentials...
-                </>
-              ) : (
-                <>
-                  <span>🚀</span> Access Executive Dashboard ➔
-                </>
-              )}
-            </button>
-
-            {/* Quick Demo Credentials Card with 1-Tap Auto Fill */}
-            <div className="demo-credentials-card">
-              <div className="demo-card-header">
-                <span className="demo-badge">🔒 Root Admin Access</span>
-                <button
-                  type="button"
-                  onClick={quickFillCredentials}
-                  className="auto-fill-btn"
-                >
-                  ⚡ Auto-Fill Credentials
-                </button>
-              </div>
-              <div className="demo-card-body">
-                <span>User: <strong className="mono-text">Godwinhotels</strong></span>
-                <span className="divider">|</span>
-                <span>Pass: <strong className="mono-text">Godwindeluxe@99</strong></span>
-              </div>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleResetSubmit} className="auth-form">
-            {resetError && (
-              <div className="alert-box error-alert">
-                <span className="alert-icon">⚠️</span>
-                <span>{resetError}</span>
-              </div>
-            )}
-            {resetSuccess && (
-              <div className="alert-box success-alert">
-                <span className="alert-icon">✅</span>
-                <span>{resetSuccess}</span>
-              </div>
-            )}
-
-            <p className="reset-helper-text">
-              Enter your registered administrative contact (<strong style={{ color: '#fbbf24' }}>mail@godwinhotels.com</strong>). An automated verification email with temporary login token will be generated.
-            </p>
-
-            <div className="input-group">
-              <label className="input-label">
-                Admin / Registered Email Address
-              </label>
-              <div className="input-wrapper">
-                <span className="input-icon">✉️</span>
-                <input
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="mail@godwinhotels.com"
-                  className="form-input"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="submit-btn reset-submit"
-            >
-              {isSubmitting ? 'Processing Request...' : '📧 Send Recovery Instructions'}
-            </button>
-          </form>
         )}
 
-        {/* Card Footer: Security Note & Official Link */}
+        {/* ==================== EMPLOYEE SECTION ==================== */}
+        {userType === 'employee' && (
+          <div className="section-content">
+            <div className="card-header">
+              <div className="brand-badge emerald-badge">
+                <span>🏨</span>
+                <span>STAFF ATTENDANCE &amp; SHIFT PORTAL</span>
+              </div>
+              <h1 className="card-title">Employee Portal</h1>
+              <p className="card-subtitle">
+                Sign in with your Staff ID (e.g. GG-1002) or official email to access your shifts and attendance timeline.
+              </p>
+            </div>
+
+            <form onSubmit={handleEmployeeLogin} className="auth-form">
+              {empError && (
+                <div className="alert-box error-alert">
+                  <span className="alert-icon">⚠️</span>
+                  <span>{empError}</span>
+                </div>
+              )}
+
+              <div className="input-group">
+                <label className="input-label">Employee ID or Staff Email</label>
+                <div className="input-wrapper focus-emerald">
+                  <span className="input-icon">🆔</span>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="username"
+                    value={empIdentifier}
+                    onChange={(e) => setEmpIdentifier(e.target.value)}
+                    placeholder="GG-1002 or staff@godwinhotels.com"
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Staff Password / PIN</label>
+                <div className="input-wrapper focus-emerald">
+                  <span className="input-icon">🔑</span>
+                  <input
+                    type={showEmpPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="current-password"
+                    value={empPassword}
+                    onChange={(e) => setEmpPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="form-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEmpPassword(!showEmpPassword)}
+                    className="toggle-password-btn"
+                    aria-label={showEmpPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showEmpPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={empSubmitting}
+                className="submit-btn emerald-btn"
+              >
+                {empSubmitting ? (
+                  <>
+                    <span className="btn-spinner" />
+                    Verifying Staff Access...
+                  </>
+                ) : (
+                  <>
+                    <span>⚡</span> Access Staff Dashboard ➔
+                  </>
+                )}
+              </button>
+
+              {/* Quick Auto-Fill Demo Employee Credentials */}
+              <div className="demo-credentials-card">
+                <div className="demo-card-header">
+                  <span className="demo-badge emerald-text">👤 Staff Demo (Priya Sharma - Front Desk)</span>
+                  <button
+                    type="button"
+                    onClick={fillEmployeeCredentials}
+                    className="auto-fill-btn emerald-fill-btn"
+                  >
+                    ⚡ Auto-Fill
+                  </button>
+                </div>
+                <div className="demo-card-body">
+                  <span>ID: <strong className="mono-text">GG-1002</strong></span>
+                  <span className="divider">|</span>
+                  <span>Pass: <strong className="mono-text">Godwin@123</strong></span>
+                </div>
+              </div>
+
+              {/* Fast 1-Tap Kiosk Punch Terminal Shortcut */}
+              <div className="kiosk-shortcut-box">
+                <span className="shortcut-icon">⏱️</span>
+                <div className="shortcut-text">
+                  <div className="shortcut-title">Need to punch in/out quickly?</div>
+                  <Link href="/kiosk" className="shortcut-link">
+                    Open Wall Kiosk Terminal for 1-Tap Punch ➔
+                  </Link>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Card Footer */}
         <div className="card-footer">
           <p className="security-text">
-            🔒 Protected by Godwin Security Protocol v3.0.<br />
-            For technical assistance, contact: <a href="mailto:mail@godwinhotels.com" className="support-link">mail@godwinhotels.com</a>
+            🔒 Protected by Godwin Hospitality Security Protocol v3.0.<br />
+            Assistance: <a href="mailto:mail@godwinhotels.com" className="support-link">mail@godwinhotels.com</a>
           </p>
           <div className="footer-links">
             <a
@@ -335,6 +511,7 @@ export default function LoginPage() {
           position: absolute;
           border-radius: 50%;
           pointer-events: none;
+          transition: background 0.4s ease;
         }
 
         .gold-light {
@@ -342,7 +519,15 @@ export default function LoginPage() {
           right: -5%;
           width: clamp(300px, 40vw, 550px);
           height: clamp(300px, 40vw, 550px);
-          background: radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(245, 158, 11, 0.09) 0%, transparent 70%);
+        }
+
+        .emerald-light {
+          top: -10%;
+          right: -5%;
+          width: clamp(300px, 40vw, 550px);
+          height: clamp(300px, 40vw, 550px);
+          background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
         }
 
         .blue-light {
@@ -355,105 +540,173 @@ export default function LoginPage() {
 
         .login-card {
           width: 100%;
-          max-width: 480px;
-          background: rgba(15, 23, 42, 0.82);
+          max-width: 490px;
+          background: rgba(15, 23, 42, 0.84);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 24px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(245, 158, 11, 0.12);
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
           padding: clamp(1.75rem, 4vw, 2.5rem);
           position: relative;
           z-index: 1;
           box-sizing: border-box;
         }
 
-        .gold-accent-bar {
+        .accent-bar {
           position: absolute;
           top: 0;
           left: 0;
           right: 0;
           height: 4px;
-          background: linear-gradient(90deg, #d97706 0%, #f59e0b 50%, #d97706 100%);
           border-top-left-radius: 24px;
           border-top-right-radius: 24px;
+          transition: background 0.3s ease;
+        }
+
+        .admin-accent {
+          background: linear-gradient(90deg, #d97706 0%, #f59e0b 50%, #d97706 100%);
+        }
+
+        .emp-accent {
+          background: linear-gradient(90deg, #059669 0%, #10b981 50%, #06b6d4 100%);
+        }
+
+        /* Primary Portal Switcher: Admin vs Employee */
+        .portal-selector {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          background: rgba(2, 6, 23, 0.7);
+          padding: 0.35rem;
+          border-radius: 14px;
+          margin-bottom: 1.75rem;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          gap: 0.35rem;
+        }
+
+        .portal-tab {
+          padding: 0.75rem 0.6rem;
+          border-radius: 10px;
+          border: none;
+          background: transparent;
+          color: #94a3b8;
+          font-weight: 800;
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          min-height: 44px;
+        }
+
+        .portal-icon {
+          font-size: 1.1rem;
+        }
+
+        .portal-tab.active.admin-active {
+          background: rgba(245, 158, 11, 0.18);
+          color: #fbbf24;
+          border: 1px solid rgba(245, 158, 11, 0.35);
+          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+        }
+
+        .portal-tab.active.emp-active {
+          background: rgba(16, 185, 129, 0.18);
+          color: #34d399;
+          border: 1px solid rgba(16, 185, 129, 0.35);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }
+
+        .section-content {
+          animation: fadeIn 0.25s ease;
         }
 
         .card-header {
           text-align: center;
-          margin-bottom: 1.75rem;
+          margin-bottom: 1.5rem;
         }
 
         .brand-badge {
           display: inline-flex;
           align-items: center;
           gap: 0.45rem;
-          background: rgba(245, 158, 11, 0.14);
-          border: 1px solid rgba(245, 158, 11, 0.28);
           padding: 0.35rem 0.8rem;
           border-radius: 20px;
-          color: #fbbf24;
           font-size: 0.7rem;
           font-weight: 800;
           letter-spacing: 0.05em;
           text-transform: uppercase;
-          margin-bottom: 1rem;
+          margin-bottom: 0.85rem;
+        }
+
+        .gold-badge {
+          background: rgba(245, 158, 11, 0.14);
+          border: 1px solid rgba(245, 158, 11, 0.28);
+          color: #fbbf24;
+        }
+
+        .emerald-badge {
+          background: rgba(16, 185, 129, 0.14);
+          border: 1px solid rgba(16, 185, 129, 0.28);
+          color: #34d399;
         }
 
         .card-title {
           color: #ffffff;
-          font-size: clamp(1.5rem, 3vw, 1.85rem);
+          font-size: clamp(1.45rem, 3vw, 1.8rem);
           font-weight: 900;
-          margin: 0 0 0.4rem 0;
+          margin: 0 0 0.35rem 0;
           letter-spacing: -0.02em;
         }
 
         .card-subtitle {
           color: #94a3b8;
-          font-size: 0.85rem;
+          font-size: 0.84rem;
           margin: 0;
           font-weight: 500;
           line-height: 1.45;
         }
 
+        /* Sub Tab Switcher */
         .tab-switcher {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          background: rgba(0, 0, 0, 0.5);
-          padding: 0.3rem;
-          border-radius: 12px;
-          margin-bottom: 1.5rem;
+          background: rgba(0, 0, 0, 0.4);
+          padding: 0.25rem;
+          border-radius: 11px;
+          margin-bottom: 1.35rem;
           border: 1px solid rgba(255, 255, 255, 0.06);
           gap: 0.25rem;
         }
 
         .tab-btn {
-          padding: 0.65rem 0.5rem;
-          border-radius: 9px;
+          padding: 0.6rem 0.5rem;
+          border-radius: 8px;
           border: none;
           background: transparent;
           color: #64748b;
           font-weight: 800;
-          font-size: 0.82rem;
+          font-size: 0.8rem;
           cursor: pointer;
           transition: all 0.2s ease;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 0.4rem;
-          min-height: 40px;
+          min-height: 38px;
         }
 
         .tab-btn.active {
           background: rgba(255, 255, 255, 0.12);
           color: #ffffff;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
         }
 
         .auth-form {
           display: flex;
           flex-direction: column;
-          gap: 1.15rem;
+          gap: 1.1rem;
         }
 
         .alert-box {
@@ -492,7 +745,7 @@ export default function LoginPage() {
         .input-label {
           display: block;
           color: #cbd5e1;
-          font-size: 0.78rem;
+          font-size: 0.76rem;
           font-weight: 800;
           margin-bottom: 0.45rem;
           text-transform: uppercase;
@@ -503,15 +756,20 @@ export default function LoginPage() {
           display: flex;
           align-items: center;
           background: rgba(2, 6, 23, 0.75);
-          border: 1px solid rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.14);
           border-radius: 12px;
           padding: 0 0.9rem;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .input-wrapper:focus-within {
+        .focus-gold:focus-within {
           border-color: #f59e0b;
           box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+        }
+
+        .focus-emerald:focus-within {
+          border-color: #10b981;
+          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
         }
 
         .input-icon {
@@ -535,6 +793,7 @@ export default function LoginPage() {
         .form-input::placeholder {
           color: #475569;
           font-weight: 500;
+          font-size: 0.9rem;
         }
 
         .password-header {
@@ -550,7 +809,7 @@ export default function LoginPage() {
           color: #fbbf24;
           cursor: pointer;
           font-weight: 700;
-          font-size: 0.78rem;
+          font-size: 0.76rem;
           text-decoration: underline;
           padding: 0;
         }
@@ -576,11 +835,14 @@ export default function LoginPage() {
         }
 
         .remember-checkbox {
-          accent-color: #d97706;
           width: 17px;
           height: 17px;
           cursor: pointer;
           border-radius: 4px;
+        }
+
+        .gold-checkbox {
+          accent-color: #d97706;
         }
 
         .remember-label {
@@ -594,11 +856,11 @@ export default function LoginPage() {
           border: none;
           border-radius: 12px;
           padding: 0.95rem 1.25rem;
-          font-size: 1rem;
+          font-size: 0.95rem;
           font-weight: 800;
           cursor: pointer;
           transition: all 0.2s ease;
-          margin-top: 0.4rem;
+          margin-top: 0.35rem;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -606,25 +868,31 @@ export default function LoginPage() {
           min-height: 48px;
         }
 
-        .login-submit {
+        .gold-btn {
           background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
           box-shadow: 0 10px 20px -5px rgba(217, 119, 6, 0.4);
         }
 
-        .login-submit:hover:not(:disabled) {
+        .gold-btn:hover:not(:disabled) {
           background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
           transform: translateY(-1px);
           box-shadow: 0 12px 24px -5px rgba(217, 119, 6, 0.55);
         }
 
-        .reset-submit {
-          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-          box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
+        .emerald-btn {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
         }
 
-        .reset-submit:hover:not(:disabled) {
-          background: linear-gradient(135deg, #60a5fa 0%, #1d4ed8 100%);
+        .emerald-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #34d399 0%, #047857 100%);
           transform: translateY(-1px);
+          box-shadow: 0 12px 24px -5px rgba(16, 185, 129, 0.55);
+        }
+
+        .blue-btn {
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+          box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
         }
 
         .submit-btn:disabled {
@@ -645,11 +913,11 @@ export default function LoginPage() {
         /* Demo credentials card */
         .demo-credentials-card {
           margin-top: 0.35rem;
-          padding: 0.85rem 1rem;
+          padding: 0.8rem 0.95rem;
           background: rgba(2, 6, 23, 0.55);
           border-radius: 12px;
           border: 1px solid rgba(255, 255, 255, 0.08);
-          font-size: 0.78rem;
+          font-size: 0.76rem;
           color: #94a3b8;
         }
 
@@ -663,18 +931,17 @@ export default function LoginPage() {
         }
 
         .demo-badge {
-          color: #fbbf24;
           font-weight: 800;
           display: flex;
           align-items: center;
           gap: 0.35rem;
         }
 
+        .gold-text { color: #fbbf24; }
+        .emerald-text { color: #34d399; }
+
         .auto-fill-btn {
-          background: rgba(245, 158, 11, 0.15);
-          border: 1px solid rgba(245, 158, 11, 0.35);
-          color: #fbbf24;
-          font-size: 0.72rem;
+          font-size: 0.7rem;
           font-weight: 700;
           padding: 0.25rem 0.65rem;
           border-radius: 6px;
@@ -682,8 +949,24 @@ export default function LoginPage() {
           transition: all 0.15s ease;
         }
 
-        .auto-fill-btn:hover {
+        .gold-fill-btn {
+          background: rgba(245, 158, 11, 0.15);
+          border: 1px solid rgba(245, 158, 11, 0.35);
+          color: #fbbf24;
+        }
+
+        .gold-fill-btn:hover {
           background: rgba(245, 158, 11, 0.28);
+        }
+
+        .emerald-fill-btn {
+          background: rgba(16, 185, 129, 0.15);
+          border: 1px solid rgba(16, 185, 129, 0.35);
+          color: #34d399;
+        }
+
+        .emerald-fill-btn:hover {
+          background: rgba(16, 185, 129, 0.28);
         }
 
         .demo-card-body {
@@ -705,16 +988,50 @@ export default function LoginPage() {
           color: #475569;
         }
 
+        .kiosk-shortcut-box {
+          margin-top: 0.35rem;
+          padding: 0.8rem 0.95rem;
+          background: rgba(16, 185, 129, 0.08);
+          border: 1px solid rgba(16, 185, 129, 0.22);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .shortcut-icon {
+          font-size: 1.4rem;
+        }
+
+        .shortcut-title {
+          color: #94a3b8;
+          font-size: 0.76rem;
+          font-weight: 500;
+        }
+
+        .shortcut-link {
+          color: #34d399;
+          font-size: 0.8rem;
+          font-weight: 700;
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+
+        .shortcut-link:hover {
+          color: #6ee7b7;
+          text-decoration: underline;
+        }
+
         .reset-helper-text {
           color: #94a3b8;
-          font-size: 0.85rem;
+          font-size: 0.84rem;
           line-height: 1.5;
           margin: 0;
         }
 
         .card-footer {
-          margin-top: 1.75rem;
-          padding-top: 1.25rem;
+          margin-top: 1.6rem;
+          padding-top: 1.15rem;
           border-top: 1px solid rgba(255, 255, 255, 0.08);
           text-align: center;
           display: flex;
@@ -753,29 +1070,39 @@ export default function LoginPage() {
           color: #fbbf24;
         }
 
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
 
-        /* Mobile Adjustments */
+        /* Mobile adjustments */
         @media (max-width: 480px) {
           .login-page-wrapper {
-            padding: 1rem 0.75rem;
+            padding: 1rem 0.65rem;
           }
 
           .login-card {
-            padding: 1.5rem 1.15rem;
+            padding: 1.4rem 1.1rem;
             border-radius: 20px;
+          }
+
+          .portal-tab {
+            font-size: 0.78rem;
+            min-height: 42px;
+          }
+
+          .card-title {
+            font-size: 1.35rem;
           }
 
           .brand-badge {
             font-size: 0.65rem;
             padding: 0.3rem 0.65rem;
-          }
-
-          .card-title {
-            font-size: 1.4rem;
           }
         }
       `}</style>
