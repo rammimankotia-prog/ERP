@@ -30,6 +30,17 @@ const DEFAULT_USERS = [
     status: "Active",
     createdAt: new Date().toISOString().split("T")[0],
     permissions: MASTER_ADMIN_PERMISSIONS,
+  },
+  {
+    id: "sec-001",
+    username: "sec@godwinhotels.com",
+    name: "Security Team",
+    email: "sec@godwinhotels.com",
+    password: "Jaimatadi@24",
+    role: "Security Guard",
+    status: "Active",
+    createdAt: new Date().toISOString().split("T")[0],
+    permissions: { kiosk: { access: true } },
   }
 ];
 

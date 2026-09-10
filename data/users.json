@@ -20,5 +20,18 @@
       "userAccess": { "view": true, "edit": true },
       "settings": { "view": true, "edit": true }
     }
+  },
+  {
+    "id": "sec-001",
+    "username": "sec@godwinhotels.com",
+    "name": "Security Team",
+    "email": "sec@godwinhotels.com",
+    "password": "Jaimatadi@24",
+    "role": "Security Guard",
+    "status": "Active",
+    "createdAt": "2024-01-01",
+    "permissions": {
+      "kiosk": { "access": true }
+    }
   }
 ]
