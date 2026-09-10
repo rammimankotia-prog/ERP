@@ -1,12 +1,9 @@
 const { createServer } = require('http');
-const { parse } = require('url');
 const next = require('next');
 
-// Check if we are in development mode
+process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || process.env.HOST || '0.0.0.0';
-
-// Use the PORT environment variable provided by the host, or default to 3000
 const port = parseInt(process.env.PORT || '3000', 10);
 
 const app = next({ dev, hostname, port });
@@ -15,7 +12,7 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
   createServer(async (req, res) => {
     try {
-      const parsedUrl = parse(req.url, true);
+      const parsedUrl = new URL(req.url, `http://${req.headers.host || `${hostname}:${port}`}`);
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
@@ -28,6 +25,6 @@ app.prepare().then(() => {
       process.exit(1);
     })
     .listen(port, hostname, () => {
-      console.log(`> Ready on http://${hostname}:${port}`);
+      console.log(`> Ready on http://${hostname}:${port} (mode: ${process.env.NODE_ENV})`);
     });
 });
