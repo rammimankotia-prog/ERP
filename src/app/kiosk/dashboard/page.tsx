@@ -23,10 +23,56 @@ export default function KioskDashboard() {
   const [processing, setProcessing] = useState(false)
   const [message, setMessage] = useState('')
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotifs, setShowNotifs] = useState(false)
+  const [unreadApproval, setUnreadApproval] = useState<any | null>(null)
 
   const router = useRouter()
   const { theme } = useTheme()
   const isLight = theme === 'light'
+
+  const fetchNotifications = async (empId: string, empCode?: string) => {
+    try {
+      const res = await fetch(`/api/notifications?employeeId=${encodeURIComponent(empId)}&employeeCode=${encodeURIComponent(empCode || '')}`)
+      if (res.ok) {
+        const data = await res.json()
+        const notifs = data.notifications || []
+        setNotifications(notifs)
+        const unread = data.unreadCount ?? notifs.filter((n: any) => !n.read).length
+        setUnreadCount(unread)
+        const latestImportant = notifs.find((n: any) => !n.read && (n.type === 'LEAVE_APPROVED' || n.type === 'LEAVE_REJECTED'))
+        setUnreadApproval(latestImportant || null)
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications', err)
+    }
+  }
+
+  const markNotificationRead = async (notifId?: string) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'MARK_READ',
+          id: notifId,
+          employeeId: employee?.id
+        })
+      })
+      if (notifId) {
+        setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n))
+        if (unreadApproval?.id === notifId) setUnreadApproval(null)
+        setUnreadCount(prev => Math.max(0, prev - 1))
+      } else {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+        setUnreadApproval(null)
+        setUnreadCount(0)
+      }
+    } catch (err) {
+      console.error('Failed to mark notification read', err)
+    }
+  }
 
   // Load employee and check status with multi-window synchronization
   useEffect(() => {
@@ -39,11 +85,19 @@ export default function KioskDashboard() {
       const emp = JSON.parse(saved)
       setEmployee(emp)
       checkStatus(emp.id)
+      fetchNotifications(emp.id, emp.employeeId)
+      // Poll notifications every 15 seconds
+      const notifTimer = setInterval(() => {
+        fetchNotifications(emp.id, emp.employeeId)
+      }, 15000)
+      return () => clearInterval(notifTimer)
     } catch {
       router.push('/login?mode=employee')
       return
     }
+  }, [router])
 
+  useEffect(() => {
     // BroadcastChannel listener
     let bc: BroadcastChannel | null = null
     try {
@@ -161,7 +215,9 @@ export default function KioskDashboard() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155'
+        borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+        position: 'relative',
+        zIndex: 50
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ fontSize: '2rem' }}>🏨</div>
@@ -170,15 +226,262 @@ export default function KioskDashboard() {
             <p style={{ margin: 0, color: isLight ? '#64748b' : '#94a3b8', fontSize: '0.85rem' }}>Self-Service Attendance Kiosk</p>
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#2563eb', letterSpacing: '-0.02em' }}>
-            {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          {/* Notification Bell Button & Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setShowNotifs(prev => !prev)}
+              style={{
+                position: 'relative',
+                background: isLight ? '#f1f5f9' : '#334155',
+                border: isLight ? '1px solid #e2e8f0' : '1px solid #475569',
+                borderRadius: '50%',
+                width: '42px',
+                height: '42px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.2rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: unreadCount > 0 ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none'
+              }}
+              title="Notifications"
+              aria-label="Notifications"
+            >
+              🔔
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  background: '#ef4444',
+                  color: '#ffffff',
+                  borderRadius: '999px',
+                  padding: '2px 6px',
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
+                  minWidth: '18px',
+                  textAlign: 'center'
+                }}>
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown Drawer */}
+            {showNotifs && (
+              <div style={{
+                position: 'absolute',
+                top: '52px',
+                right: '0',
+                width: '360px',
+                maxHeight: '450px',
+                background: isLight ? '#ffffff' : '#1e293b',
+                border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                borderRadius: '16px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                zIndex: 100,
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  padding: '1rem 1.25rem',
+                  borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: isLight ? '#f8fafc' : '#0f172a'
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: isLight ? '#0f172a' : '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>Notifications</span>
+                    {unreadCount > 0 && (
+                      <span style={{
+                        background: '#ef4444',
+                        color: '#fff',
+                        fontSize: '0.7rem',
+                        padding: '1px 6px',
+                        borderRadius: '6px',
+                        fontWeight: 700
+                      }}>
+                        {unreadCount} new
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => markNotificationRead()}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#2563eb',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ overflowY: 'auto', maxHeight: '350px', padding: '0.5rem' }}>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: '2rem 1rem', textAlign: 'center', color: isLight ? '#94a3b8' : '#64748b', fontSize: '0.9rem' }}>
+                      No notifications yet.
+                    </div>
+                  ) : (
+                    notifications.map(notif => {
+                      const isApproved = notif.type === 'LEAVE_APPROVED'
+                      const isRejected = notif.type === 'LEAVE_REJECTED'
+                      return (
+                        <div
+                          key={notif.id}
+                          style={{
+                            padding: '0.85rem 1rem',
+                            borderRadius: '10px',
+                            marginBottom: '0.5rem',
+                            background: !notif.read
+                              ? (isApproved
+                                  ? (isLight ? '#ecfdf5' : 'rgba(16, 185, 129, 0.15)')
+                                  : (isLight ? '#eff6ff' : 'rgba(37, 99, 235, 0.15)'))
+                              : (isLight ? '#f8fafc' : '#0f172a'),
+                            borderLeft: !notif.read
+                              ? (isApproved ? '4px solid #10b981' : isRejected ? '4px solid #ef4444' : '4px solid #3b82f6')
+                              : '4px solid transparent',
+                            cursor: 'default',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                            <div style={{
+                              fontWeight: notif.read ? 600 : 700,
+                              fontSize: '0.88rem',
+                              color: isApproved ? '#059669' : isRejected ? '#dc2626' : (isLight ? '#0f172a' : '#f8fafc')
+                            }}>
+                              {notif.title}
+                            </div>
+                            {!notif.read && (
+                              <button
+                                type="button"
+                                onClick={() => markNotificationRead(notif.id)}
+                                title="Mark as read"
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  fontSize: '0.75rem',
+                                  color: isLight ? '#64748b' : '#94a3b8',
+                                  cursor: 'pointer',
+                                  padding: '2px 4px'
+                                }}
+                              >
+                                ✓
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.82rem', color: isLight ? '#475569' : '#cbd5e1', marginTop: '0.25rem', lineHeight: 1.4 }}>
+                            {notif.message}
+                          </div>
+                          {notif.approverNote && (
+                            <div style={{ fontSize: '0.78rem', color: isLight ? '#059669' : '#34d399', marginTop: '0.2rem', fontStyle: 'italic' }}>
+                              Remark: "{notif.approverNote}"
+                            </div>
+                          )}
+                          <div style={{ fontSize: '0.72rem', color: isLight ? '#94a3b8' : '#64748b', marginTop: '0.35rem' }}>
+                            {notif.createdAt ? new Date(notif.createdAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-          <div style={{ fontSize: '0.85rem', color: isLight ? '#64748b' : '#94a3b8', fontWeight: 600 }}>
-            {currentTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#2563eb', letterSpacing: '-0.02em' }}>
+              {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: isLight ? '#64748b' : '#94a3b8', fontWeight: 600 }}>
+              {currentTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </div>
           </div>
         </div>
       </header>
+
+      {/* Prominent Active Leave Approval Notification Banner */}
+      {unreadApproval && (
+        <div style={{
+          background: unreadApproval.type === 'LEAVE_APPROVED'
+            ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+            : 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+          color: '#ffffff',
+          padding: '1rem 2rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1.5rem',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+          zIndex: 40
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+            <div style={{
+              fontSize: '1.8rem',
+              background: 'rgba(255,255,255,0.2)',
+              borderRadius: '50%',
+              width: '46px',
+              height: '46px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              {unreadApproval.type === 'LEAVE_APPROVED' ? '🌴' : '⚠️'}
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1.05rem', letterSpacing: '0.02em' }}>
+                {unreadApproval.title}
+              </div>
+              <div style={{ fontSize: '0.9rem', opacity: 0.95, marginTop: '2px', lineHeight: 1.4 }}>
+                {unreadApproval.message}
+                {unreadApproval.approverNote && (
+                  <span style={{ marginLeft: '8px', opacity: 0.9, fontStyle: 'italic', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '4px' }}>
+                    Note: "{unreadApproval.approverNote}"
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => markNotificationRead(unreadApproval.id)}
+            style={{
+              background: '#ffffff',
+              color: unreadApproval.type === 'LEAVE_APPROVED' ? '#065f46' : '#991b1b',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '0.6rem 1.25rem',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              transition: 'transform 0.1s ease',
+              flexShrink: 0
+            }}
+          >
+            ✓ Got It (Dismiss)
+          </button>
+        </div>
+      )}
 
       {/* Main Content Split Layout */}
       <div
