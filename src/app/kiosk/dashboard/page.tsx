@@ -78,11 +78,18 @@ export default function KioskDashboard() {
   useEffect(() => {
     const saved = localStorage.getItem('kiosk_employee') || sessionStorage.getItem('kiosk_employee')
     if (!saved) {
-      router.push('/login?mode=employee')
+      router.push('/login')
       return
     }
     try {
       const emp = JSON.parse(saved)
+      if (emp.expiresAt && emp.expiresAt < Date.now()) {
+        localStorage.removeItem('kiosk_employee')
+        localStorage.removeItem('GODWIN_REMEMBER_30DAYS')
+        sessionStorage.removeItem('kiosk_employee')
+        router.push('/login?expired=true')
+        return
+      }
       setEmployee(emp)
       checkStatus(emp.id)
       fetchNotifications(emp.id, emp.employeeId)
@@ -92,7 +99,7 @@ export default function KioskDashboard() {
       }, 15000)
       return () => clearInterval(notifTimer)
     } catch {
-      router.push('/login?mode=employee')
+      router.push('/login')
       return
     }
   }, [router])
@@ -186,6 +193,9 @@ export default function KioskDashboard() {
     const now = Date.now().toString()
     try {
       localStorage.removeItem('kiosk_employee')
+      localStorage.removeItem('GODWIN_REMEMBER_30DAYS')
+      sessionStorage.removeItem('kiosk_employee')
+      document.cookie = 'kiosk_employee=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
       localStorage.setItem('GODWIN_LOGOUT_EVENT', now)
       if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
         const bc = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
@@ -193,7 +203,7 @@ export default function KioskDashboard() {
         bc.close()
       }
     } catch {}
-    router.push('/login?mode=employee')
+    router.push('/login?logout=true')
   }
 
   if (loading || !employee) {

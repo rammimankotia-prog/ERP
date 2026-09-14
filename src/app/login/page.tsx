@@ -106,7 +106,34 @@ export default function LoginPage() {
     }
   }, [mode]);
 
+  // Auto-restore 30-day remembered session on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('logout') === 'true' || params.get('reauth') === 'true') {
+      return;
+    }
 
+    try {
+      const savedStr = localStorage.getItem('kiosk_employee');
+      if (savedStr) {
+        const saved = JSON.parse(savedStr);
+        if (saved && saved.id) {
+          const isExpired = saved.expiresAt && saved.expiresAt < Date.now();
+          if (!isExpired) {
+            if (saved.loginRole === 'security') {
+              router.replace('/kiosk');
+            } else {
+              router.replace('/kiosk/dashboard');
+            }
+          } else {
+            localStorage.removeItem('kiosk_employee');
+            localStorage.removeItem('GODWIN_REMEMBER_30DAYS');
+          }
+        }
+      }
+    } catch {}
+  }, [router]);
 
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,12 +154,29 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (res.ok && data.success && data.employee) {
-        // Save employee session
-        const payload = JSON.stringify({ ...data.employee, loginRole: 'staff' });
+        // Save employee session with 30-day duration if ticked
+        const expiresAt = rememberMe
+          ? Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
+          : Date.now() + 12 * 60 * 60 * 1000;
+
+        const payload = JSON.stringify({
+          ...data.employee,
+          loginRole: 'staff',
+          remember30Days: !!rememberMe,
+          expiresAt,
+        });
+
         if (rememberMe) {
           localStorage.setItem('kiosk_employee', payload);
+          try {
+            document.cookie = `kiosk_employee=${encodeURIComponent(payload)}; path=/; max-age=2592000; SameSite=Lax`;
+          } catch {}
+          localStorage.setItem('GODWIN_REMEMBER_30DAYS', 'true');
+          localStorage.removeItem('GODWIN_LOGGED_OUT');
         } else {
           sessionStorage.setItem('kiosk_employee', payload);
+          localStorage.removeItem('kiosk_employee');
+          localStorage.removeItem('GODWIN_REMEMBER_30DAYS');
         }
         router.push('/kiosk/dashboard');
       } else {
@@ -173,12 +217,29 @@ export default function LoginPage() {
           setSecLoading(false);
           return;
         }
-        // Save security session and redirect to full kiosk
-        const payload = JSON.stringify({ ...data.employee, loginRole: 'security' });
+        // Save security session and redirect to full kiosk with 30-day duration if ticked
+        const expiresAt = rememberMe
+          ? Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
+          : Date.now() + 12 * 60 * 60 * 1000;
+
+        const payload = JSON.stringify({
+          ...data.employee,
+          loginRole: 'security',
+          remember30Days: !!rememberMe,
+          expiresAt,
+        });
+
         if (rememberMe) {
           localStorage.setItem('kiosk_employee', payload);
+          try {
+            document.cookie = `kiosk_employee=${encodeURIComponent(payload)}; path=/; max-age=2592000; SameSite=Lax`;
+          } catch {}
+          localStorage.setItem('GODWIN_REMEMBER_30DAYS', 'true');
+          localStorage.removeItem('GODWIN_LOGGED_OUT');
         } else {
           sessionStorage.setItem('kiosk_employee', payload);
+          localStorage.removeItem('kiosk_employee');
+          localStorage.removeItem('GODWIN_REMEMBER_30DAYS');
         }
         router.push('/kiosk');
       } else {
@@ -306,17 +367,58 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="lp-remember" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.82rem', marginTop: '-0.25rem' }}>
+              <div
+                onClick={() => setRememberMe(v => !v)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  background: rememberMe ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                  border: rememberMe ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #334155',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  transition: 'all 0.15s ease',
+                  marginTop: '0.25rem',
+                  marginBottom: '0.25rem'
+                }}
+              >
                 <input
                   type="checkbox"
                   id="remStaff"
                   checked={rememberMe}
-                  onChange={e => setRememberMe(e.target.checked)}
-                  style={{ width: '17px', height: '17px', cursor: 'pointer', accentColor: '#10b981', flexShrink: 0 }}
+                  onChange={e => {
+                    e.stopPropagation();
+                    setRememberMe(e.target.checked);
+                  }}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981', flexShrink: 0 }}
                 />
-                <label htmlFor="remStaff" style={{ color: '#94a3b8', cursor: 'pointer', fontWeight: 600 }}>
-                  Remember session for 30 days
-                </label>
+                <div style={{ flex: 1 }}>
+                  <label
+                    htmlFor="remStaff"
+                    onClick={e => e.stopPropagation()}
+                    style={{ color: rememberMe ? '#10b981' : '#cbd5e1', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem', display: 'block' }}
+                  >
+                    Remember session for 30 days
+                  </label>
+                  <span style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginTop: '1px' }}>
+                    Keep me signed in on this device (No need to re-login every day)
+                  </span>
+                </div>
+                {rememberMe && (
+                  <span style={{
+                    fontSize: '0.7rem',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    color: '#34d399',
+                    padding: '2px 8px',
+                    borderRadius: '99px',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap'
+                  }}>
+                    ✓ 30 Days
+                  </span>
+                )}
               </div>
 
               {/* Geo-fencing notice */}
@@ -403,17 +505,58 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="lp-remember" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.82rem', marginTop: '-0.25rem' }}>
+              <div
+                onClick={() => setRememberMe(v => !v)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  background: rememberMe ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                  border: rememberMe ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #334155',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  transition: 'all 0.15s ease',
+                  marginTop: '0.25rem',
+                  marginBottom: '0.25rem'
+                }}
+              >
                 <input
                   type="checkbox"
                   id="remSec"
                   checked={rememberMe}
-                  onChange={e => setRememberMe(e.target.checked)}
-                  style={{ width: '17px', height: '17px', cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }}
+                  onChange={e => {
+                    e.stopPropagation();
+                    setRememberMe(e.target.checked);
+                  }}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }}
                 />
-                <label htmlFor="remSec" style={{ color: '#94a3b8', cursor: 'pointer', fontWeight: 600 }}>
-                  Remember session for 30 days
-                </label>
+                <div style={{ flex: 1 }}>
+                  <label
+                    htmlFor="remSec"
+                    onClick={e => e.stopPropagation()}
+                    style={{ color: rememberMe ? '#60a5fa' : '#cbd5e1', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem', display: 'block' }}
+                  >
+                    Remember session for 30 days
+                  </label>
+                  <span style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginTop: '1px' }}>
+                    Keep guard terminal session active on this device
+                  </span>
+                </div>
+                {rememberMe && (
+                  <span style={{
+                    fontSize: '0.7rem',
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    color: '#93c5fd',
+                    padding: '2px 8px',
+                    borderRadius: '99px',
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap'
+                  }}>
+                    ✓ 30 Days
+                  </span>
+                )}
               </div>
 
               {/* Kiosk access info */}

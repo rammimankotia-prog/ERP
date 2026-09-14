@@ -213,17 +213,19 @@ export default function OneTapPunchInterface({
 
       if (onSuccess) onSuccess();
 
-      // Trigger automatic countdown and return
-      let rem = autoResetSeconds;
-      setCountdown(rem);
-      const timer = setInterval(() => {
-        rem -= 1;
+      // Trigger automatic countdown and return only for public kiosk station (not personal staff portal)
+      if (!showLeaveAndHistory) {
+        let rem = autoResetSeconds;
         setCountdown(rem);
-        if (rem <= 0) {
-          clearInterval(timer);
-          onBack();
-        }
-      }, 1000);
+        const timer = setInterval(() => {
+          rem -= 1;
+          setCountdown(rem);
+          if (rem <= 0) {
+            clearInterval(timer);
+            onBack();
+          }
+        }, 1000);
+      }
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Could not record punch');
@@ -344,8 +346,8 @@ export default function OneTapPunchInterface({
             transition: 'all 0.15s ease',
           }}
         >
-          <span>←</span>
-          <span>Switch Employee</span>
+          <span>{showLeaveAndHistory ? '🚪' : '←'}</span>
+          <span>{showLeaveAndHistory ? 'Sign Out' : 'Switch Employee'}</span>
         </button>
 
         <div style={{ textAlign: 'right' }}>
@@ -418,11 +420,16 @@ export default function OneTapPunchInterface({
           <div style={{ fontSize: '2.5rem' }}>🎉</div>
           <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>{punchSuccess}</div>
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            Attendance logged in Godwin ERP • Auto-resetting for next employee in <strong>{countdown}s</strong>
+            {showLeaveAndHistory
+              ? 'Attendance logged in Godwin ERP • Session active for 30 days'
+              : <>Attendance logged in Godwin ERP • Auto-resetting for next employee in <strong>{countdown}s</strong></>}
           </p>
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => {
+              setPunchSuccess(null);
+              if (!showLeaveAndHistory) onBack();
+            }}
             style={{
               marginTop: '0.5rem',
               padding: '0.45rem 1.25rem',
@@ -435,7 +442,7 @@ export default function OneTapPunchInterface({
               cursor: 'pointer',
             }}
           >
-            Done (Clock Next Person)
+            {showLeaveAndHistory ? '✓ Great, Continue' : 'Done (Clock Next Person)'}
           </button>
         </div>
       )}
