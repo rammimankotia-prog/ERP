@@ -52,11 +52,15 @@ export default function AddEmployeeForm({
 
   const selectedBranch = branches.find((b) => b.id === selectedBranchId)
 
-  // Filter departments by branch if departments have branchId
-  const availableDepartments = departments.filter((d) => {
-    if (!d.branchId || !selectedBranchId) return true
-    return d.branchId === selectedBranchId
-  })
+  // Filter departments by branch if departments have branchId, and deduplicate by name
+  const availableDepartments = departments
+    .filter((d) => {
+      if (!d.branchId || !selectedBranchId) return true
+      return d.branchId === selectedBranchId
+    })
+    .filter((d, idx, arr) => {
+      return arr.findIndex((item) => item.name.trim().toLowerCase() === d.name.trim().toLowerCase()) === idx
+    })
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()

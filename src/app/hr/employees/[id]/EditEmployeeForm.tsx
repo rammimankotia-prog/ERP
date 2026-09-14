@@ -66,11 +66,15 @@ export default function EditEmployeeForm({
 
   const selectedBranch = branches.find((b) => b.id === selectedBranchId)
 
-  // Filter departments by selected branch if branchId is linked
-  const availableDepartments = departments.filter((d) => {
-    if (!d.branchId || !selectedBranchId) return true
-    return d.branchId === selectedBranchId
-  })
+  // Filter departments by selected branch if branchId is linked, and deduplicate by name
+  const availableDepartments = departments
+    .filter((d) => {
+      if (!d.branchId || !selectedBranchId) return true
+      return d.branchId === selectedBranchId
+    })
+    .filter((d, idx, arr) => {
+      return arr.findIndex((item) => item.name.trim().toLowerCase() === d.name.trim().toLowerCase()) === idx
+    })
 
   const formatDate = (date: any) => {
     if (!date) return ''

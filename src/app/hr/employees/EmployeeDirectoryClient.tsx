@@ -55,6 +55,34 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
   const [selectedStatus, setSelectedStatus] = useState('ALL')
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
 
+  // Deduplicated and branch-aware department options for filter dropdown
+  const filterDepartments = useMemo(() => {
+    const list = selectedBranch
+      ? departments.filter((d) => !d.branchId || d.branchId === selectedBranch)
+      : departments
+
+    const seen = new Set<string>()
+    const uniqueList: { id: string; name: string }[] = []
+
+    for (const d of list) {
+      const name = (d.name || '').trim()
+      if (name && !seen.has(name.toLowerCase())) {
+        seen.add(name.toLowerCase())
+        uniqueList.push({ id: d.id, name })
+      }
+    }
+
+    return uniqueList.sort((a, b) => a.name.localeCompare(b.name))
+  }, [departments, selectedBranch])
+
+  // Reset selected department if it is not in the newly selected branch
+  useEffect(() => {
+    if (selectedDept && selectedBranch) {
+      const exists = filterDepartments.some((d) => d.name.toLowerCase() === selectedDept.toLowerCase())
+      if (!exists) setSelectedDept('')
+    }
+  }, [selectedBranch, filterDepartments, selectedDept])
+
   // Quick Edit Modal state
   const [editingEmp, setEditingEmp] = useState<Employee | null>(null)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
@@ -232,7 +260,16 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
         (emp.contactNo || '').includes(search)
 
       const matchesBranch = !selectedBranch || emp.branch?.id === selectedBranch || emp.branchId === selectedBranch
-      const matchesDept = !selectedDept || emp.department?.id === selectedDept || emp.departmentId === selectedDept
+
+      const empDeptObj = emp.department || departments.find((d) => d.id === emp.departmentId)
+      const empDeptName = (empDeptObj?.name || '').trim().toLowerCase()
+      const targetDeptName = selectedDept.trim().toLowerCase()
+      const matchesDept =
+        !selectedDept ||
+        emp.department?.id === selectedDept ||
+        emp.departmentId === selectedDept ||
+        empDeptName === targetDeptName ||
+        departments.filter((d) => d.name.trim().toLowerCase() === targetDeptName).some((d) => d.id === emp.departmentId || d.id === emp.department?.id)
       const matchesStatus =
         selectedStatus === 'ALL' ||
         (selectedStatus === 'ACTIVE' && emp.status === 'ACTIVE') ||
@@ -711,8 +748,8 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
               }}
             >
               <option value="">All Departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
+              {filterDepartments.map((d) => (
+                <option key={d.name} value={d.name}>
                   {d.name}
                 </option>
               ))}

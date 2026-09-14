@@ -161,7 +161,16 @@ export default function AttendanceReports() {
             setLiveBranches(d.branches)
           }
           if (Array.isArray(d.departments)) {
-            setLiveDepartments(d.departments)
+            const seen = new Set<string>()
+            const uniqueDepts: { id: string; name: string }[] = []
+            for (const dept of d.departments) {
+              const name = (dept.name || '').trim()
+              if (name && !seen.has(name.toLowerCase())) {
+                seen.add(name.toLowerCase())
+                uniqueDepts.push({ id: dept.id, name })
+              }
+            }
+            setLiveDepartments(uniqueDepts.sort((a, b) => a.name.localeCompare(b.name)))
           }
         }
       })
