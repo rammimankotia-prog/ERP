@@ -110,7 +110,7 @@ export default function AddEmployeeForm({
 
       // Automatically sync new employee to localStorage to prevent data loss on refresh
       try {
-        const LOCAL_STORAGE_KEY = 'godwin_erp_employees_cache'
+        const LOCAL_STORAGE_KEY = 'godwin_erp_employees_v2'
         const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
         let cache = []
         if (cachedStr) {

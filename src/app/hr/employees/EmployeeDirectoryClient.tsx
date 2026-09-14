@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toggleEmployeeStatus, deleteEmployee, updateEmployee } from '../actions'
 
-const LOCAL_STORAGE_KEY = 'godwin_erp_employees_cache'
+const LOCAL_STORAGE_KEY = 'godwin_erp_employees_v2'
 
 
 
@@ -138,6 +138,11 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
 
   // On initial mount: restore from localStorage & fetch latest from server
   useEffect(() => {
+    // Purge legacy test employee cache
+    try {
+      localStorage.removeItem('godwin_erp_employees_cache')
+    } catch {}
+
     // 1. Instantly clean and merge
     setEmployees(prev => mergeWithLocalStorage(prev))
 
@@ -146,8 +151,13 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       .then(res => res.json())
       .then(data => {
         if (data && Array.isArray(data.employees)) {
-          const merged = mergeWithLocalStorage(data.employees)
-          setEmployees(merged)
+          if (data.employees.length === 0) {
+            try { localStorage.removeItem(LOCAL_STORAGE_KEY) } catch {}
+            setEmployees([])
+          } else {
+            const merged = mergeWithLocalStorage(data.employees)
+            setEmployees(merged)
+          }
         }
       })
       .catch(() => {})

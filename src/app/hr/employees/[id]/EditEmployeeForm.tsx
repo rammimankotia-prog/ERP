@@ -88,7 +88,7 @@ export default function EditEmployeeForm({
   // Check localStorage for any cached edits for this employee on mount
   useEffect(() => {
     try {
-      const cachedStr = localStorage.getItem('godwin_erp_employees_cache')
+      const cachedStr = localStorage.getItem('godwin_erp_employees_v2')
       if (cachedStr) {
         const cache = JSON.parse(cachedStr)
         const match = Array.isArray(cache)
@@ -151,7 +151,7 @@ export default function EditEmployeeForm({
 
       // 1. Immediately persist to localStorage so it NEVER reverts on refresh
       try {
-        const cachedStr = localStorage.getItem('godwin_erp_employees_cache')
+        const cachedStr = localStorage.getItem('godwin_erp_employees_v2')
         let cache: any[] = []
         if (cachedStr) {
           try { cache = JSON.parse(cachedStr) } catch {}
@@ -163,7 +163,7 @@ export default function EditEmployeeForm({
         } else {
           cache.push({ ...employee, ...updatePayload, updatedAt: new Date().toISOString() })
         }
-        localStorage.setItem('godwin_erp_employees_cache', JSON.stringify(cache))
+        localStorage.setItem('godwin_erp_employees_v2', JSON.stringify(cache))
         window.dispatchEvent(new Event('godwin-employees-updated'))
       } catch {}
 
