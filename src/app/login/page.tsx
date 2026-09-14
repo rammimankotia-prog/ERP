@@ -287,7 +287,7 @@ export default function LoginPage() {
         {/* Hotel brand */}
         <div className="lp-brand">
           <div className="lp-brand-logo">🏨</div>
-          <div>
+          <div className="lp-brand-text">
             <div className="lp-brand-name">Hotel Grand Godwin</div>
             <div className="lp-brand-sub">Godwin Deluxe · Indian Grill · Cafe Brownie</div>
           </div>
@@ -384,21 +384,8 @@ export default function LoginPage() {
               </div>
 
               <div
+                className="lp-remember-box lp-remember-staff"
                 onClick={() => setRememberMe(v => !v)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '10px',
-                  background: rememberMe ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.03)',
-                  border: rememberMe ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #334155',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  transition: 'all 0.15s ease',
-                  marginTop: '0.25rem',
-                  marginBottom: '0.25rem'
-                }}
               >
                 <input
                   type="checkbox"
@@ -408,30 +395,22 @@ export default function LoginPage() {
                     e.stopPropagation();
                     setRememberMe(e.target.checked);
                   }}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981', flexShrink: 0 }}
+                  className="lp-checkbox"
                 />
-                <div style={{ flex: 1 }}>
+                <div className="lp-remember-text">
                   <label
                     htmlFor="remStaff"
                     onClick={e => e.stopPropagation()}
-                    style={{ color: rememberMe ? '#10b981' : '#cbd5e1', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem', display: 'block' }}
+                    className="lp-remember-label"
                   >
                     Remember session for 30 days
                   </label>
-                  <span style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginTop: '1px' }}>
+                  <span className="lp-remember-hint">
                     Keep me signed in on this device (No need to re-login every day)
                   </span>
                 </div>
                 {rememberMe && (
-                  <span style={{
-                    fontSize: '0.7rem',
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    color: '#34d399',
-                    padding: '2px 8px',
-                    borderRadius: '99px',
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap'
-                  }}>
+                  <span className="lp-remember-badge badge-green-pill">
                     ✓ 30 Days
                   </span>
                 )}
@@ -522,21 +501,8 @@ export default function LoginPage() {
               </div>
 
               <div
+                className="lp-remember-box lp-remember-sec"
                 onClick={() => setRememberMe(v => !v)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '10px',
-                  background: rememberMe ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.03)',
-                  border: rememberMe ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #334155',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  transition: 'all 0.15s ease',
-                  marginTop: '0.25rem',
-                  marginBottom: '0.25rem'
-                }}
               >
                 <input
                   type="checkbox"
@@ -546,30 +512,22 @@ export default function LoginPage() {
                     e.stopPropagation();
                     setRememberMe(e.target.checked);
                   }}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }}
+                  className="lp-checkbox lp-checkbox-blue"
                 />
-                <div style={{ flex: 1 }}>
+                <div className="lp-remember-text">
                   <label
                     htmlFor="remSec"
                     onClick={e => e.stopPropagation()}
-                    style={{ color: rememberMe ? '#60a5fa' : '#cbd5e1', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem', display: 'block' }}
+                    className="lp-remember-label"
                   >
                     Remember session for 30 days
                   </label>
-                  <span style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginTop: '1px' }}>
+                  <span className="lp-remember-hint">
                     Keep guard terminal session active on this device
                   </span>
                 </div>
                 {rememberMe && (
-                  <span style={{
-                    fontSize: '0.7rem',
-                    background: 'rgba(59, 130, 246, 0.2)',
-                    color: '#93c5fd',
-                    padding: '2px 8px',
-                    borderRadius: '99px',
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap'
-                  }}>
+                  <span className="lp-remember-badge badge-blue-pill">
                     ✓ 30 Days
                   </span>
                 )}
@@ -614,55 +572,70 @@ export default function LoginPage() {
       </div>
 
       <style jsx>{`
-        * { box-sizing: border-box; }
+        * {
+          box-sizing: border-box;
+          -webkit-tap-highlight-color: transparent;
+        }
 
         .lp-wrap {
           min-height: 100vh;
+          min-height: 100dvh;
           width: 100%;
+          max-width: 100vw;
           background: radial-gradient(ellipse at 50% 0%, #0f1e2e 0%, #070d14 70%);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 1.5rem 1rem;
+          padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
           position: relative;
-          overflow: hidden;
-          font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+          overflow-x: hidden;
+          overflow-y: auto;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          -webkit-overflow-scrolling: touch;
         }
 
+        /* Ambient Glows - safely contained */
         .lp-glow {
           position: absolute;
           border-radius: 50%;
           pointer-events: none;
           transition: background 0.5s ease;
+          max-width: 100vw;
+          filter: blur(40px);
+          -webkit-filter: blur(40px);
         }
         .lp-glow-top {
-          top: -15%;
-          right: -10%;
-          width: clamp(350px, 50vw, 650px);
-          height: clamp(350px, 50vw, 650px);
+          top: -10%;
+          right: -5%;
+          width: clamp(260px, 45vw, 550px);
+          height: clamp(260px, 45vw, 550px);
         }
-        .glow-green { background: radial-gradient(circle, rgba(16,185,129,0.13) 0%, transparent 70%); }
-        .glow-blue  { background: radial-gradient(circle, rgba(59,130,246,0.13) 0%, transparent 70%); }
+        .glow-green { background: radial-gradient(circle, rgba(16,185,129,0.14) 0%, transparent 70%); }
+        .glow-blue  { background: radial-gradient(circle, rgba(59,130,246,0.14) 0%, transparent 70%); }
         .lp-glow-bottom {
-          bottom: -15%;
-          left: -10%;
-          width: clamp(280px, 40vw, 500px);
-          height: clamp(280px, 40vw, 500px);
-          background: radial-gradient(circle, rgba(99,102,241,0.07) 0%, transparent 70%);
+          bottom: -10%;
+          left: -5%;
+          width: clamp(240px, 35vw, 450px);
+          height: clamp(240px, 35vw, 450px);
+          background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
         }
 
         .lp-card {
           width: 100%;
-          max-width: 500px;
-          background: rgba(10, 18, 30, 0.92);
+          max-width: 490px;
+          margin: auto;
+          background: rgba(10, 18, 30, 0.94);
           backdrop-filter: blur(28px);
           -webkit-backdrop-filter: blur(28px);
-          border: 1px solid rgba(255,255,255,0.09);
+          border: 1px solid rgba(255,255,255,0.1);
           border-radius: 24px;
-          box-shadow: 0 30px 60px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04);
-          padding: clamp(1.6rem, 4vw, 2.4rem);
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.05);
+          padding: clamp(1.4rem, 4.5vw, 2.4rem);
           position: relative;
           z-index: 1;
+          box-sizing: border-box;
+          word-break: break-word;
+          overflow-wrap: break-word;
         }
 
         .lp-accent-bar {
@@ -681,75 +654,96 @@ export default function LoginPage() {
           display: flex;
           align-items: center;
           gap: 0.85rem;
-          margin-bottom: 1.5rem;
-          padding-bottom: 1.25rem;
-          border-bottom: 1px solid rgba(255,255,255,0.07);
+          margin-bottom: 1.35rem;
+          padding-bottom: 1.15rem;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          min-width: 0;
         }
         .lp-brand-logo {
-          width: 46px;
-          height: 46px;
+          width: 44px;
+          height: 44px;
+          min-width: 44px;
           background: rgba(255,255,255,0.07);
           border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.5rem;
+          font-size: 1.4rem;
           flex-shrink: 0;
+        }
+        .lp-brand-text {
+          min-width: 0;
+          overflow: hidden;
         }
         .lp-brand-name {
           font-size: 1rem;
           font-weight: 800;
           color: #f1f5f9;
-          line-height: 1.2;
+          line-height: 1.25;
+          letter-spacing: -0.01em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .lp-brand-sub {
-          font-size: 0.7rem;
+          font-size: 0.72rem;
           color: #64748b;
           font-weight: 500;
           margin-top: 2px;
+          line-height: 1.3;
         }
 
         /* Mode Switcher */
         .lp-mode-switcher {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 0.5rem;
-          background: rgba(0,0,0,0.4);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 16px;
-          padding: 0.4rem;
-          margin-bottom: 1.75rem;
+          gap: 0.45rem;
+          background: rgba(0,0,0,0.45);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 14px;
+          padding: 0.35rem;
+          margin-bottom: 1.5rem;
+          width: 100%;
+          box-sizing: border-box;
         }
         .lp-mode-btn {
           display: flex;
           align-items: center;
-          gap: 0.6rem;
-          padding: 0.75rem 0.65rem;
-          border-radius: 11px;
+          gap: 0.55rem;
+          padding: 0.7rem 0.6rem;
+          border-radius: 10px;
           border: 1px solid transparent;
           background: transparent;
           color: #64748b;
           cursor: pointer;
           text-align: left;
-          transition: all 0.22s ease;
-          min-height: 60px;
+          transition: all 0.2s ease;
+          min-height: 54px;
+          min-width: 0;
+          box-sizing: border-box;
+          touch-action: manipulation;
         }
         .lp-mode-btn:hover:not(.mode-active-green):not(.mode-active-blue) {
           background: rgba(255,255,255,0.04);
           color: #94a3b8;
         }
         .lp-mode-icon {
-          font-size: 1.4rem;
+          font-size: 1.35rem;
           flex-shrink: 0;
         }
         .lp-mode-text {
           display: flex;
           flex-direction: column;
+          min-width: 0;
+          overflow: hidden;
         }
         .lp-mode-title {
-          font-size: 0.84rem;
+          font-size: 0.82rem;
           font-weight: 800;
           line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .lp-mode-hint {
           font-size: 0.65rem;
@@ -757,29 +751,33 @@ export default function LoginPage() {
           color: #475569;
           line-height: 1.3;
           margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .mode-active-green {
-          background: rgba(16,185,129,0.15);
+          background: rgba(16,185,129,0.14);
           border-color: rgba(16,185,129,0.35);
           color: #34d399;
           box-shadow: 0 4px 14px rgba(16,185,129,0.15);
         }
-        .mode-active-green .lp-mode-hint { color: #6ee7b7; opacity: 0.85; }
+        .mode-active-green .lp-mode-hint { color: #6ee7b7; opacity: 0.9; }
         .mode-active-blue {
-          background: rgba(59,130,246,0.15);
+          background: rgba(59,130,246,0.14);
           border-color: rgba(59,130,246,0.35);
           color: #60a5fa;
           box-shadow: 0 4px 14px rgba(59,130,246,0.15);
         }
-        .mode-active-blue .lp-mode-hint { color: #bfdbfe; opacity: 0.85; }
+        .mode-active-blue .lp-mode-hint { color: #bfdbfe; opacity: 0.9; }
 
         /* Section */
         .lp-section {
-          animation: fadeIn 0.25s ease;
+          animation: fadeIn 0.22s ease;
+          width: 100%;
         }
         .lp-section-header {
           text-align: center;
-          margin-bottom: 1.5rem;
+          margin-bottom: 1.35rem;
         }
         .lp-badge {
           display: inline-flex;
@@ -791,7 +789,7 @@ export default function LoginPage() {
           font-weight: 800;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-          margin-bottom: 0.75rem;
+          margin-bottom: 0.65rem;
         }
         .badge-green {
           background: rgba(16,185,129,0.12);
@@ -804,34 +802,41 @@ export default function LoginPage() {
           color: #60a5fa;
         }
         .lp-title {
-          font-size: clamp(1.5rem, 3.5vw, 1.85rem);
+          font-size: clamp(1.4rem, 4.5vw, 1.85rem);
           font-weight: 900;
           color: #ffffff;
-          margin: 0 0 0.4rem 0;
+          margin: 0 0 0.35rem 0;
           letter-spacing: -0.02em;
+          line-height: 1.25;
         }
         .lp-subtitle {
-          font-size: 0.83rem;
+          font-size: 0.82rem;
           color: #64748b;
-          line-height: 1.5;
+          line-height: 1.45;
           margin: 0;
+          word-break: break-word;
         }
 
         /* Form */
         .lp-form {
           display: flex;
           flex-direction: column;
-          gap: 1.1rem;
+          gap: 1rem;
+          width: 100%;
         }
         .lp-alert {
           padding: 0.85rem 1rem;
-          border-radius: 10px;
+          border-radius: 12px;
           font-size: 0.82rem;
           font-weight: 600;
           display: flex;
           align-items: flex-start;
-          gap: 0.55rem;
-          line-height: 1.4;
+          gap: 0.6rem;
+          line-height: 1.45;
+          word-break: break-word;
+          overflow-wrap: break-word;
+          box-sizing: border-box;
+          width: 100%;
         }
         .lp-alert-error {
           background: rgba(239,68,68,0.14);
@@ -841,6 +846,7 @@ export default function LoginPage() {
         .lp-field {
           display: flex;
           flex-direction: column;
+          width: 100%;
         }
         .lp-label {
           font-size: 0.72rem;
@@ -853,11 +859,14 @@ export default function LoginPage() {
         .lp-input-wrap {
           display: flex;
           align-items: center;
-          background: rgba(2,6,23,0.7);
+          background: rgba(2,6,23,0.75);
           border: 1px solid rgba(255,255,255,0.12);
           border-radius: 12px;
-          padding: 0 0.9rem;
+          padding: 0 0.85rem;
           transition: border-color 0.2s, box-shadow 0.2s;
+          width: 100%;
+          box-sizing: border-box;
+          min-height: 48px;
         }
         .lp-focus-green:focus-within {
           border-color: #10b981;
@@ -869,7 +878,7 @@ export default function LoginPage() {
         }
         .lp-input-icon {
           font-size: 1rem;
-          color: #475569;
+          color: #64748b;
           margin-right: 0.65rem;
           flex-shrink: 0;
         }
@@ -877,22 +886,113 @@ export default function LoginPage() {
           width: 100%;
           background: transparent;
           border: none;
-          padding: 0.88rem 0;
+          padding: 0.85rem 0;
           color: #ffffff;
-          font-size: 16px;
+          font-size: 16px !important;
           font-weight: 600;
           outline: none;
+          box-sizing: border-box;
+          -webkit-appearance: none;
+          appearance: none;
         }
         .lp-input::placeholder { color: #334155; font-weight: 500; }
+        
+        .lp-input:-webkit-autofill,
+        .lp-input:-webkit-autofill:hover, 
+        .lp-input:-webkit-autofill:focus {
+          -webkit-text-fill-color: #ffffff !important;
+          -webkit-box-shadow: 0 0 0px 1000px #09131e inset !important;
+          transition: background-color 5000s ease-in-out 0s;
+        }
+
         .lp-eye-btn {
           background: transparent;
           border: none;
-          color: #475569;
+          color: #64748b;
           cursor: pointer;
-          padding: 0.35rem;
-          font-size: 1.1rem;
+          padding: 0.45rem;
+          font-size: 1.15rem;
           display: flex;
           align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          touch-action: manipulation;
+          min-width: 36px;
+          min-height: 36px;
+        }
+        .lp-eye-btn:hover { color: #94a3b8; }
+
+        /* Remember Me Box */
+        .lp-remember-box {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.75rem 0.9rem;
+          border-radius: 12px;
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.15s ease;
+          width: 100%;
+          box-sizing: border-box;
+          touch-action: manipulation;
+        }
+        .lp-remember-staff {
+          background: rgba(16, 185, 129, 0.07);
+          border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+        .lp-remember-sec {
+          background: rgba(59, 130, 246, 0.07);
+          border: 1px solid rgba(59, 130, 246, 0.35);
+        }
+        .lp-checkbox {
+          width: 19px;
+          height: 19px;
+          cursor: pointer;
+          accent-color: #10b981;
+          flex-shrink: 0;
+          margin: 0;
+        }
+        .lp-checkbox-blue {
+          accent-color: #3b82f6;
+        }
+        .lp-remember-text {
+          flex: 1;
+          min-width: 0;
+        }
+        .lp-remember-label {
+          cursor: pointer;
+          font-weight: 700;
+          font-size: 0.86rem;
+          display: block;
+          line-height: 1.3;
+          color: #cbd5e1;
+        }
+        .lp-remember-staff .lp-remember-label { color: #34d399; }
+        .lp-remember-sec .lp-remember-label { color: #60a5fa; }
+        .lp-remember-hint {
+          font-size: 0.72rem;
+          color: #94a3b8;
+          display: block;
+          margin-top: 2px;
+          line-height: 1.3;
+        }
+        .lp-remember-badge {
+          font-size: 0.68rem;
+          padding: 3px 8px;
+          border-radius: 99px;
+          font-weight: 800;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .badge-green-pill {
+          background: rgba(16, 185, 129, 0.2);
+          color: #34d399;
+          border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .badge-blue-pill {
+          background: rgba(59, 130, 246, 0.2);
+          color: #93c5fd;
+          border: 1px solid rgba(59, 130, 246, 0.3);
         }
 
         /* Notices */
@@ -902,25 +1002,27 @@ export default function LoginPage() {
           gap: 0.6rem;
           padding: 0.75rem 0.9rem;
           background: rgba(16,185,129,0.08);
-          border: 1px solid rgba(16,185,129,0.2);
+          border: 1px solid rgba(16,185,129,0.22);
           border-radius: 10px;
           font-size: 0.78rem;
           color: #6ee7b7;
-          line-height: 1.4;
+          line-height: 1.45;
+          word-break: break-word;
         }
         .lp-kiosk-notice {
           padding: 0.75rem 0.9rem;
           background: rgba(59,130,246,0.08);
-          border: 1px solid rgba(59,130,246,0.2);
+          border: 1px solid rgba(59,130,246,0.22);
           border-radius: 10px;
+          font-size: 0.78rem;
+          color: #93c5fd;
+          line-height: 1.45;
+          word-break: break-word;
         }
         .lp-kiosk-notice-row {
           display: flex;
           align-items: flex-start;
           gap: 0.6rem;
-          font-size: 0.78rem;
-          color: #93c5fd;
-          line-height: 1.4;
         }
 
         /* Submit Button */
@@ -928,7 +1030,7 @@ export default function LoginPage() {
           color: #fff;
           border: none;
           border-radius: 12px;
-          padding: 1rem 1.25rem;
+          padding: 0.95rem 1.25rem;
           font-size: 0.96rem;
           font-weight: 800;
           cursor: pointer;
@@ -939,6 +1041,10 @@ export default function LoginPage() {
           gap: 0.6rem;
           min-height: 50px;
           margin-top: 0.25rem;
+          width: 100%;
+          box-sizing: border-box;
+          touch-action: manipulation;
+          -webkit-appearance: none;
         }
         .btn-green {
           background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -975,8 +1081,8 @@ export default function LoginPage() {
 
         /* Admin link */
         .lp-admin-link {
-          margin-top: 1.75rem;
-          padding: 0.9rem 1rem;
+          margin-top: 1.5rem;
+          padding: 0.85rem 1rem;
           background: rgba(255,255,255,0.025);
           border: 1px dashed rgba(255,255,255,0.12);
           border-radius: 12px;
@@ -987,6 +1093,8 @@ export default function LoginPage() {
           gap: 0.6rem;
           font-size: 0.8rem;
           color: #64748b;
+          width: 100%;
+          box-sizing: border-box;
         }
         .lp-admin-btn {
           font-size: 0.78rem;
@@ -995,10 +1103,11 @@ export default function LoginPage() {
           background: rgba(245,158,11,0.1);
           border: 1px solid rgba(245,158,11,0.28);
           border-radius: 8px;
-          padding: 0.3rem 0.75rem;
+          padding: 0.35rem 0.75rem;
           text-decoration: none;
           transition: background 0.15s;
           white-space: nowrap;
+          touch-action: manipulation;
         }
         .lp-admin-btn:hover { background: rgba(245,158,11,0.2); }
 
@@ -1006,29 +1115,81 @@ export default function LoginPage() {
         .lp-footer {
           margin-top: 1.25rem;
           text-align: center;
-          font-size: 0.7rem;
-          color: #334155;
+          font-size: 0.72rem;
+          color: #475569;
+          line-height: 1.4;
+          word-break: break-word;
         }
         .lp-footer-link {
-          color: #475569;
+          color: #64748b;
           text-decoration: none;
         }
-        .lp-footer-link:hover { color: #64748b; }
+        .lp-footer-link:hover { color: #94a3b8; }
 
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(8px); }
+          from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
 
+        /* Comprehensive Responsive Breakpoints */
         @media (max-width: 480px) {
-          .lp-card { padding: 1.4rem 1.1rem; border-radius: 18px; }
-          .lp-mode-title { font-size: 0.78rem; }
-          .lp-mode-hint { font-size: 0.62rem; }
-          .lp-title { font-size: 1.45rem; }
-          .lp-admin-link { flex-direction: column; align-items: flex-start; }
+          .lp-wrap {
+            padding: max(1rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+          }
+          .lp-card {
+            padding: 1.35rem 1rem;
+            border-radius: 18px;
+          }
+          .lp-brand {
+            margin-bottom: 1.15rem;
+            padding-bottom: 1rem;
+          }
+          .lp-title {
+            font-size: 1.38rem;
+          }
+          .lp-mode-btn {
+            padding: 0.6rem 0.45rem;
+            min-height: 50px;
+          }
+          .lp-mode-title {
+            font-size: 0.78rem;
+          }
+          .lp-mode-hint {
+            font-size: 0.62rem;
+          }
+          .lp-admin-link {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .lp-admin-btn {
+            align-self: flex-start;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .lp-card {
+            padding: 1.15rem 0.85rem;
+            border-radius: 16px;
+          }
+          .lp-mode-icon {
+            font-size: 1.15rem;
+          }
+          .lp-mode-hint {
+            display: none;
+          }
+          .lp-mode-btn {
+            justify-content: center;
+            text-align: center;
+          }
+          .lp-remember-box {
+            padding: 0.65rem 0.75rem;
+          }
+          .lp-remember-badge {
+            display: none;
+          }
         }
       `}</style>
     </div>
