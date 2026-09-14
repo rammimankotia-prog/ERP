@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+const GeofenceMap = dynamic(() => import('@/components/GeofenceMap'), { ssr: false });
 
 const pulseStyle = `
   @keyframes pulse {
@@ -45,6 +48,10 @@ export default function SettingsPage() {
   const [excelExists, setExcelExists] = useState(false);
   const [aiUpdateStatus, setAiUpdateStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
+  // Geofence Config
+  const [geofence, setGeofence] = useState({ enabled: false, lat: 28.6432, lng: 77.2131, radius: 100 });
+  const [geofenceStatus, setGeofenceStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+
   useEffect(() => {
     // Load Global Config (Keys, Slabs)
     fetch('/api/settings/global')
@@ -61,6 +68,7 @@ export default function SettingsPage() {
           }
         }
         if (data.geminiKey) setIsKeyActive(true);
+        if (data.geofence) setGeofence(data.geofence);
       })
       .catch(err => console.error('Failed to load global config', err));
 
@@ -267,6 +275,25 @@ export default function SettingsPage() {
       alert('✅ Global Pricing Slabs Updated Successfully!');
     } catch (error) {
       alert('❌ Failed to update slabs on server.');
+    }
+  };
+
+  const saveGeofence = async () => {
+    setGeofenceStatus('saving');
+    try {
+      const res = await fetch('/api/settings/global', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ geofence })
+      });
+      if (res.ok) {
+        setGeofenceStatus('success');
+        setTimeout(() => setGeofenceStatus('idle'), 3000);
+      } else {
+        setGeofenceStatus('error');
+      }
+    } catch {
+      setGeofenceStatus('error');
     }
   };
 
@@ -808,11 +835,111 @@ export default function SettingsPage() {
             <button 
               className="btn btn-primary" 
               onClick={saveSlabs}
-              style={{ marginTop: '1rem', padding: '1rem', fontWeight: 700, borderRadius: '12px', color: 'white' }}
+              style={{ width: '100%', padding: '1rem', fontWeight: 800, borderRadius: '12px', marginTop: '0.5rem', color: 'white' }}
             >
-              Update Global Slabs
+              Update Agent Pricing
             </button>
           </div>
+        </section>
+
+        {/* Location & Geofencing */}
+        <section className="card" style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '2.5rem', borderRadius: '2rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05)', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ width: '48px', height: '48px', background: theme === 'light' ? '#ecfdf5' : 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📍</div>
+              <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: theme === 'light' ? '#1e293b' : '#f1f5f9' }}>Location &amp; Geofencing</h3>
+            </div>
+            <div 
+              onClick={() => setGeofence({ ...geofence, enabled: !geofence.enabled })}
+              style={{ 
+                width: '50px', 
+                height: '26px', 
+                background: geofence.enabled ? '#10b981' : '#cbd5e1', 
+                borderRadius: '13px', 
+                position: 'relative', 
+                cursor: 'pointer',
+                transition: 'all 0.3s'
+              }}
+            >
+              <div style={{ 
+                width: '20px', 
+                height: '20px', 
+                background: 'white', 
+                borderRadius: '50%', 
+                position: 'absolute', 
+                top: '3px',
+                left: geofence.enabled ? '27px' : '3px',
+                transition: 'all 0.3s',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }} />
+            </div>
+          </div>
+
+          <p style={{ fontSize: '0.95rem', color: theme === 'light' ? '#64748b' : '#94a3b8', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+            Restrict Employee Check-In and Security Kiosk Access to this physical perimeter. Click on the map to drop a pin.
+          </p>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <GeofenceMap 
+              lat={geofence.lat} 
+              lng={geofence.lng} 
+              radius={geofence.radius} 
+              onChange={(lat, lng) => setGeofence({ ...geofence, lat, lng })}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Latitude</label>
+              <input 
+                type="number" 
+                step="any"
+                className="form-input" 
+                value={geofence.lat} 
+                onChange={(e) => setGeofence({ ...geofence, lat: parseFloat(e.target.value) || 0 })}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: theme === 'light' ? '#fcfcfc' : '#1e293b', color: theme === 'light' ? '#1e293b' : '#f1f5f9' }} 
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Longitude</label>
+              <input 
+                type="number" 
+                step="any"
+                className="form-input" 
+                value={geofence.lng} 
+                onChange={(e) => setGeofence({ ...geofence, lng: parseFloat(e.target.value) || 0 })}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: theme === 'light' ? '#fcfcfc' : '#1e293b', color: theme === 'light' ? '#1e293b' : '#f1f5f9' }} 
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Radius (m)</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                value={geofence.radius} 
+                onChange={(e) => setGeofence({ ...geofence, radius: parseInt(e.target.value) || 0 })}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: theme === 'light' ? '#fcfcfc' : '#1e293b', color: theme === 'light' ? '#1e293b' : '#f1f5f9' }} 
+              />
+            </div>
+          </div>
+
+          <button 
+            className="btn btn-primary" 
+            onClick={saveGeofence}
+            disabled={geofenceStatus === 'saving'}
+            style={{ 
+              width: '100%', 
+              padding: '1rem', 
+              fontWeight: 800, 
+              borderRadius: '12px',
+              background: geofenceStatus === 'success' ? '#16a34a' : 'var(--primary)',
+              color: 'white'
+            }}
+          >
+            {geofenceStatus === 'saving' ? 'Saving...' : 
+             geofenceStatus === 'success' ? '✓ Saved Successfully' : 
+             'Save Geofence Settings'}
+          </button>
         </section>
 
         {/* Reports Card */}

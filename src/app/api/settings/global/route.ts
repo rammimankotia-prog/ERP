@@ -17,7 +17,8 @@ export async function GET() {
       : { 
           geminiKey: "", 
           model: "gemini-1.5-flash", 
-          slabs: { silver: 5, gold: 10, platinum: 15 } 
+          slabs: { silver: 5, gold: 10, platinum: 15 },
+          geofence: { enabled: false, lat: 28.6432, lng: 77.2131, radius: 100 }
         };
     
     return NextResponse.json(config);

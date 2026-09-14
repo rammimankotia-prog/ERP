@@ -24,6 +24,59 @@ export default function KioskPage() {
   const [guardLoginError, setGuardLoginError] = useState('');
   const [guardLoginLoading, setGuardLoginLoading] = useState(false);
   const [guardRememberMe, setGuardRememberMe] = useState(true);
+  const [geofence, setGeofence] = useState<{enabled: boolean, lat: number, lng: number, radius: number} | null>(null);
+
+  useEffect(() => {
+    fetch('/api/settings/global')
+      .then(res => res.json())
+      .then(data => {
+        if (data.geofence) setGeofence(data.geofence);
+      })
+      .catch(console.error);
+  }, []);
+
+  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3; // metres
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δφ = (lat2-lat1) * Math.PI/180;
+    const Δλ = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const verifyLocation = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!geofence || !geofence.enabled) {
+        return resolve(true);
+      }
+      
+      if (!navigator.geolocation) {
+        setGuardLoginError('Geolocation is not supported by your browser.');
+        return resolve(false);
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const distance = getDistance(position.coords.latitude, position.coords.longitude, geofence.lat, geofence.lng);
+          if (distance <= geofence.radius) {
+            resolve(true);
+          } else {
+            setGuardLoginError(`Access Denied: You are ${Math.round(distance)}m away from the authorized premises.`);
+            resolve(false);
+          }
+        },
+        (error) => {
+          setGuardLoginError('Access Denied: Please allow location permissions to log in.');
+          resolve(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+  };
 
   const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +181,12 @@ export default function KioskPage() {
     e.preventDefault();
     setGuardLoginError('');
     setGuardLoginLoading(true);
+
+    const isLocationValid = await verifyLocation();
+    if (!isLocationValid) {
+      setGuardLoginLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch('/api/auth/login', {
