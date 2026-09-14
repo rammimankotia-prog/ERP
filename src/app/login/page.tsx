@@ -215,7 +215,7 @@ export default function LoginPage() {
           >
             <span className="lp-mode-icon">👤</span>
             <div className="lp-mode-text">
-              <span className="lp-mode-title">Staff Login</span>
+              <span className="lp-mode-title">Staff login</span>
               <span className="lp-mode-hint">Punch In / Out your attendance</span>
             </div>
           </button>
@@ -226,7 +226,7 @@ export default function LoginPage() {
           >
             <span className="lp-mode-icon">🛡️</span>
             <div className="lp-mode-text">
-              <span className="lp-mode-title">Security Login</span>
+              <span className="lp-mode-title">Security login</span>
               <span className="lp-mode-hint">Manage employee attendance</span>
             </div>
           </button>
@@ -240,7 +240,7 @@ export default function LoginPage() {
                 <span>⚡</span>
                 <span>STAFF ATTENDANCE PORTAL</span>
               </div>
-              <h1 className="lp-title">Staff Login</h1>
+              <h1 className="lp-title">Staff login</h1>
               <p className="lp-subtitle">
                 Login with your Staff ID and password to punch in or out.
                 Your location will be verified via geo-fencing.
@@ -338,7 +338,7 @@ export default function LoginPage() {
                 <span>🛡️</span>
                 <span>SECURITY GUARD PORTAL</span>
               </div>
-              <h1 className="lp-title">Security Login</h1>
+              <h1 className="lp-title">Security login</h1>
               <p className="lp-subtitle">
                 Login with your Security Guard credentials to access the full kiosk terminal and manage employee check-ins.
               </p>
