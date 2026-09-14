@@ -85,16 +85,26 @@ export default function LoginPage() {
   const [secError, setSecError] = useState('');
   const [secLoading, setSecLoading] = useState(false);
 
-  // Redirect ?mode=admin links to the proper admin portal
+  // Redirect ?mode=admin links to the proper admin portal; default to Staff Login
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const m = params.get('mode') || params.get('type') || params.get('role') || params.get('tab');
       if (m === 'admin' || m === 'manager') {
         router.replace('/admin/login');
+      } else if (m === 'security' || m === 'guard') {
+        setMode('security');
+      } else {
+        setMode('staff');
       }
     }
   }, [router]);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = mode === 'security' ? 'Security Login | Godwin Hotels' : 'Staff Login | Godwin Hotels';
+    }
+  }, [mode]);
 
 
 

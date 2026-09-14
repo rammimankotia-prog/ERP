@@ -153,8 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         cleanPath.startsWith('/hr') ||
         cleanPath.startsWith('/users') ||
         cleanPath.startsWith('/settings') ||
-        cleanPath.startsWith('/operations') ||
-        cleanPath === '/'
+        cleanPath.startsWith('/operations')
       ) {
         return '/admin/login';
       }
