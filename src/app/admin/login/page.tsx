@@ -20,8 +20,22 @@ export default function AdminLoginPage() {
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [deactivatedAlert, setDeactivatedAlert] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('deactivated') === 'true') {
+        setDeactivatedAlert(true);
+        try {
+          localStorage.removeItem('GODWIN_LOGGED_IN_USER');
+          sessionStorage.removeItem('GODWIN_LOGGED_IN_USER');
+          localStorage.removeItem('kiosk_employee');
+          document.cookie = 'GODWIN_LOGGED_IN_USER=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        } catch {}
+        return;
+      }
+    }
     if (user) router.replace('/');
   }, [user, router]);
 
@@ -105,6 +119,34 @@ export default function AdminLoginPage() {
               : 'Enter your registered email to receive password recovery instructions.'}
           </p>
         </div>
+
+        {/* Deactivated Notice Banner */}
+        {deactivatedAlert && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1.5px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: 14,
+            padding: '1rem 1.15rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.85rem',
+            color: '#ef4444',
+            fontSize: '0.88rem',
+            lineHeight: 1.45,
+            boxShadow: '0 4px 16px rgba(239,68,68,0.12)'
+          }}>
+            <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>🚫</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.2rem', color: '#dc2626' }}>
+                Account Deactivated
+              </div>
+              <div style={{ opacity: 0.95 }}>
+                Your account has been deactivated. You have been automatically logged out from all platforms, devices, and sessions. Please contact Master Admin.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="al-tabs">

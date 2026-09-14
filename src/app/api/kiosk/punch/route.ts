@@ -145,7 +145,28 @@ export async function POST(req: NextRequest) {
     const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
     const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId)
     const normalizedEmpId = emp ? (emp.employeeId || emp.id) : employeeId
-    const employeeName = emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : normalizedEmpId
+    const employeeName = emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : (body.employeeName || normalizedEmpId)
+    // Check if employee has been deactivated
+    if (emp && emp.status && emp.status !== 'ACTIVE') {
+      return NextResponse.json(
+        { error: 'Your account has been deactivated. You have been logged out from all platforms.', deactivated: true },
+        { status: 403 }
+      )
+    }
+
+    // Check revoked sessions
+    const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+    const LOCAL_REVOKED_FILE = path.join(process.cwd(), 'data', 'revoked_sessions.json')
+    const revoked = readJson<any[]>(REVOKED_FILE, LOCAL_REVOKED_FILE, [])
+    const isRevoked = revoked.some((r: any) => 
+      r.userId === employeeId || r.employeeId === employeeId || (emp && (r.employeeId === emp.id || r.employeeId === emp.employeeId))
+    )
+    if (isRevoked) {
+      return NextResponse.json(
+        { error: 'Your account has been deactivated. You have been logged out from all platforms.', deactivated: true },
+        { status: 403 }
+      )
+    }
 
     // Extract client IP and user agent
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '127.0.0.1'

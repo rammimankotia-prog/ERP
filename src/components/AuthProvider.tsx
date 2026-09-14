@@ -215,6 +215,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               localStorage.removeItem('kiosk_employee');
             } catch {}
             if (!isPublic) redirectToLogin();
+          } else if (event.data?.type === 'FORCE_LOGOUT_USER') {
+            const tId = event.data.targetId;
+            const tEmail = event.data.targetEmail?.toLowerCase();
+            const tUser = event.data.targetUsername?.toLowerCase();
+            const currentSaved = localStorage.getItem('GODWIN_LOGGED_IN_USER') || sessionStorage.getItem('GODWIN_LOGGED_IN_USER');
+            let currentUser: any = user;
+            if (!currentUser && currentSaved) {
+              try { currentUser = JSON.parse(currentSaved); } catch {}
+            }
+            if (
+              currentUser && 
+              (currentUser.id === tId || 
+               (currentUser.email && currentUser.email.toLowerCase() === tEmail) || 
+               (currentUser.username && currentUser.username.toLowerCase() === tUser))
+            ) {
+              setUser(null);
+              try {
+                sessionStorage.clear();
+                localStorage.removeItem('GODWIN_LOGGED_IN_USER');
+                localStorage.removeItem('kiosk_employee');
+                localStorage.setItem('GODWIN_LOGGED_OUT', 'true');
+                document.cookie = 'GODWIN_LOGGED_IN_USER=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+              } catch {}
+              if (typeof window !== 'undefined') {
+                window.location.href = '/admin/login?deactivated=true';
+              }
+            }
           } else if (event.data?.type === 'LOGIN' && event.data?.user) {
             setUser(event.data.user);
           }
@@ -222,10 +249,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
 
-    // 3. Native window 'storage' event listener (fires in all other windows/tabs of this browser)
+    // 3. Real-time active status verification across the platform
+    const verifyUserActiveStatus = async () => {
+      const currentSaved = localStorage.getItem('GODWIN_LOGGED_IN_USER') || sessionStorage.getItem('GODWIN_LOGGED_IN_USER');
+      if (!currentSaved) return;
+      try {
+        const u = JSON.parse(currentSaved);
+        if (!u?.id) return;
+        const res = await fetch(
+          `/api/auth/session-check?userId=${encodeURIComponent(u.id)}&email=${encodeURIComponent(u.email || '')}&username=${encodeURIComponent(u.username || '')}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.active === false) {
+            setUser(null);
+            try {
+              sessionStorage.clear();
+              localStorage.removeItem('GODWIN_LOGGED_IN_USER');
+              localStorage.removeItem('kiosk_employee');
+              localStorage.setItem('GODWIN_LOGGED_OUT', 'true');
+              document.cookie = 'GODWIN_LOGGED_IN_USER=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+            } catch {}
+            if (typeof window !== 'undefined') {
+              window.location.href = '/admin/login?deactivated=true';
+            }
+          }
+        }
+      } catch {}
+    };
+
+    // Check immediately on route change & on window focus
+    verifyUserActiveStatus();
+    const handleFocus = () => verifyUserActiveStatus();
+    window.addEventListener('focus', handleFocus);
+
+    // Periodic heartbeat every 10 seconds
+    const statusTimer = setInterval(verifyUserActiveStatus, 10000);
+
+    // 4. Native window 'storage' event listener (fires in all other windows/tabs of this browser)
     const handleStorageChange = (e: StorageEvent) => {
-      // If logout event triggered in another window/tab
-      if (e.key === 'GODWIN_LOGOUT_EVENT' || e.key === 'GODWIN_LOGGED_OUT') {
+      if (e.key === 'GODWIN_DEACTIVATED_USER' && e.newValue) {
+        try {
+          const target = JSON.parse(e.newValue);
+          const currentSaved = localStorage.getItem('GODWIN_LOGGED_IN_USER') || sessionStorage.getItem('GODWIN_LOGGED_IN_USER');
+          if (currentSaved) {
+            const u = JSON.parse(currentSaved);
+            if (u.id === target.id || u.email?.toLowerCase() === target.email?.toLowerCase() || u.username?.toLowerCase() === target.username?.toLowerCase()) {
+              setUser(null);
+              sessionStorage.clear();
+              localStorage.removeItem('GODWIN_LOGGED_IN_USER');
+              localStorage.removeItem('kiosk_employee');
+              localStorage.setItem('GODWIN_LOGGED_OUT', 'true');
+              window.location.href = '/admin/login?deactivated=true';
+            }
+          }
+        } catch {}
+      } else if (e.key === 'GODWIN_LOGOUT_EVENT' || e.key === 'GODWIN_LOGGED_OUT') {
         setUser(null);
         try {
           sessionStorage.clear();
@@ -235,11 +314,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!isPublic) redirectToLogin();
       } else if (e.key === 'GODWIN_LOGGED_IN_USER') {
         if (!e.newValue) {
-          // User was logged out in another tab
           setUser(null);
           if (!isPublic) redirectToLogin();
         } else {
-          // User logged in in another tab
           try {
             const parsed = JSON.parse(e.newValue);
             if (parsed && parsed.username) {
@@ -254,6 +331,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(statusTimer);
       if (bc) {
         try { bc.close(); } catch {}
       }

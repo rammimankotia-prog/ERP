@@ -177,6 +177,37 @@ export default function EditEmployeeForm({
       // 3. Server Action call
       await updateEmployee(employee.id, updatePayload)
 
+      // 4. If status is deactivated, force instant logout across platforms
+      if (status !== 'ACTIVE') {
+        try {
+          await fetch('/api/auth/deactivate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              employeeId: employee.id,
+              username: employee.employeeId,
+              email: employee.contactNo || (employee as any).email,
+              reason: 'Employee set to inactive in Edit form',
+            }),
+          })
+          const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+          channel.postMessage({
+            type: 'FORCE_LOGOUT_USER',
+            payload: { employeeId: employee.id, username: employee.employeeId, email: employee.contactNo || (employee as any).email },
+          })
+          channel.close()
+          localStorage.setItem(
+            'GODWIN_DEACTIVATED_USER',
+            JSON.stringify({
+              employeeId: employee.id,
+              username: employee.employeeId,
+              email: employee.contactNo || (employee as any).email,
+              timestamp: Date.now(),
+            })
+          )
+        } catch {}
+      }
+
       setCurrentStatus(status)
       setSuccess('Employee details updated successfully and locked!')
       setTimeout(() => {
@@ -196,6 +227,35 @@ export default function EditEmployeeForm({
     try {
       const res = await toggleEmployeeStatus(employee.id, newStatus as any)
       if (res.success) {
+        if (newStatus === 'RESIGNED') {
+          try {
+            await fetch('/api/auth/deactivate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                employeeId: employee.id,
+                username: employee.employeeId,
+                email: employee.contactNo || (employee as any).email,
+                reason: 'Employee deactivated via quick status toggle',
+              }),
+            })
+            const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+            channel.postMessage({
+              type: 'FORCE_LOGOUT_USER',
+              payload: { employeeId: employee.id, username: employee.employeeId, email: employee.contactNo || (employee as any).email },
+            })
+            channel.close()
+            localStorage.setItem(
+              'GODWIN_DEACTIVATED_USER',
+              JSON.stringify({
+                employeeId: employee.id,
+                username: employee.employeeId,
+                email: employee.contactNo || (employee as any).email,
+                timestamp: Date.now(),
+              })
+            )
+          } catch {}
+        }
         setCurrentStatus(newStatus)
         setSuccess(`Status changed to ${newStatus === 'ACTIVE' ? 'Active' : 'Deactivated'}`)
         setTimeout(() => setSuccess(null), 3000)
@@ -210,6 +270,26 @@ export default function EditEmployeeForm({
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
+      // Trigger deactivation & force logout
+      try {
+        await fetch('/api/auth/deactivate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employeeId: employee.id,
+            username: employee.employeeId,
+            email: employee.contactNo || (employee as any).email,
+            reason: 'Employee deleted',
+          }),
+        })
+        const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+        channel.postMessage({
+          type: 'FORCE_LOGOUT_USER',
+          payload: { employeeId: employee.id, username: employee.employeeId, email: employee.contactNo || (employee as any).email },
+        })
+        channel.close()
+      } catch {}
+
       const res = await deleteEmployee(employee.id)
       if (res.success) {
         router.push('/hr/employees')

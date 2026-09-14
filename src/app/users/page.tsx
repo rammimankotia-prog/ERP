@@ -236,6 +236,32 @@ export default function UsersManagementPage() {
       });
       const data = await res.json();
       if (!res.ok) { setFormError(data.error || 'Something went wrong.'); return; }
+
+      // If user was set to Inactive, ensure instant deactivation and logout across platforms
+      if (editingUser && formData.status === 'Inactive') {
+        try {
+          await fetch('/api/auth/deactivate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: editingUser.id,
+              email: editingUser.email,
+              username: editingUser.username,
+              reason: 'User marked Inactive in User Access settings',
+            }),
+          });
+          const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL');
+          channel.postMessage({
+            type: 'FORCE_LOGOUT_USER',
+            payload: { userId: editingUser.id, email: editingUser.email, username: editingUser.username },
+          });
+          channel.close();
+          localStorage.setItem('GODWIN_DEACTIVATED_USER', JSON.stringify({
+            userId: editingUser.id, email: editingUser.email, username: editingUser.username, timestamp: Date.now()
+          }));
+        } catch (e) {}
+      }
+
       setFormSuccess(editingUser ? 'User updated successfully!' : 'User created successfully!');
       fetchUsers();
       setTimeout(() => setShowModal(false), 800);
@@ -246,8 +272,96 @@ export default function UsersManagementPage() {
     }
   };
 
+  const handleToggleUserStatus = async (u: User) => {
+    if (u.id === 'admin-001' || u.role === 'Master Admin') {
+      alert('Master Admin cannot be deactivated.');
+      return;
+    }
+    const isActivating = u.status !== 'Active';
+    const confirmMsg = isActivating
+      ? `Activate user "${u.name}"? They will regain access to log in.`
+      : `⚠️ Deactivate user "${u.name}"?\n\nThis will IMMEDIATELY log out the user from all platforms (Admin ERP, Kiosk, Staff Portal) and all devices.`;
+    if (!confirm(confirmMsg)) return;
+
+    if (!isActivating) {
+      // Deactivating
+      try {
+        await fetch('/api/auth/deactivate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: u.id,
+            email: u.email,
+            username: u.username,
+            reason: 'Deactivated by Admin from User Access',
+          }),
+        });
+      } catch (err) {
+        console.error('Deactivate API error:', err);
+      }
+
+      // Broadcast force logout to all open tabs / windows
+      try {
+        const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL');
+        channel.postMessage({
+          type: 'FORCE_LOGOUT_USER',
+          payload: { userId: u.id, email: u.email, username: u.username },
+        });
+        channel.close();
+      } catch {}
+
+      try {
+        localStorage.setItem(
+          'GODWIN_DEACTIVATED_USER',
+          JSON.stringify({ userId: u.id, email: u.email, username: u.username, timestamp: Date.now() })
+        );
+      } catch {}
+
+      // Update local state immediately
+      setUsers(prev => prev.map(item => (item.id === u.id ? { ...item, status: 'Inactive' } : item)));
+      alert(`User "${u.name}" deactivated and logged out from all platforms.`);
+    } else {
+      // Activating
+      try {
+        const res = await fetch('/api/auth/users', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: u.id, status: 'Active' }),
+        });
+        if (res.ok) {
+          setUsers(prev => prev.map(item => (item.id === u.id ? { ...item, status: 'Active' } : item)));
+        } else {
+          alert('Failed to activate user.');
+        }
+      } catch {
+        alert('Network error while activating user.');
+      }
+    }
+  };
+
   const handleDelete = async (u: User) => {
     if (!confirm(`Delete user "${u.name}"? This cannot be undone.`)) return;
+
+    // Trigger deactivation/logout as well
+    try {
+      await fetch('/api/auth/deactivate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: u.id,
+          email: u.email,
+          username: u.username,
+          reason: 'User deleted from User Access',
+        }),
+      });
+      const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL');
+      channel.postMessage({
+        type: 'FORCE_LOGOUT_USER',
+        payload: { userId: u.id, email: u.email, username: u.username },
+      });
+      channel.close();
+    } catch {}
+
     const res = await fetch(`/api/auth/users?id=${u.id}`, { method: 'DELETE' });
     const data = await res.json();
     if (res.ok) { fetchUsers(); } else { alert(data.error || 'Failed to delete.'); }
@@ -435,6 +549,24 @@ export default function UsersManagementPage() {
                               padding: '0.4rem 0.9rem', borderRadius: 8, border: `1.5px solid ${isLight ? '#e2e8f0' : '#334155'}`,
                               background: 'transparent', color: isLight ? '#2563eb' : '#93c5fd', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
                             }}>Edit</button>
+                          )}
+                          {isMasterAdmin && !isMaster && (
+                            <button
+                              onClick={() => handleToggleUserStatus(u)}
+                              style={{
+                                padding: '0.4rem 0.9rem',
+                                borderRadius: 8,
+                                border: u.status === 'Active' ? '1.5px solid rgba(245,158,11,0.4)' : '1.5px solid rgba(16,185,129,0.4)',
+                                background: u.status === 'Active' ? 'rgba(245,158,11,0.08)' : 'rgba(16,185,129,0.08)',
+                                color: u.status === 'Active' ? '#d97706' : '#10b981',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                              }}
+                              title={u.status === 'Active' ? 'Deactivate user and log out from all platforms' : 'Activate user account'}
+                            >
+                              {u.status === 'Active' ? '⏸ Deactivate' : '▶ Activate'}
+                            </button>
                           )}
                           {isMasterAdmin && !isMaster && (
                             <button onClick={() => handleDelete(u)} style={{

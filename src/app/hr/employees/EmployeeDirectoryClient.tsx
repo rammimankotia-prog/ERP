@@ -253,6 +253,37 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       await updateEmployee(editingEmp.id, editForm)
     } catch {}
 
+    // 5. If status is deactivated, trigger instant logout across platforms
+    if (editForm.status !== 'ACTIVE') {
+      try {
+        await fetch('/api/auth/deactivate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employeeId: editingEmp.id,
+            username: editingEmp.employeeId,
+            email: editingEmp.contactNo || (editingEmp as any).email,
+            reason: 'Deactivated via quick edit in HR directory',
+          }),
+        })
+        const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+        channel.postMessage({
+          type: 'FORCE_LOGOUT_USER',
+          payload: { employeeId: editingEmp.id, username: editingEmp.employeeId, email: editingEmp.contactNo || (editingEmp as any).email },
+        })
+        channel.close()
+        localStorage.setItem(
+          'GODWIN_DEACTIVATED_USER',
+          JSON.stringify({
+            employeeId: editingEmp.id,
+            username: editingEmp.employeeId,
+            email: editingEmp.contactNo || (editingEmp as any).email,
+            timestamp: Date.now(),
+          })
+        )
+      } catch {}
+    }
+
     showToast(`${editForm.firstName} ${editForm.lastName} details updated and saved!`, 'success')
     setIsSavingEdit(false)
     setEditingEmp(null)
@@ -309,6 +340,36 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     try {
       const res = await toggleEmployeeStatus(emp.id, newStatus as any)
       if (res.success) {
+        if (newStatus === 'RESIGNED') {
+          // Instant deactivation & force logout across all platforms
+          try {
+            await fetch('/api/auth/deactivate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                employeeId: emp.id,
+                username: emp.employeeId,
+                email: emp.contactNo || (emp as any).email,
+                reason: 'Deactivated via status toggle in HR directory',
+              }),
+            })
+            const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+            channel.postMessage({
+              type: 'FORCE_LOGOUT_USER',
+              payload: { employeeId: emp.id, username: emp.employeeId, email: emp.contactNo || (emp as any).email },
+            })
+            channel.close()
+            localStorage.setItem(
+              'GODWIN_DEACTIVATED_USER',
+              JSON.stringify({
+                employeeId: emp.id,
+                username: emp.employeeId,
+                email: emp.contactNo || (emp as any).email,
+                timestamp: Date.now(),
+              })
+            )
+          } catch {}
+        }
         showToast(
           `${emp.firstName} ${emp.lastName} is now ${newStatus === 'ACTIVE' ? 'Active' : 'Deactivated'}`,
           'success'
@@ -333,6 +394,26 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     const target = deleteTarget
     setActionLoadingId(target.id)
     setDeleteTarget(null)
+
+    // Trigger deactivation / logout immediately
+    try {
+      await fetch('/api/auth/deactivate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: target.id,
+          username: target.employeeId,
+          email: target.contactNo || (target as any).email,
+          reason: 'Employee deleted',
+        }),
+      })
+      const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+      channel.postMessage({
+        type: 'FORCE_LOGOUT_USER',
+        payload: { employeeId: target.id, username: target.employeeId, email: target.contactNo || (target as any).email },
+      })
+      channel.close()
+    } catch {}
 
     // Optimistic remove
     setEmployees((prev) => prev.filter((item) => item.id !== target.id))

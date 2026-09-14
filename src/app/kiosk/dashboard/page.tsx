@@ -93,11 +93,41 @@ export default function KioskDashboard() {
       setEmployee(emp)
       checkStatus(emp.id)
       fetchNotifications(emp.id, emp.employeeId)
-      // Poll notifications every 15 seconds
+
+      // Real-time deactivation check
+      const verifyActive = async () => {
+        try {
+          const res = await fetch(`/api/auth/session-check?employeeId=${encodeURIComponent(emp.id)}&email=${encodeURIComponent(emp.email || '')}`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data.active === false) {
+              setEmployee(null)
+              try {
+                localStorage.removeItem('kiosk_employee')
+                sessionStorage.removeItem('kiosk_employee')
+                localStorage.removeItem('GODWIN_REMEMBER_30DAYS')
+                document.cookie = 'kiosk_employee=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+              } catch {}
+              window.location.href = '/login?deactivated=true'
+            }
+          }
+        } catch {}
+      }
+
+      verifyActive()
+      const focusHandler = () => verifyActive()
+      window.addEventListener('focus', focusHandler)
+
+      // Poll notifications and check active status every 10-15 seconds
       const notifTimer = setInterval(() => {
         fetchNotifications(emp.id, emp.employeeId)
-      }, 15000)
-      return () => clearInterval(notifTimer)
+        verifyActive()
+      }, 10000)
+
+      return () => {
+        clearInterval(notifTimer)
+        window.removeEventListener('focus', focusHandler)
+      }
     } catch {
       router.push('/login')
       return
@@ -113,8 +143,36 @@ export default function KioskDashboard() {
         bc.onmessage = (event) => {
           if (event.data?.type === 'LOGOUT' || event.data?.type === 'KIOSK_LOGOUT') {
             setEmployee(null)
-            try { localStorage.removeItem('kiosk_employee') } catch {}
+            try { 
+              localStorage.removeItem('kiosk_employee')
+              sessionStorage.removeItem('kiosk_employee')
+            } catch {}
             router.push('/login?mode=employee')
+          } else if (event.data?.type === 'FORCE_LOGOUT_USER') {
+            const tId = event.data.targetId
+            const tEmail = event.data.targetEmail?.toLowerCase()
+            const tUser = event.data.targetUsername?.toLowerCase()
+            const currentSaved = localStorage.getItem('kiosk_employee') || sessionStorage.getItem('kiosk_employee')
+            let curEmp: any = employee
+            if (!curEmp && currentSaved) {
+              try { curEmp = JSON.parse(currentSaved); } catch {}
+            }
+            if (
+              curEmp &&
+              (curEmp.id === tId ||
+               curEmp.employeeId === tId ||
+               (curEmp.email && curEmp.email.toLowerCase() === tEmail) ||
+               (curEmp.employeeId && curEmp.employeeId.toLowerCase() === tUser))
+            ) {
+              setEmployee(null)
+              try {
+                localStorage.removeItem('kiosk_employee')
+                sessionStorage.removeItem('kiosk_employee')
+                localStorage.removeItem('GODWIN_REMEMBER_30DAYS')
+                document.cookie = 'kiosk_employee=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+              } catch {}
+              window.location.href = '/login?deactivated=true'
+            }
           }
         }
       }
@@ -122,7 +180,22 @@ export default function KioskDashboard() {
 
     // Storage event listener for cross-window logout sync
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'GODWIN_LOGOUT_EVENT' || (e.key === 'kiosk_employee' && !e.newValue)) {
+      if (e.key === 'GODWIN_DEACTIVATED_USER' && e.newValue) {
+        try {
+          const target = JSON.parse(e.newValue)
+          const currentSaved = localStorage.getItem('kiosk_employee') || sessionStorage.getItem('kiosk_employee')
+          if (currentSaved) {
+            const cur = JSON.parse(currentSaved)
+            if (cur.id === target.id || cur.employeeId === target.id || (cur.email && cur.email.toLowerCase() === target.email?.toLowerCase())) {
+              setEmployee(null)
+              localStorage.removeItem('kiosk_employee')
+              sessionStorage.removeItem('kiosk_employee')
+              localStorage.removeItem('GODWIN_REMEMBER_30DAYS')
+              window.location.href = '/login?deactivated=true'
+            }
+          }
+        } catch {}
+      } else if (e.key === 'GODWIN_LOGOUT_EVENT' || (e.key === 'kiosk_employee' && !e.newValue)) {
         setEmployee(null)
         router.push('/login?mode=employee')
       }
@@ -135,7 +208,7 @@ export default function KioskDashboard() {
         try { bc.close() } catch {}
       }
     }
-  }, [router])
+  }, [router, employee])
 
   // Live clock
   useEffect(() => {

@@ -100,11 +100,15 @@ export default function LoginPage() {
   const [showSecPwd, setShowSecPwd] = useState(false);
   const [secError, setSecError] = useState('');
   const [secLoading, setSecLoading] = useState(false);
+  const [deactivatedAlert, setDeactivatedAlert] = useState(false);
 
   // Redirect ?mode=admin links to the proper admin portal; default to Staff Login
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
+      if (params.get('deactivated') === 'true') {
+        setDeactivatedAlert(true);
+      }
       const m = params.get('mode') || params.get('type') || params.get('role') || params.get('tab');
       if (m === 'admin' || m === 'manager') {
         router.replace('/admin/login');
@@ -126,6 +130,17 @@ export default function LoginPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+    if (params.get('deactivated') === 'true') {
+      try {
+        localStorage.removeItem('kiosk_employee');
+        localStorage.removeItem('GODWIN_REMEMBER_30DAYS');
+        localStorage.removeItem('GODWIN_LOGGED_IN_USER');
+        sessionStorage.removeItem('kiosk_employee');
+        document.cookie = 'kiosk_employee=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'GODWIN_LOGGED_IN_USER=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      } catch {}
+      return;
+    }
     if (params.get('logout') === 'true' || params.get('reauth') === 'true') {
       return;
     }
@@ -292,6 +307,34 @@ export default function LoginPage() {
             <div className="lp-brand-sub">Godwin Deluxe · Indian Grill · Cafe Brownie</div>
           </div>
         </div>
+
+        {/* Deactivated Notice Banner */}
+        {deactivatedAlert && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1.5px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: 14,
+            padding: '1rem 1.15rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.85rem',
+            color: '#ef4444',
+            fontSize: '0.88rem',
+            lineHeight: 1.45,
+            boxShadow: '0 4px 16px rgba(239,68,68,0.12)'
+          }}>
+            <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>🚫</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.2rem', color: '#dc2626' }}>
+                Account Deactivated
+              </div>
+              <div style={{ opacity: 0.95 }}>
+                Your account has been deactivated. You have been automatically logged out from all platforms, devices, and punch kiosks. Please contact hotel administration.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mode Switcher */}
         <div className="lp-mode-switcher">

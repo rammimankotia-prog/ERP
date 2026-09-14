@@ -474,6 +474,20 @@ export async function deleteEmployee(id: string): Promise<{ success: boolean; er
     writeJsonFile(LEAVE_FILE, cleanLeaves)
   } catch {}
 
+  // Revoke any active session immediately so deleted employee cannot perform punches or login
+  try {
+    const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+    const revoked = readJsonFile<any[]>(REVOKED_FILE, [])
+    revoked.push({
+      id,
+      employeeId: targetEmp?.employeeId || id,
+      email: targetEmp?.email || targetEmp?.contactNo || '',
+      reason: 'Employee deleted from system',
+      revokedAt: new Date().toISOString(),
+    })
+    writeJsonFile(REVOKED_FILE, revoked)
+  } catch {}
+
   revalidatePath('/hr/employees')
   return { success: true }
 }
@@ -501,7 +515,71 @@ export async function toggleEmployeeStatus(
     writeJsonFile(EMPLOYEES_FILE, fileEmployees)
   }
 
+  const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+  const USERS_FILE = path.join(DATA_DIR, 'users.json')
+
+  if (targetStatus !== 'ACTIVE') {
+    // 1. Write to revoked_sessions.json
+    try {
+      const revoked = readJsonFile<any[]>(REVOKED_FILE, [])
+      revoked.push({
+        id: emp?.id || id,
+        employeeId: emp?.employeeId || id,
+        email: emp?.email || emp?.contactNo || '',
+        reason: 'Employee marked inactive/resigned in HR directory',
+        revokedAt: new Date().toISOString()
+      })
+      writeJsonFile(REVOKED_FILE, revoked)
+    } catch {}
+
+    // 2. Mark Inactive in users.json
+    try {
+      const users = readJsonFile<any[]>(USERS_FILE, [])
+      let changed = false
+      users.forEach((u: any) => {
+        if (
+          u.id === id ||
+          (emp?.email && u.email?.toLowerCase() === emp.email.toLowerCase()) ||
+          (emp?.employeeId && u.username?.toLowerCase() === emp.employeeId.toLowerCase())
+        ) {
+          u.status = 'Inactive'
+          changed = true
+        }
+      })
+      if (changed) writeJsonFile(USERS_FILE, users)
+    } catch {}
+  } else {
+    // Reactivated to ACTIVE: Remove from revoked_sessions.json and set user status to Active
+    try {
+      const revoked = readJsonFile<any[]>(REVOKED_FILE, [])
+      const cleanRevoked = revoked.filter(
+        (r: any) =>
+          r.id !== id &&
+          r.employeeId !== id &&
+          (!emp || (r.employeeId !== emp.employeeId && (!emp.email || r.email !== emp.email)))
+      )
+      writeJsonFile(REVOKED_FILE, cleanRevoked)
+    } catch {}
+
+    try {
+      const users = readJsonFile<any[]>(USERS_FILE, [])
+      let changed = false
+      users.forEach((u: any) => {
+        if (
+          u.id === id ||
+          (emp?.email && u.email?.toLowerCase() === emp.email.toLowerCase()) ||
+          (emp?.employeeId && u.username?.toLowerCase() === emp.employeeId.toLowerCase())
+        ) {
+          u.status = 'Active'
+          changed = true
+        }
+      })
+      if (changed) writeJsonFile(USERS_FILE, users)
+    } catch {}
+  }
+
   revalidatePath('/hr/employees')
   revalidatePath(`/hr/employees/${id}`)
+  revalidatePath('/users')
   return { success: true, status: targetStatus }
 }

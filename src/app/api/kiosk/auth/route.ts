@@ -33,6 +33,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Employee ID or Email is required' }, { status: 400 })
     }
 
+    // Check revoked sessions
+    const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+    const LOCAL_REVOKED_FILE = path.join(process.cwd(), 'data', 'revoked_sessions.json')
+    const revoked = readJson<any[]>(REVOKED_FILE, LOCAL_REVOKED_FILE, [])
+    const isRevoked = revoked.some(r => {
+      const rMail = (r.email || '').trim().toLowerCase()
+      const rId = (r.id || '').trim().toLowerCase()
+      const rEmpId = (r.employeeId || '').trim().toLowerCase()
+      const rUsername = (r.username || '').trim().toLowerCase()
+      return rMail === identifier || rId === identifier || rEmpId === identifier || rUsername === identifier
+    })
+
+    if (isRevoked) {
+      return NextResponse.json({ error: 'Your account has been deactivated. You cannot log in. Please contact Admin.' }, { status: 403 })
+    }
+
     // First check system users (from User Access Management)
     const users = readJson<any[]>(USERS_FILE, LOCAL_USERS_FILE, [])
     const sysUser = users.find(u => {

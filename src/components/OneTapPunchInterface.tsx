@@ -193,6 +193,18 @@ export default function OneTapPunchInterface({
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.deactivated) {
+          try {
+            localStorage.removeItem('kiosk_employee');
+            sessionStorage.removeItem('kiosk_employee');
+            localStorage.removeItem('GODWIN_REMEMBER_30DAYS');
+            document.cookie = 'kiosk_employee=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+          } catch {}
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login?deactivated=true';
+            return;
+          }
+        }
         throw new Error(data.error || 'Failed to record punch');
       }
 
