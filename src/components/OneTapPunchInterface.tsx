@@ -40,7 +40,7 @@ export default function OneTapPunchInterface({
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
-  const [punchMode, setPunchMode] = useState<'KIOSK' | 'MOBILE_GEOFENCE'>(mode);
+  const [punchMode, setPunchMode] = useState<'KIOSK' | 'MOBILE_GEOFENCE'>(showLeaveAndHistory ? 'MOBILE_GEOFENCE' : mode);
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedOut, setCheckedOut] = useState(false);
@@ -161,10 +161,17 @@ export default function OneTapPunchInterface({
       } catch (geoErr: any) {
         setProcessing(false);
         setGeoLocating(false);
-        setErrorMsg(
-          geoErr.message ||
-            'Location permission is mandatory for mobile punch-in to verify you are on hotel premises. Please enable GPS.'
-        );
+        let msg = '📍 Please turn ON GPS / Location on your device to punch within 20m of hotel premises.';
+        if (geoErr?.code === 1) { // PERMISSION_DENIED
+          msg = '📍 Location Permission Denied: Please allow Location Access in your browser settings so we can verify you are within 20m of hotel premises.';
+        } else if (geoErr?.code === 2) { // POSITION_UNAVAILABLE
+          msg = '📍 Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
+        } else if (geoErr?.code === 3) { // TIMEOUT
+          msg = '📍 GPS Signal Timeout: Could not detect your location. Please ensure device GPS is turned ON and retry.';
+        } else if (geoErr?.message) {
+          msg = `📍 GPS Error: ${geoErr.message}. Please make sure device GPS / Location is turned ON.`;
+        }
+        setErrorMsg(msg);
         return;
       } finally {
         setGeoLocating(false);
@@ -733,7 +740,7 @@ export default function OneTapPunchInterface({
           }}
         >
           <span>📱</span>
-          <span>Option 2: Mobile (150m GPS Geo-Fence)</span>
+          <span>Option 2: Mobile (20m GPS Geo-Fence)</span>
         </button>
       </div>
 
@@ -749,7 +756,7 @@ export default function OneTapPunchInterface({
             textAlign: 'center',
           }}
         >
-          📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (150m boundary).
+          📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (20m in-premises boundary). Device GPS must be ON.
         </div>
       )}
 

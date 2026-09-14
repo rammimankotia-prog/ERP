@@ -1,4 +1,10 @@
 {
   "geminiKey": "AIzaSyDjlxp5DH9q0l_0DbLg_CRjjL-DRtwlFw0",
-  "model": "gemini-2.5-flash"
+  "model": "gemini-2.5-flash",
+  "geofence": {
+    "enabled": true,
+    "lat": 28.6448,
+    "lng": 77.2140,
+    "radius": 20
+  }
 }

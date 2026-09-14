@@ -9,12 +9,29 @@ const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
 const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees.json')
 const AUDIT_FILE = path.join(DATA_DIR, 'audit_trail.json')
 const LOCAL_AUDIT_FILE = path.join(process.cwd(), 'data', 'audit_trail.json')
+const CONFIG_FILE = path.join(DATA_DIR, 'global_config.json')
+const LOCAL_CONFIG_FILE = path.join(process.cwd(), 'data', 'global_config.json')
 
-// Hotel premises geo-coordinates for geofencing
-const HOTEL_LOCATIONS = [
-  { name: 'Hotel Grand Godwin', lat: 28.6448, lng: 77.2140, radiusMeters: 150 },
-  { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: 150 },
-]
+// Hotel premises geo-coordinates for geofencing (Default 20m in-premises)
+function getGeofenceConfig() {
+  const config = readJson<any>(CONFIG_FILE, LOCAL_CONFIG_FILE, {})
+  const radius = typeof config?.geofence?.radius === 'number' ? config.geofence.radius : 20
+  const enabled = config?.geofence?.enabled !== undefined ? config.geofence.enabled : true
+  
+  const locations = [
+    { name: 'Hotel Grand Godwin', lat: 28.6448, lng: 77.2140, radiusMeters: radius },
+    { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: radius },
+  ]
+  if (config?.geofence?.lat && config?.geofence?.lng) {
+    locations.push({
+      name: 'Configured Geofence Area',
+      lat: Number(config.geofence.lat),
+      lng: Number(config.geofence.lng),
+      radiusMeters: radius
+    })
+  }
+  return { enabled, radius, locations }
+}
 
 function getHaversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3 // Earth's radius in meters
@@ -137,56 +154,60 @@ export async function POST(req: NextRequest) {
     let minDistance = 0
     let nearestHotel = 'Hotel Grand Godwin'
 
-    // GEOFENCE VALIDATION for Mobile Punch
+    // GEOFENCE VALIDATION for Mobile Punch (Default 20m in-premises, applicable to all users)
     if (punchMode === 'MOBILE_GEOFENCE') {
-      if (typeof lat !== 'number' || typeof lng !== 'number') {
-        return NextResponse.json(
-          { error: 'GPS coordinates are mandatory for mobile punch-in. Please enable device location.' },
-          { status: 400 }
-        )
-      }
+      const { enabled: geofenceEnabled, locations: hotelLocations, radius: defaultRadius } = getGeofenceConfig()
 
-      // Calculate distance to both properties
-      const distances = HOTEL_LOCATIONS.map(loc => ({
-        name: loc.name,
-        distance: getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng),
-        radius: loc.radiusMeters,
-      }))
+      if (geofenceEnabled) {
+        if (typeof lat !== 'number' || typeof lng !== 'number') {
+          return NextResponse.json(
+            { error: '📍 GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within 20m of hotel premises.' },
+            { status: 400 }
+          )
+        }
 
-      const closest = distances.reduce((prev, curr) => (curr.distance < prev.distance ? curr : prev))
-      minDistance = closest.distance
-      nearestHotel = closest.name
+        // Calculate distance to both properties
+        const distances = hotelLocations.map(loc => ({
+          name: loc.name,
+          distance: getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng),
+          radius: loc.radiusMeters || defaultRadius || 20,
+        }))
 
-      // Check if within 150m boundary
-      if (closest.distance > closest.radius) {
-        // Log rejected attempt in audit
-        logAudit({
-          id: `audit-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          employeeId: normalizedEmpId,
-          employeeName,
-          action,
-          punchMode: 'MOBILE_GEOFENCE',
-          status: 'REJECTED_GEOFENCE',
-          lat,
-          lng,
-          distanceMeters: closest.distance,
-          nearestHotel: closest.name,
-          allowedRadius: closest.radius,
-          ip: clientIp,
-          userAgent,
-          note: `Rejected: ${closest.distance}m away (limit: ${closest.radius}m)`
-        })
+        const closest = distances.reduce((prev, curr) => (curr.distance < prev.distance ? curr : prev))
+        minDistance = closest.distance
+        nearestHotel = closest.name
 
-        return NextResponse.json(
-          {
-            error: `Outside hotel boundary! You are currently ${closest.distance}m away from ${closest.name}. Mobile punch-in is strictly restricted within ${closest.radius}m of hotel premises.`,
+        // Check if within 20m boundary
+        if (closest.distance > closest.radius) {
+          // Log rejected attempt in audit
+          logAudit({
+            id: `audit-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            employeeId: normalizedEmpId,
+            employeeName,
+            action,
+            punchMode: 'MOBILE_GEOFENCE',
+            status: 'REJECTED_GEOFENCE',
+            lat,
+            lng,
             distanceMeters: closest.distance,
+            nearestHotel: closest.name,
             allowedRadius: closest.radius,
-            nearestHotel: closest.name
-          },
-          { status: 403 }
-        )
+            ip: clientIp,
+            userAgent,
+            note: `Rejected: ${closest.distance}m away (20m premises limit: ${closest.radius}m)`
+          })
+
+          return NextResponse.json(
+            {
+              error: `📍 Outside hotel premises! You are currently ${closest.distance}m away from ${closest.name}. Punch-in is strictly restricted within ${closest.radius}m in premises. Please ensure you are physically inside the hotel premises.`,
+              distanceMeters: closest.distance,
+              allowedRadius: closest.radius,
+              nearestHotel: closest.name
+            },
+            { status: 403 }
+          )
+        }
       }
     }
 

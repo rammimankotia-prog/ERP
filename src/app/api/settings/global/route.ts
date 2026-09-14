@@ -12,14 +12,20 @@ if (!fs.existsSync(DATA_DIR)) {
 
 export async function GET() {
   try {
-    const config = fs.existsSync(CONFIG_FILE) 
+    const rawConfig = fs.existsSync(CONFIG_FILE) 
       ? JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"))
-      : { 
-          geminiKey: "", 
-          model: "gemini-1.5-flash", 
-          slabs: { silver: 5, gold: 10, platinum: 15 },
-          geofence: { enabled: false, lat: 28.6432, lng: 77.2131, radius: 100 }
-        };
+      : {};
+
+    const config = {
+      geminiKey: rawConfig.geminiKey || "",
+      model: rawConfig.model || "gemini-2.5-flash",
+      slabs: rawConfig.slabs || { silver: 5, gold: 10, platinum: 15 },
+      geofence: rawConfig.geofence || { enabled: true, lat: 28.6448, lng: 77.2140, radius: 20 }
+    };
+    
+    if (config.geofence && typeof config.geofence.radius !== 'number') {
+      config.geofence.radius = 20;
+    }
     
     return NextResponse.json(config);
   } catch (error) {

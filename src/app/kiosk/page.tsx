@@ -32,7 +32,14 @@ export default function KioskPage() {
     fetch('/api/settings/global')
       .then(res => res.json())
       .then(data => {
-        if (data.geofence) setGeofence(data.geofence);
+        if (data.geofence) {
+          setGeofence({
+            enabled: data.geofence.enabled !== undefined ? data.geofence.enabled : true,
+            lat: data.geofence.lat || 28.6448,
+            lng: data.geofence.lng || 77.2140,
+            radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 20,
+          });
+        }
       })
       .catch(console.error);
   }, []);
@@ -57,22 +64,31 @@ export default function KioskPage() {
       }
       
       if (!navigator.geolocation) {
-        setGuardLoginError('Geolocation is not supported by your browser.');
+        setGuardLoginError('📍 Geolocation is not supported by your browser. Please use a device with GPS support.');
         return resolve(false);
       }
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const distance = getDistance(position.coords.latitude, position.coords.longitude, geofence.lat, geofence.lng);
-          if (distance <= geofence.radius) {
+          const allowedRadius = geofence.radius || 20;
+          if (distance <= allowedRadius) {
             resolve(true);
           } else {
-            setGuardLoginError(`Access Denied: You are ${Math.round(distance)}m away from the authorized premises.`);
+            setGuardLoginError(`📍 Access Denied: You are ${Math.round(distance)}m away from hotel premises. Access is strictly restricted within ${allowedRadius}m in premises.`);
             resolve(false);
           }
         },
         (error) => {
-          setGuardLoginError('Access Denied: Please allow location permissions to log in.');
+          let err = '📍 Device GPS is OFF or Location Permission Needed! Please turn ON GPS / Location on your device to log into the terminal within 20m of hotel premises.';
+          if (error.code === 1) { // PERMISSION_DENIED
+            err = '📍 Location Permission Denied: Please allow location access in your browser settings so we can verify you are within 20m of hotel premises.';
+          } else if (error.code === 2) { // POSITION_UNAVAILABLE
+            err = '📍 Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
+          } else if (error.code === 3) { // TIMEOUT
+            err = '📍 GPS Signal Timeout: Could not detect your location. Please ensure device GPS is turned ON and retry.';
+          }
+          setGuardLoginError(err);
           resolve(false);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }

@@ -31,8 +31,8 @@ export default function SettingsPage() {
   const [isScanning, setIsScanning] = useState(false);
 
 
-  // Geofence Config
-  const [geofence, setGeofence] = useState({ enabled: false, lat: 28.6432, lng: 77.2131, radius: 100 });
+  // Geofence Config (Default 20m in-premises, enabled for all users)
+  const [geofence, setGeofence] = useState({ enabled: true, lat: 28.6448, lng: 77.2140, radius: 20 });
   const [geofenceStatus, setGeofenceStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   useEffect(() => {
@@ -51,7 +51,14 @@ export default function SettingsPage() {
           }
         }
         if (data.geminiKey) setIsKeyActive(true);
-        if (data.geofence) setGeofence(data.geofence);
+        if (data.geofence) {
+          setGeofence({
+            enabled: data.geofence.enabled !== undefined ? data.geofence.enabled : true,
+            lat: data.geofence.lat || 28.6448,
+            lng: data.geofence.lng || 77.2140,
+            radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 20
+          });
+        }
       })
       .catch(err => console.error('Failed to load global config', err));
 
@@ -180,6 +187,227 @@ export default function SettingsPage() {
 
       <div className="grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '3rem' }}>
         
+        {/* Location & Geofencing (Primary - Top Section) */}
+        <section className="card" style={{ gridColumn: '1 / -1', background: theme === 'light' ? 'white' : '#0f172a', padding: '2.5rem', borderRadius: '2rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05)', border: theme === 'light' ? '2px solid #10b981' : '2px solid #059669' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ width: '52px', height: '52px', background: theme === 'light' ? '#ecfdf5' : 'rgba(16, 185, 129, 0.15)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.75rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>📍</div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 900, color: theme === 'light' ? '#0f172a' : '#f8fafc' }}>Location &amp; Geofencing</h3>
+                  <span style={{ 
+                    padding: '0.3rem 0.75rem', 
+                    borderRadius: '20px', 
+                    fontSize: '0.75rem', 
+                    fontWeight: 800,
+                    background: geofence.enabled ? '#ecfdf5' : '#f1f5f9',
+                    color: geofence.enabled ? '#059669' : '#64748b',
+                    border: geofence.enabled ? '1px solid #a7f3d0' : '1px solid #cbd5e1'
+                  }}>
+                    {geofence.enabled ? '● GEOFENCE ENFORCED' : '○ DISABLED'}
+                  </span>
+                  <span style={{ 
+                    padding: '0.3rem 0.75rem', 
+                    borderRadius: '20px', 
+                    fontSize: '0.75rem', 
+                    fontWeight: 800,
+                    background: '#eff6ff',
+                    color: '#2563eb',
+                    border: '1px solid #bfdbfe'
+                  }}>
+                    🎯 20M IN-PREMISES DEFAULT
+                  </span>
+                  <span style={{ 
+                    padding: '0.3rem 0.75rem', 
+                    borderRadius: '20px', 
+                    fontSize: '0.75rem', 
+                    fontWeight: 800,
+                    background: '#fef3c7',
+                    color: '#b45309',
+                    border: '1px solid #fde68a'
+                  }}>
+                    👥 ALL EMPLOYEES (EXISTING &amp; NEW)
+                  </span>
+                </div>
+                <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.9rem', color: theme === 'light' ? '#64748b' : '#94a3b8' }}>
+                  Strict 20-meter on-premises perimeter for hotel staff attendance &amp; kiosk punch. Device GPS must be ON.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: geofence.enabled ? '#059669' : '#94a3b8' }}>
+                {geofence.enabled ? 'Active (All Users)' : 'Disabled'}
+              </span>
+              <div 
+                onClick={() => setGeofence({ ...geofence, enabled: !geofence.enabled })}
+                style={{ 
+                  width: '52px', 
+                  height: '28px', 
+                  background: geofence.enabled ? '#10b981' : '#cbd5e1', 
+                  borderRadius: '14px', 
+                  position: 'relative', 
+                  cursor: 'pointer',
+                  transition: 'all 0.3s'
+                }}
+              >
+                <div style={{ 
+                  width: '22px', 
+                  height: '22px', 
+                  background: 'white', 
+                  borderRadius: '50%', 
+                  position: 'absolute', 
+                  top: '3px',
+                  left: geofence.enabled ? '27px' : '3px',
+                  transition: 'all 0.3s',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.15)'
+                }} />
+              </div>
+            </div>
+          </div>
+
+          {/* GPS Requirement Notice */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.75rem', 
+            background: theme === 'light' ? '#fffbeb' : 'rgba(245, 158, 11, 0.1)', 
+            border: '1px solid #fde68a', 
+            padding: '0.85rem 1.25rem', 
+            borderRadius: '12px', 
+            marginBottom: '1.5rem' 
+          }}>
+            <span style={{ fontSize: '1.25rem' }}>🛰️</span>
+            <span style={{ fontSize: '0.85rem', color: theme === 'light' ? '#92400e' : '#fcd34d', fontWeight: 600, lineHeight: 1.4 }}>
+              <strong>Automatic Device GPS Prompt:</strong> If a user’s phone GPS / Location is turned OFF or permission is not granted, the system automatically asks them: <em>&quot;Please turn ON GPS / Location on your device to punch within 20m of hotel premises.&quot;</em>
+            </span>
+          </div>
+
+          {/* Property Presets */}
+          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Quick Presets:</span>
+            <button
+              type="button"
+              onClick={() => setGeofence({ ...geofence, lat: 28.6448, lng: 77.2140, radius: 20 })}
+              style={{
+                padding: '0.45rem 0.9rem',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: geofence.lat === 28.6448 && geofence.lng === 77.2140 ? '#10b981' : theme === 'light' ? '#f8fafc' : '#1e293b',
+                color: geofence.lat === 28.6448 && geofence.lng === 77.2140 ? 'white' : theme === 'light' ? '#1e293b' : '#f1f5f9',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                cursor: 'pointer'
+              }}
+            >
+              🏨 Hotel Grand Godwin (20m)
+            </button>
+            <button
+              type="button"
+              onClick={() => setGeofence({ ...geofence, lat: 28.6445, lng: 77.2142, radius: 20 })}
+              style={{
+                padding: '0.45rem 0.9rem',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: geofence.lat === 28.6445 && geofence.lng === 77.2142 ? '#10b981' : theme === 'light' ? '#f8fafc' : '#1e293b',
+                color: geofence.lat === 28.6445 && geofence.lng === 77.2142 ? 'white' : theme === 'light' ? '#1e293b' : '#f1f5f9',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                cursor: 'pointer'
+              }}
+            >
+              🏨 Hotel Godwin Deluxe (20m)
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: 'auto' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>Radius:</span>
+              {[20, 30, 50].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setGeofence({ ...geofence, radius: r })}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    borderRadius: '6px',
+                    border: geofence.radius === r ? '2px solid #10b981' : '1px solid #cbd5e1',
+                    background: geofence.radius === r ? '#ecfdf5' : 'transparent',
+                    color: geofence.radius === r ? '#059669' : '#64748b',
+                    fontWeight: 800,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {r}m{r === 20 ? ' (Default)' : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <GeofenceMap 
+              lat={geofence.lat} 
+              lng={geofence.lng} 
+              radius={geofence.radius} 
+              onChange={(lat, lng) => setGeofence({ ...geofence, lat, lng })}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Latitude</label>
+              <input 
+                type="number" 
+                step="any"
+                className="form-input" 
+                value={geofence.lat} 
+                onChange={(e) => setGeofence({ ...geofence, lat: parseFloat(e.target.value) || 0 })}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: theme === 'light' ? '#fcfcfc' : '#1e293b', color: theme === 'light' ? '#1e293b' : '#f1f5f9' }} 
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Longitude</label>
+              <input 
+                type="number" 
+                step="any"
+                className="form-input" 
+                value={geofence.lng} 
+                onChange={(e) => setGeofence({ ...geofence, lng: parseFloat(e.target.value) || 0 })}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: theme === 'light' ? '#fcfcfc' : '#1e293b', color: theme === 'light' ? '#1e293b' : '#f1f5f9' }} 
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Radius (Meters) - Default 20m</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                value={geofence.radius} 
+                onChange={(e) => setGeofence({ ...geofence, radius: parseInt(e.target.value) || 20 })}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '2px solid #10b981', background: theme === 'light' ? '#fcfcfc' : '#1e293b', color: theme === 'light' ? '#1e293b' : '#f1f5f9', fontWeight: 700 }} 
+              />
+            </div>
+          </div>
+
+          <button 
+            className="btn btn-primary" 
+            onClick={saveGeofence}
+            disabled={geofenceStatus === 'saving'}
+            style={{ 
+              width: '100%', 
+              padding: '1rem', 
+              fontWeight: 800, 
+              borderRadius: '12px',
+              background: geofenceStatus === 'success' ? '#16a34a' : 'var(--primary)',
+              color: 'white',
+              fontSize: '1rem',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
+              cursor: 'pointer'
+            }}
+          >
+            {geofenceStatus === 'saving' ? 'Saving 20m Geofence...' : 
+             geofenceStatus === 'success' ? '✓ Geofence Settings Saved Successfully (Active for All Users)' : 
+             'Save Geofence Settings (Enforce 20m for All Users)'}
+          </button>
+        </section>
+
         {/* User Management & Security Portal Card */}
         <section className="card" style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '2.5rem', borderRadius: '2rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05)', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
@@ -423,108 +651,6 @@ export default function SettingsPage() {
               </p>
             </div>
           )}
-        </section>
-
-
-
-        {/* Location & Geofencing */}
-        <section className="card" style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '2.5rem', borderRadius: '2rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05)', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ width: '48px', height: '48px', background: theme === 'light' ? '#ecfdf5' : 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>📍</div>
-              <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: theme === 'light' ? '#1e293b' : '#f1f5f9' }}>Location &amp; Geofencing</h3>
-            </div>
-            <div 
-              onClick={() => setGeofence({ ...geofence, enabled: !geofence.enabled })}
-              style={{ 
-                width: '50px', 
-                height: '26px', 
-                background: geofence.enabled ? '#10b981' : '#cbd5e1', 
-                borderRadius: '13px', 
-                position: 'relative', 
-                cursor: 'pointer',
-                transition: 'all 0.3s'
-              }}
-            >
-              <div style={{ 
-                width: '20px', 
-                height: '20px', 
-                background: 'white', 
-                borderRadius: '50%', 
-                position: 'absolute', 
-                top: '3px',
-                left: geofence.enabled ? '27px' : '3px',
-                transition: 'all 0.3s',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-              }} />
-            </div>
-          </div>
-
-          <p style={{ fontSize: '0.95rem', color: theme === 'light' ? '#64748b' : '#94a3b8', marginBottom: '1.5rem', lineHeight: '1.6' }}>
-            Restrict Employee Check-In and Security Kiosk Access to this physical perimeter. Click on the map to drop a pin.
-          </p>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-            <GeofenceMap 
-              lat={geofence.lat} 
-              lng={geofence.lng} 
-              radius={geofence.radius} 
-              onChange={(lat, lng) => setGeofence({ ...geofence, lat, lng })}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Latitude</label>
-              <input 
-                type="number" 
-                step="any"
-                className="form-input" 
-                value={geofence.lat} 
-                onChange={(e) => setGeofence({ ...geofence, lat: parseFloat(e.target.value) || 0 })}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: theme === 'light' ? '#fcfcfc' : '#1e293b', color: theme === 'light' ? '#1e293b' : '#f1f5f9' }} 
-              />
-            </div>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Longitude</label>
-              <input 
-                type="number" 
-                step="any"
-                className="form-input" 
-                value={geofence.lng} 
-                onChange={(e) => setGeofence({ ...geofence, lng: parseFloat(e.target.value) || 0 })}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: theme === 'light' ? '#fcfcfc' : '#1e293b', color: theme === 'light' ? '#1e293b' : '#f1f5f9' }} 
-              />
-            </div>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Radius (m)</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={geofence.radius} 
-                onChange={(e) => setGeofence({ ...geofence, radius: parseInt(e.target.value) || 0 })}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: theme === 'light' ? '#fcfcfc' : '#1e293b', color: theme === 'light' ? '#1e293b' : '#f1f5f9' }} 
-              />
-            </div>
-          </div>
-
-          <button 
-            className="btn btn-primary" 
-            onClick={saveGeofence}
-            disabled={geofenceStatus === 'saving'}
-            style={{ 
-              width: '100%', 
-              padding: '1rem', 
-              fontWeight: 800, 
-              borderRadius: '12px',
-              background: geofenceStatus === 'success' ? '#16a34a' : 'var(--primary)',
-              color: 'white'
-            }}
-          >
-            {geofenceStatus === 'saving' ? 'Saving...' : 
-             geofenceStatus === 'success' ? '✓ Saved Successfully' : 
-             'Save Geofence Settings'}
-          </button>
         </section>
 
 
