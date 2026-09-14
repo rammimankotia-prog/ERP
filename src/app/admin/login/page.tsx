@@ -37,10 +37,7 @@ export default function AdminLoginPage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        login(data.user);
-        if (!rememberMe) {
-          sessionStorage.setItem('GODWIN_LOGGED_IN_USER', JSON.stringify(data.user));
-        }
+        login(data.user, rememberMe);
         router.push('/');
       } else {
         setError(data.error || 'Invalid credentials. Please check your username and password.');

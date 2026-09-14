@@ -23,6 +23,7 @@ export default function KioskPage() {
   const [guardLoginPass, setGuardLoginPass] = useState('');
   const [guardLoginError, setGuardLoginError] = useState('');
   const [guardLoginLoading, setGuardLoginLoading] = useState(false);
+  const [guardRememberMe, setGuardRememberMe] = useState(true);
 
   const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,7 +153,7 @@ export default function KioskPage() {
         throw new Error('Access restricted: Only Security Guard, Manager, or Admin accounts can unlock this Kiosk Terminal.');
       }
 
-      login(data.user);
+      login(data.user, guardRememberMe);
     } catch (err: any) {
       setGuardLoginError(err.message || 'Failed to authenticate guard');
     } finally {
@@ -444,6 +445,18 @@ export default function KioskPage() {
                   />
                 </div>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.82rem', marginTop: '0.2rem' }}>
+                  <input
+                    type="checkbox"
+                    id="remGuardKiosk"
+                    checked={guardRememberMe}
+                    onChange={e => setGuardRememberMe(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--primary)' }}
+                  />
+                  <label htmlFor="remGuardKiosk" style={{ color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
+                    Remember session for 30 days
+                  </label>
+                </div>
                 <button
                   type="submit"
                   disabled={guardLoginLoading}

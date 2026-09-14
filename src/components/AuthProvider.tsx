@@ -43,7 +43,7 @@ export const MASTER_ADMIN_PERMISSIONS: UserPermissions = {
 
 interface AuthContextType {
   user: User | null;
-  login: (user: User) => void;
+  login: (user: User, rememberMe?: boolean) => void;
   logout: () => void;
   hasPermission: (module: string, action?: string) => boolean;
   isMasterAdmin: boolean;
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   // Login function
-  const login = useCallback((newUser: User) => {
+  const login = useCallback((newUser: User, rememberMe: boolean = true) => {
     const userWithPerms = newUser.id === 'admin-001' || newUser.role === 'Master Admin'
       ? { ...newUser, permissions: MASTER_ADMIN_PERMISSIONS }
       : newUser;
@@ -116,7 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       localStorage.removeItem('GODWIN_LOGGED_OUT');
-      localStorage.setItem('GODWIN_LOGGED_IN_USER', JSON.stringify(userWithPerms));
+      if (rememberMe) {
+        localStorage.setItem('GODWIN_LOGGED_IN_USER', JSON.stringify(userWithPerms));
+      } else {
+        sessionStorage.setItem('GODWIN_LOGGED_IN_USER', JSON.stringify(userWithPerms));
+      }
       localStorage.setItem('GODWIN_LOGIN_EVENT', Date.now().toString());
 
       // Broadcast login to all other open tabs/windows

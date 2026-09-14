@@ -30,7 +30,7 @@ export default function KioskDashboard() {
 
   // Load employee and check status with multi-window synchronization
   useEffect(() => {
-    const saved = localStorage.getItem('kiosk_employee')
+    const saved = localStorage.getItem('kiosk_employee') || sessionStorage.getItem('kiosk_employee')
     if (!saved) {
       router.push('/login?mode=employee')
       return

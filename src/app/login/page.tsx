@@ -11,6 +11,7 @@ export default function LoginPage() {
   const { user, login } = useAuth();
 
   const [mode, setMode] = useState<LoginMode>('staff');
+  const [rememberMe, setRememberMe] = useState(true);
 
   // Staff Login
   const [staffId, setStaffId] = useState('');
@@ -52,7 +53,12 @@ export default function LoginPage() {
       const data = await res.json();
       if (res.ok && data.success && data.employee) {
         // Save employee session
-        localStorage.setItem('kiosk_employee', JSON.stringify({ ...data.employee, loginRole: 'staff' }));
+        const payload = JSON.stringify({ ...data.employee, loginRole: 'staff' });
+        if (rememberMe) {
+          localStorage.setItem('kiosk_employee', payload);
+        } else {
+          sessionStorage.setItem('kiosk_employee', payload);
+        }
         router.push('/kiosk/dashboard');
       } else {
         setStaffError(data.error || 'Invalid Staff ID or Password. Please try again.');
@@ -86,7 +92,12 @@ export default function LoginPage() {
           return;
         }
         // Save security session and redirect to full kiosk
-        localStorage.setItem('kiosk_employee', JSON.stringify({ ...data.employee, loginRole: 'security' }));
+        const payload = JSON.stringify({ ...data.employee, loginRole: 'security' });
+        if (rememberMe) {
+          localStorage.setItem('kiosk_employee', payload);
+        } else {
+          sessionStorage.setItem('kiosk_employee', payload);
+        }
         router.push('/kiosk');
       } else {
         setSecError(data.error || 'Invalid Guard ID or Password. Please try again.');
@@ -213,6 +224,19 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              <div className="lp-remember" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.82rem', marginTop: '-0.25rem' }}>
+                <input
+                  type="checkbox"
+                  id="remStaff"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  style={{ width: '17px', height: '17px', cursor: 'pointer', accentColor: '#10b981', flexShrink: 0 }}
+                />
+                <label htmlFor="remStaff" style={{ color: '#94a3b8', cursor: 'pointer', fontWeight: 600 }}>
+                  Remember session for 30 days
+                </label>
+              </div>
+
               {/* Geo-fencing notice */}
               <div className="lp-geo-notice">
                 <span>📍</span>
@@ -295,6 +319,19 @@ export default function LoginPage() {
                     {showSecPwd ? '🙈' : '👁️'}
                   </button>
                 </div>
+              </div>
+
+              <div className="lp-remember" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.82rem', marginTop: '-0.25rem' }}>
+                <input
+                  type="checkbox"
+                  id="remSec"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  style={{ width: '17px', height: '17px', cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }}
+                />
+                <label htmlFor="remSec" style={{ color: '#94a3b8', cursor: 'pointer', fontWeight: 600 }}>
+                  Remember session for 30 days
+                </label>
               </div>
 
               {/* Kiosk access info */}
