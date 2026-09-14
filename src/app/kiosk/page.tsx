@@ -662,6 +662,7 @@ export default function KioskPage() {
             <OneTapPunchInterface
               employee={selectedEmployee}
               mode="KIOSK"
+              showLeaveAndHistory={false}
               onBack={() => {
                 setSelectedEmployee(null);
                 fetchEmployees();

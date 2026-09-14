@@ -203,6 +203,7 @@ export default function KioskDashboard() {
           <OneTapPunchInterface
             employee={employee}
             onBack={handleLogout}
+            showLeaveAndHistory={true}
             onSuccess={() => {
               setHasPunchedIn(true);
             }}

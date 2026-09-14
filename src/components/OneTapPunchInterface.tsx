@@ -26,6 +26,7 @@ interface Props {
   onSuccess?: () => void;
   autoResetSeconds?: number;
   mode?: 'KIOSK' | 'MOBILE_GEOFENCE';
+  showLeaveAndHistory?: boolean;
 }
 
 export default function OneTapPunchInterface({
@@ -34,6 +35,7 @@ export default function OneTapPunchInterface({
   onSuccess,
   autoResetSeconds = 3,
   mode = 'KIOSK',
+  showLeaveAndHistory = false,
 }: Props) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
@@ -923,47 +925,49 @@ export default function OneTapPunchInterface({
         </button>
       </div>
 
-      {/* Secondary Actions */}
-      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          onClick={() => setShowLeaveModal(true)}
-          style={{
-            padding: '0.75rem 1.5rem',
-            borderRadius: '12px',
-            border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
-            background: 'transparent',
-            color: 'var(--text-main)',
-            fontWeight: 700,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            transition: 'all 0.15s'
-          }}
-        >
-          <span>🌴</span> Request Leave
-        </button>
-        <button
-          type="button"
-          onClick={handleFetchHistory}
-          style={{
-            padding: '0.75rem 1.5rem',
-            borderRadius: '12px',
-            border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
-            background: 'transparent',
-            color: 'var(--text-main)',
-            fontWeight: 700,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            transition: 'all 0.15s'
-          }}
-        >
-          <span>📅</span> My Attendance
-        </button>
-      </div>
+      {/* Secondary Actions (Request Leave & My Attendance) - ONLY for self-service staff logged in with email & password */}
+      {showLeaveAndHistory && (
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setShowLeaveModal(true)}
+            style={{
+              padding: '0.75rem 1.5rem',
+              borderRadius: '12px',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+              background: 'transparent',
+              color: 'var(--text-main)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.15s'
+            }}
+          >
+            <span>🌴</span> Request Leave
+          </button>
+          <button
+            type="button"
+            onClick={handleFetchHistory}
+            style={{
+              padding: '0.75rem 1.5rem',
+              borderRadius: '12px',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+              background: 'transparent',
+              color: 'var(--text-main)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.15s'
+            }}
+          >
+            <span>📅</span> My Attendance
+          </button>
+        </div>
+      )}
 
       {/* Footer Instructions / Switch button */}
       <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
@@ -973,7 +977,7 @@ export default function OneTapPunchInterface({
       </div>
 
       {/* Leave Request Modal */}
-      {showLeaveModal && (
+      {showLeaveAndHistory && showLeaveModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
           <div style={{ background: isLight ? '#fff' : '#1e293b', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
             <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--text-main)', fontSize: '1.25rem' }}>Submit Leave Request</h3>
@@ -1018,7 +1022,7 @@ export default function OneTapPunchInterface({
       )}
 
       {/* History Modal */}
-      {showHistoryModal && (
+      {showLeaveAndHistory && showHistoryModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
           <div style={{ background: isLight ? '#fff' : '#1e293b', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '700px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
