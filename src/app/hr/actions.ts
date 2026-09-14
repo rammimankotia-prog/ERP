@@ -206,6 +206,7 @@ export async function createEmployee(data: {
   gender?: string
   emergencyContact?: string
   address?: string
+  offDays?: string[]
 }) {
   const branches = await getBranches()
   const departments = await getDepartments()
@@ -249,6 +250,10 @@ export async function createEmployee(data: {
     assignedRole = 'Manager'
   }
 
+  const configuredOffDays = Array.isArray(data.offDays) && data.offDays.length > 0
+    ? data.offDays
+    : ['Sunday']
+
   const newRecord = {
     id: newId,
     employeeId,
@@ -262,6 +267,7 @@ export async function createEmployee(data: {
     designation: data.designation,
     morningTime: data.morningTime || '09:00',
     eveningTime: data.eveningTime || '18:00',
+    offDays: configuredOffDays,
     doj: data.doj instanceof Date ? data.doj.toISOString() : data.doj,
     dob: data.dob instanceof Date ? data.dob.toISOString() : data.dob,
     employmentType: data.employmentType || 'PERMANENT',
@@ -278,7 +284,7 @@ export async function createEmployee(data: {
 
   // 3. Try DB persistence
   try {
-    const { password: _p, ...prismaData } = data
+    const { password: _p, offDays: _od, ...prismaData } = data
     const created = await prisma.employee.create({
       data: {
         ...prismaData,
@@ -367,9 +373,10 @@ export async function updateEmployee(id: string, data: any) {
 
   // Try DB update
   try {
+    const { offDays: _od, ...prismaData } = cleanData
     await prisma.employee.update({
       where: { id },
-      data: cleanData
+      data: prismaData
     })
   } catch (e) {
     console.warn("Prisma DB not available. Successfully updated in persistent JSON storage.")

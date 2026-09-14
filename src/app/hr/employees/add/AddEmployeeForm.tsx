@@ -38,6 +38,17 @@ export default function AddEmployeeForm({
   const [manualPassword, setManualPassword] = useState('')
   const [createdResult, setCreatedResult] = useState<any | null>(null)
   const [copied, setCopied] = useState(false)
+  const [offDays, setOffDays] = useState<string[]>(['Sunday'])
+
+  const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+  const toggleOffDay = (day: string) => {
+    setOffDays(prev =>
+      prev.includes(day)
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    )
+  }
 
   const selectedBranch = branches.find((b) => b.id === selectedBranchId)
 
@@ -88,6 +99,7 @@ export default function AddEmployeeForm({
         gender: (formData.get('gender') as string) || 'Male',
         emergencyContact: (formData.get('emergencyContact') as string) || undefined,
         address: (formData.get('address') as string) || undefined,
+        offDays: offDays.length > 0 ? offDays : ['Sunday'],
       })
 
       setCreatedResult(res)
@@ -1209,6 +1221,68 @@ export default function AddEmployeeForm({
             </div>
           </div>
         )}
+
+        {/* Weekly Off Days Selection */}
+        <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', margin: 0 }}>
+                🏖️ Weekly Off Days (साप्ताहिक अवकाश)
+              </label>
+              <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Sunday is selected by default. Tick additional or alternate days off if this employee has other weekly off days. Roster will follow this schedule.
+              </p>
+            </div>
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)', background: 'rgba(37,99,235,0.1)', padding: '3px 9px', borderRadius: '6px' }}>
+              {offDays.length} Off Day{offDays.length !== 1 ? 's' : ''} Configured
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginTop: '0.75rem' }}>
+            {DAYS_OF_WEEK.map(day => {
+              const isChecked = offDays.includes(day)
+              const isDefaultSunday = day === 'Sunday'
+              return (
+                <label
+                  key={day}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    border: isChecked
+                      ? (isDefaultSunday ? '2px solid #ef4444' : '2px solid var(--primary)')
+                      : '1px solid var(--border)',
+                    backgroundColor: isChecked
+                      ? (isDefaultSunday ? 'rgba(239, 68, 68, 0.08)' : 'rgba(37, 99, 235, 0.08)')
+                      : 'var(--bg-main)',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleOffDay(day)}
+                    style={{ width: '16px', height: '16px', accentColor: isDefaultSunday ? '#ef4444' : 'var(--primary)', cursor: 'pointer' }}
+                  />
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isChecked ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                      {day}
+                    </div>
+                    {isDefaultSunday && (
+                      <div style={{ fontSize: '0.65rem', color: '#ef4444', fontWeight: 600 }}>
+                        Default Off
+                      </div>
+                    )}
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Action Buttons */}

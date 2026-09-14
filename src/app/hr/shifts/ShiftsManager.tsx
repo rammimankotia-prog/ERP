@@ -30,6 +30,7 @@ export type EmployeeItem = {
   designation: string
   branch: string
   dept: string
+  offDays?: string[]
 }
 
 export const DEFAULT_ROSTER_EMPLOYEES: EmployeeItem[] = []
@@ -39,6 +40,8 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
+const WEEK_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
 // Generate realistic monthly roster pattern for any staff list
 function generateInitialMonthlyRoster(year: number, month: number, employees: EmployeeItem[] = DEFAULT_ROSTER_EMPLOYEES) {
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -46,6 +49,7 @@ function generateInitialMonthlyRoster(year: number, month: number, employees: Em
 
   employees.forEach(emp => {
     res[emp.id] = {}
+    const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
     const isSecurity = emp.dept.toLowerCase().includes('security') || emp.designation.toLowerCase().includes('security')
     const isHousekeeping = emp.dept.toLowerCase().includes('housekeeping')
     const isCafe = emp.branch.toLowerCase().includes('cafe') || emp.dept.toLowerCase().includes('beverage')
@@ -53,30 +57,28 @@ function generateInitialMonthlyRoster(year: number, month: number, employees: Em
     for (let day = 1; day <= daysInMonth; day++) {
       const d = new Date(year, month, day)
       const dayOfWeek = d.getDay() // 0 = Sun, 6 = Sat
+      const dayName = WEEK_DAY_NAMES[dayOfWeek]
+      const isConfiguredOff = empOffDays.some(od => od.toLowerCase() === dayName.toLowerCase())
 
-      if (isSecurity) {
-        res[emp.id][day] = (dayOfWeek === 4) ? 'OFF' : (day % 2 === 0 ? 'Night Shift' : 'Morning Shift')
+      if (isConfiguredOff) {
+        res[emp.id][day] = 'OFF'
+      } else if (isSecurity) {
+        res[emp.id][day] = day % 2 === 0 ? 'Night Shift' : 'Morning Shift'
       } else if (isCafe) {
-        if (dayOfWeek === 1) res[emp.id][day] = 'OFF'
-        else if (day % 3 === 0) res[emp.id][day] = 'Break Shift'
-        else res[emp.id][day] = 'Morning Shift'
+        res[emp.id][day] = day % 3 === 0 ? 'Break Shift' : 'Morning Shift'
       } else if (isHousekeeping) {
-        if (dayOfWeek === 0) res[emp.id][day] = 'OFF'
-        else if (dayOfWeek === 5 || dayOfWeek === 6) res[emp.id][day] = 'Night Shift'
-        else res[emp.id][day] = 'Morning Shift'
-      } else if (emp.code === 'GG-1001') {
-        res[emp.id][day] = dayOfWeek === 0 ? 'OFF' : 'Morning Shift'
-      } else if (emp.code === 'GG-1002') {
-        if (dayOfWeek === 0) res[emp.id][day] = 'OFF'
-        else if (dayOfWeek === 3 || dayOfWeek === 4) res[emp.id][day] = 'Break Shift'
-        else res[emp.id][day] = 'Morning Shift'
+        res[emp.id][day] = (dayOfWeek === 5 || dayOfWeek === 6) ? 'Night Shift' : 'Morning Shift'
       } else {
-        res[emp.id][day] = dayOfWeek === 0 ? 'OFF' : 'Morning Shift'
+        res[emp.id][day] = 'Morning Shift'
       }
     }
   })
 
   return res
+}
+
+const SHORT_TO_FULL_DAYS: Record<string, string> = {
+  'Sun': 'Sunday', 'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday', 'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday'
 }
 
 // Generate weekly roster for all staff
@@ -86,21 +88,25 @@ function generateInitialWeeklyRoster(employees: EmployeeItem[] = DEFAULT_ROSTER_
 
   employees.forEach(emp => {
     res[emp.id] = {}
+    const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
     const isSecurity = emp.dept.toLowerCase().includes('security') || emp.designation.toLowerCase().includes('security')
     const isHousekeeping = emp.dept.toLowerCase().includes('housekeeping')
     const isCafe = emp.branch.toLowerCase().includes('cafe') || emp.dept.toLowerCase().includes('beverage')
 
     days.forEach((day, idx) => {
-      if (isSecurity) {
-        res[emp.id][day] = day === 'Thu' ? 'OFF' : (idx % 2 === 0 ? 'Night Shift' : 'Morning Shift')
+      const fullDayName = SHORT_TO_FULL_DAYS[day] || day
+      const isConfiguredOff = empOffDays.some(od => od.toLowerCase() === fullDayName.toLowerCase())
+
+      if (isConfiguredOff) {
+        res[emp.id][day] = 'OFF'
+      } else if (isSecurity) {
+        res[emp.id][day] = idx % 2 === 0 ? 'Night Shift' : 'Morning Shift'
       } else if (isCafe) {
-        res[emp.id][day] = day === 'Mon' ? 'OFF' : (day === 'Fri' || day === 'Sat' ? 'Break Shift' : 'Morning Shift')
+        res[emp.id][day] = (day === 'Fri' || day === 'Sat') ? 'Break Shift' : 'Morning Shift'
       } else if (isHousekeeping) {
-        res[emp.id][day] = day === 'Sun' ? 'OFF' : (day === 'Fri' || day === 'Sat' ? 'Night Shift' : 'Morning Shift')
-      } else if (emp.code === 'GG-1002') {
-        res[emp.id][day] = day === 'Sun' ? 'OFF' : (day === 'Wed' || day === 'Thu' ? 'Break Shift' : 'Morning Shift')
+        res[emp.id][day] = (day === 'Fri' || day === 'Sat') ? 'Night Shift' : 'Morning Shift'
       } else {
-        res[emp.id][day] = day === 'Sun' ? 'OFF' : 'Morning Shift'
+        res[emp.id][day] = 'Morning Shift'
       }
     })
   })
@@ -209,6 +215,7 @@ export default function ShiftsManager() {
             designation: e.designation || 'Staff',
             branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
             dept: e.department?.name || e.department || e.dept || 'Front Office',
+            offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
           }))
         setEmployeesList(mapped)
         if (mapped.length > 0) {

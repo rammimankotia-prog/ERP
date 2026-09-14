@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { useTheme } from '@/components/ThemeProvider';
 import { useAuth } from '@/components/AuthProvider';
 import OneTapPunchInterface, { EmployeeInfo } from '@/components/OneTapPunchInterface';
+import GuardAttendanceSheet from './GuardAttendanceSheet';
 
 export default function KioskPage() {
   const { theme, toggleTheme } = useTheme();
   const isLight = theme === 'light';
   const { user, login, logout } = useAuth();
+  const [kioskTab, setKioskTab] = useState<'punch' | 'sheet'>('punch');
 
   const isGuardAuthenticated = !!(
     user &&
@@ -397,6 +399,93 @@ export default function KioskPage() {
         </div>
       </header>
 
+      {/* Security Guard Mode Switcher Tabs */}
+      {isGuardAuthenticated && (
+        <div
+          style={{
+            width: '100%',
+            background: isLight ? '#ffffff' : '#1e293b',
+            borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+            padding: '0.65rem 1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setKioskTab('punch');
+                setSelectedEmployee(null);
+              }}
+              style={{
+                padding: '0.55rem 1.15rem',
+                borderRadius: '10px',
+                border: kioskTab === 'punch' ? '2px solid var(--primary)' : (isLight ? '1px solid #cbd5e1' : '1px solid #475569'),
+                background: kioskTab === 'punch' ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
+                color: kioskTab === 'punch' ? 'var(--primary)' : 'var(--text-muted)',
+                fontWeight: 800,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span>📇</span>
+              <span>Punch Station (Terminal)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setKioskTab('sheet');
+                setSelectedEmployee(null);
+              }}
+              style={{
+                padding: '0.55rem 1.15rem',
+                borderRadius: '10px',
+                border: kioskTab === 'sheet' ? '2px solid #d97706' : (isLight ? '1px solid #cbd5e1' : '1px solid #475569'),
+                background: kioskTab === 'sheet' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                color: kioskTab === 'sheet' ? '#d97706' : 'var(--text-muted)',
+                fontWeight: 800,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span>📋</span>
+              <span>Staff Attendance Sheet (Till Today)</span>
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  background: '#f59e0b',
+                  color: '#ffffff',
+                  fontWeight: 900,
+                }}
+              >
+                SHIFT MGR
+              </span>
+            </button>
+          </div>
+
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+            {kioskTab === 'sheet'
+              ? '🔒 Shift Manager Mode: Real-time Attendance up to Today (Future dates hidden)'
+              : '⚡ One-Tap Mode: Fast Check-In / Check-Out'}
+          </div>
+        </div>
+      )}
+
       {/* Main Container */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {!isGuardAuthenticated ? (
@@ -537,6 +626,33 @@ export default function KioskPage() {
                 </button>
               </form>
             </div>
+          </div>
+        ) : kioskTab === 'sheet' ? (
+          /* ========================================================================= */
+          /* STAGE 3: SHIFT MANAGER ATTENDANCE SHEET (TILL TODAY ONLY)                */
+          /* ========================================================================= */
+          <div
+            className="page-container"
+            style={{
+              maxWidth: '1400px',
+              width: '100%',
+              paddingTop: '1.5rem',
+              paddingBottom: '2.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem',
+            }}
+          >
+            <GuardAttendanceSheet
+              isLight={isLight}
+              onPunchEmployee={(empId) => {
+                const emp = employees.find(e => e.id === empId || e.employeeId === empId);
+                if (emp) {
+                  setSelectedEmployee(emp);
+                  setKioskTab('punch');
+                }
+              }}
+            />
           </div>
         ) : selectedEmployee ? (
           /* ========================================================================= */

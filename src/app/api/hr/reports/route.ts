@@ -132,7 +132,11 @@ export async function GET(req: NextRequest) {
       const dayName = daysOfWeekNames[dayIndex]
       const isSunday = dayIndex === 0
       const isSaturday = dayIndex === 6
-      const isWeekend = isSunday || isSaturday
+      const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0
+        ? emp.offDays
+        : ['Sunday']
+      const isOffDay = empOffDays.some((od: string) => od.toLowerCase() === dayName.toLowerCase())
+      const isWeekend = isSunday || isSaturday || isOffDay
 
       // Check real approved leave
       const approvedLeave = allLeaves.find(l =>
@@ -235,7 +239,7 @@ export async function GET(req: NextRequest) {
           status,
           remarks: isLate ? `Late arrival by ${lateMins}m` : (otMins > 0 ? `Overtime +${otMins}m` : 'Present')
         }
-      } else if (isSunday && !(emp.designation || '').toLowerCase().includes('security')) {
+      } else if (isOffDay) {
         record = {
           id: `rec-${emp.employeeId || emp.id}-${dateStr}`,
           date: dateStr,
