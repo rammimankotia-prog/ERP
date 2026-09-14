@@ -91,6 +91,23 @@ export default function AddEmployeeForm({
       })
 
       setCreatedResult(res)
+
+      // Automatically sync new employee to localStorage to prevent data loss on refresh
+      try {
+        const LOCAL_STORAGE_KEY = 'godwin_erp_employees_cache'
+        const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
+        let cache = []
+        if (cachedStr) {
+          try { cache = JSON.parse(cachedStr) } catch {}
+        }
+        if (!Array.isArray(cache)) cache = []
+        cache.push(res)
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache))
+        window.dispatchEvent(new Event('godwin-employees-updated'))
+      } catch (e) {
+        // ignore
+      }
+
     } catch (err: any) {
       setError(err.message || 'Failed to create employee record')
     } finally {

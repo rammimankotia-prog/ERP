@@ -7,19 +7,6 @@ import { toggleEmployeeStatus, deleteEmployee, updateEmployee } from '../actions
 
 const LOCAL_STORAGE_KEY = 'godwin_erp_employees_cache'
 
-// Known dummy/seed employee IDs to permanently purge from localStorage
-const DUMMY_EMPLOYEE_IDS = new Set([
-  'emp-gg-1001', 'emp-gg-1002', 'emp-gd-1001',
-  'GG-1001', 'GG-1002', 'GD-1001',
-])
-
-// Only checks the employee's own id/employeeId — NOT branchId
-function isPurgeableEmployee(emp: any): boolean {
-  return (
-    DUMMY_EMPLOYEE_IDS.has(emp?.id) ||
-    DUMMY_EMPLOYEE_IDS.has(emp?.employeeId)
-  )
-}
 
 
 interface Branch {
@@ -88,18 +75,14 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     try {
       const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
       if (!cachedStr) {
-        return incomingList.filter(e => !isPurgeableEmployee(e))
+        return incomingList
       }
       const rawCache: any[] = JSON.parse(cachedStr)
-      if (!Array.isArray(rawCache)) return incomingList.filter(e => !isPurgeableEmployee(e))
+      if (!Array.isArray(rawCache)) return incomingList
 
-      // Purge any legacy dummy/mock entries permanently from client localStorage
-      const cache = rawCache.filter((c: any) => !isPurgeableEmployee(c))
-      if (cache.length !== rawCache.length) {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache))
-      }
+      const cache = rawCache
 
-      const cleanIncoming = incomingList.filter(e => !isPurgeableEmployee(e))
+      const cleanIncoming = incomingList
 
       const merged = cleanIncoming.map(serverEmp => {
         const cachedEmp = cache.find((c: any) => c.id === serverEmp.id || c.employeeId === serverEmp.employeeId)
@@ -112,9 +95,16 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
         return serverEmp
       })
 
-      return merged
+      // Also include employees that are ONLY in local storage and not in incomingList
+      // This prevents data from disappearing on refresh if the server/JSON loses data
+      const incomingIds = new Set(cleanIncoming.map(e => e.id))
+      const incomingEmpIds = new Set(cleanIncoming.map(e => e.employeeId))
+      
+      const localOnly = cache.filter((c: any) => !incomingIds.has(c.id) && !incomingEmpIds.has(c.employeeId))
+
+      return [...merged, ...localOnly]
     } catch {
-      return incomingList.filter(e => !isPurgeableEmployee(e))
+      return incomingList
     }
   }, [])
 
