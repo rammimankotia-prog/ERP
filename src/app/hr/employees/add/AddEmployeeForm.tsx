@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createEmployee } from '../../actions'
 import { EmploymentType, EmployeeStatus } from '@prisma/client'
 
 interface Branch {
@@ -85,28 +84,39 @@ export default function AddEmployeeForm({
         throw new Error('Please fill in all required fields.')
       }
 
-      const res = await createEmployee({
-        firstName,
-        lastName,
-        email,
-        password,
-        contactNo,
-        branchId,
-        departmentId,
-        designation,
-        morningTime: (formData.get('morningTime') as string) || '09:00',
-        eveningTime: (formData.get('eveningTime') as string) || '18:00',
-        doj: dojStr ? new Date(dojStr) : new Date(),
-        dob: dobStr ? new Date(dobStr) : undefined,
-        employmentType: (formData.get('employmentType') as EmploymentType) || 'PERMANENT',
-        status: (formData.get('status') as EmployeeStatus) || 'ACTIVE',
-        gender: (formData.get('gender') as string) || 'Male',
-        emergencyContact: (formData.get('emergencyContact') as string) || undefined,
-        address: (formData.get('address') as string) || undefined,
-        offDays: offDays.length > 0 ? offDays : ['Sunday'],
+      // Call robust REST API route (eliminates Next.js Server Action hash mismatch across builds)
+      const res = await fetch('/api/hr/employees/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          password,
+          contactNo,
+          branchId,
+          departmentId,
+          designation,
+          morningTime: (formData.get('morningTime') as string) || '09:00',
+          eveningTime: (formData.get('eveningTime') as string) || '18:00',
+          doj: dojStr || new Date().toISOString(),
+          dob: dobStr || undefined,
+          employmentType: (formData.get('employmentType') as string) || 'PERMANENT',
+          status: (formData.get('status') as string) || 'ACTIVE',
+          gender: (formData.get('gender') as string) || 'Male',
+          emergencyContact: (formData.get('emergencyContact') as string) || undefined,
+          address: (formData.get('address') as string) || undefined,
+          offDays: offDays.length > 0 ? offDays : ['Sunday'],
+        })
       })
 
-      setCreatedResult(res)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create employee record')
+      }
+
+      const createdEmployee = data.employee
+      setCreatedResult(createdEmployee)
 
       // Automatically sync new employee to localStorage to prevent data loss on refresh
       try {
@@ -117,7 +127,7 @@ export default function AddEmployeeForm({
           try { cache = JSON.parse(cachedStr) } catch {}
         }
         if (!Array.isArray(cache)) cache = []
-        cache.push(res)
+        cache.push(createdEmployee)
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache))
         window.dispatchEvent(new Event('godwin-employees-updated'))
       } catch (e) {
