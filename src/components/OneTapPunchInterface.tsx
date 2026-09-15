@@ -40,7 +40,7 @@ export default function OneTapPunchInterface({
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
-  const [punchMode, setPunchMode] = useState<'KIOSK' | 'MOBILE_GEOFENCE'>(showLeaveAndHistory ? 'MOBILE_GEOFENCE' : mode);
+  const [punchMode] = useState<'KIOSK' | 'MOBILE_GEOFENCE'>('MOBILE_GEOFENCE');
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedOut, setCheckedOut] = useState(false);
@@ -704,76 +704,23 @@ export default function OneTapPunchInterface({
         </div>
       </div>
 
-      {/* Dual Punch Mode Selector (Fixed Gate Kiosk vs Mobile Geo-Fence) */}
+      {/* 20m In-Premises Geo-Fence Active Status */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.5rem',
-          flexWrap: 'wrap',
+          padding: '0.4rem 0.85rem',
+          borderRadius: '8px',
+          backgroundColor: 'rgba(16, 185, 129, 0.08)',
+          border: '1px dashed rgba(16, 185, 129, 0.3)',
+          color: 'var(--text-main)',
+          fontSize: '0.75rem',
+          textAlign: 'center',
+          maxWidth: '520px',
+          margin: '0 auto',
+          width: '100%',
         }}
       >
-        <button
-          type="button"
-          onClick={() => setPunchMode('KIOSK')}
-          style={{
-            padding: '0.45rem 0.9rem',
-            borderRadius: '8px',
-            border: punchMode === 'KIOSK' ? '2px solid var(--primary)' : '1px solid var(--border)',
-            backgroundColor: punchMode === 'KIOSK' ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
-            color: punchMode === 'KIOSK' ? 'var(--primary)' : 'var(--text-muted)',
-            fontWeight: 700,
-            fontSize: '0.78rem',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          <span>🏢</span>
-          <span>Option 1: Security Gate Kiosk</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setPunchMode('MOBILE_GEOFENCE')}
-          style={{
-            padding: '0.45rem 0.9rem',
-            borderRadius: '8px',
-            border: punchMode === 'MOBILE_GEOFENCE' ? '2px solid #10b981' : '1px solid var(--border)',
-            backgroundColor: punchMode === 'MOBILE_GEOFENCE' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
-            color: punchMode === 'MOBILE_GEOFENCE' ? '#10b981' : 'var(--text-muted)',
-            fontWeight: 700,
-            fontSize: '0.78rem',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          <span>📱</span>
-          <span>Option 2: Mobile (20m GPS Geo-Fence)</span>
-        </button>
+        📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (20m in-premises boundary). Device GPS must be ON.
       </div>
-
-      {punchMode === 'MOBILE_GEOFENCE' && (
-        <div
-          style={{
-            padding: '0.4rem 0.8rem',
-            borderRadius: '8px',
-            backgroundColor: 'rgba(16, 185, 129, 0.08)',
-            border: '1px dashed rgba(16, 185, 129, 0.3)',
-            color: 'var(--text-main)',
-            fontSize: '0.75rem',
-            textAlign: 'center',
-          }}
-        >
-          📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (20m in-premises boundary). Device GPS must be ON.
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* DYNAMIC ONE-TAP PUNCH ACTION (SPACE-SAVING AUTO-MORPH: IN -> OUT -> DONE) */}
