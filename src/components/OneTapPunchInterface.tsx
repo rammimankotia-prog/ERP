@@ -317,11 +317,15 @@ export default function OneTapPunchInterface({
     return `${(first?.[0] || '').toUpperCase()}${(last?.[0] || '').toUpperCase()}` || 'EP';
   };
 
-  // Status check rule:
-  // If NOT checked in -> Check-In button is highlighted default
-  // If ALREADY checked in (and not checked out) -> Check-Out button is highlighted default
-  const isCheckOutHighlighted = checkedIn && !checkedOut;
-  const isCheckInHighlighted = !checkedIn;
+  // Dynamic single-action state:
+  // 1. Not checked in yet -> 'IN' (Check-In Arrival)
+  // 2. Checked in & not checked out -> 'OUT' (Check-Out Departure)
+  // 3. Checked out -> 'DONE' (Completed for Today)
+  const currentAction: 'IN' | 'OUT' | 'DONE' = !checkedIn
+    ? 'IN'
+    : !checkedOut
+    ? 'OUT'
+    : 'DONE';
 
   return (
     <div
@@ -329,10 +333,10 @@ export default function OneTapPunchInterface({
         width: '100%',
         maxWidth: '820px',
         margin: '0 auto',
-        padding: 'clamp(1rem, 3vw, 2rem)',
+        padding: 'clamp(0.75rem, 2vw, 1.25rem)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '1.75rem',
+        gap: '0.85rem',
       }}
     >
       {/* Top Header Navigation Bar */}
@@ -342,9 +346,9 @@ export default function OneTapPunchInterface({
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '1rem',
+          gap: '0.75rem',
           borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #1e293b',
-          paddingBottom: '1rem',
+          paddingBottom: '0.65rem',
         }}
       >
         <button
@@ -354,14 +358,14 @@ export default function OneTapPunchInterface({
             background: 'transparent',
             border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
             color: isLight ? '#334155' : '#cbd5e1',
-            padding: '0.6rem 1.1rem',
-            borderRadius: '10px',
+            padding: '0.45rem 0.95rem',
+            borderRadius: '8px',
             cursor: 'pointer',
-            fontSize: '0.9rem',
+            fontSize: '0.85rem',
             fontWeight: 700,
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.5rem',
+            gap: '0.4rem',
             transition: 'all 0.15s ease',
           }}
         >
@@ -372,7 +376,7 @@ export default function OneTapPunchInterface({
         <div style={{ textAlign: 'right' }}>
           <div
             style={{
-              fontSize: '1.35rem',
+              fontSize: '1.25rem',
               fontWeight: 800,
               color: 'var(--primary)',
               letterSpacing: '-0.02em',
@@ -386,7 +390,7 @@ export default function OneTapPunchInterface({
               hour12: true,
             })}
           </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
             {currentTime.toLocaleDateString('en-IN', {
               weekday: 'short',
               day: 'numeric',
@@ -401,19 +405,19 @@ export default function OneTapPunchInterface({
       {errorMsg && (
         <div
           style={{
-            padding: '1rem 1.25rem',
+            padding: '0.75rem 1rem',
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             color: 'var(--error)',
-            borderRadius: '12px',
+            borderRadius: '10px',
             border: '1px solid rgba(239, 68, 68, 0.3)',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.75rem',
-            fontSize: '0.95rem',
+            gap: '0.65rem',
+            fontSize: '0.88rem',
             fontWeight: 600,
           }}
         >
-          <span style={{ fontSize: '1.3rem' }}>⚠️</span>
+          <span style={{ fontSize: '1.15rem' }}>⚠️</span>
           <span>{errorMsg}</span>
         </div>
       )}
@@ -422,23 +426,23 @@ export default function OneTapPunchInterface({
       {punchSuccess && (
         <div
           style={{
-            padding: '1.25rem 1.5rem',
+            padding: '1rem 1.25rem',
             backgroundColor: 'rgba(16, 185, 129, 0.15)',
             color: 'var(--success)',
-            borderRadius: '14px',
+            borderRadius: '12px',
             border: '2px solid var(--success)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '0.5rem',
+            gap: '0.4rem',
             textAlign: 'center',
             boxShadow: '0 8px 25px rgba(16, 185, 129, 0.25)',
             animation: 'scaleUp 0.2s ease-out',
           }}
         >
-          <div style={{ fontSize: '2.5rem' }}>🎉</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>{punchSuccess}</div>
-          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '2rem' }}>🎉</div>
+          <div style={{ fontSize: '1.15rem', fontWeight: 800 }}>{punchSuccess}</div>
+          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
             {showLeaveAndHistory
               ? 'Attendance logged in Godwin ERP • Session active for 30 days'
               : <>Attendance logged in Godwin ERP • Auto-resetting for next employee in <strong>{countdown}s</strong></>}
@@ -450,14 +454,14 @@ export default function OneTapPunchInterface({
               if (!showLeaveAndHistory) onBack();
             }}
             style={{
-              marginTop: '0.5rem',
-              padding: '0.45rem 1.25rem',
+              marginTop: '0.35rem',
+              padding: '0.4rem 1.15rem',
               borderRadius: '8px',
               border: 'none',
               background: 'var(--success)',
               color: 'white',
               fontWeight: 700,
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               cursor: 'pointer',
             }}
           >
@@ -470,15 +474,15 @@ export default function OneTapPunchInterface({
       <div
         style={{
           background: isLight ? '#ffffff' : '#1e293b',
-          borderRadius: '20px',
-          padding: 'clamp(1.25rem, 3vw, 2rem)',
+          borderRadius: '16px',
+          padding: 'clamp(0.85rem, 2vw, 1.25rem)',
           border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-          boxShadow: 'var(--shadow-lg)',
+          boxShadow: 'var(--shadow-md)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           textAlign: 'center',
-          gap: '1rem',
+          gap: '0.65rem',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -490,7 +494,7 @@ export default function OneTapPunchInterface({
             top: 0,
             left: 0,
             right: 0,
-            height: '6px',
+            height: '5px',
             background: checkedIn
               ? (checkedOut ? '#64748b' : 'linear-gradient(90deg, #10b981, #059669)')
               : 'linear-gradient(90deg, #3b82f6, #6366f1)',
@@ -498,27 +502,27 @@ export default function OneTapPunchInterface({
         />
 
         {/* Employee Photo / Avatar */}
-        <div style={{ position: 'relative', marginTop: '0.5rem' }}>
+        <div style={{ position: 'relative', marginTop: '0.25rem' }}>
           {employee.photo ? (
             <img
               src={employee.photo}
               alt={`${employee.firstName} ${employee.lastName}`}
               style={{
-                width: '110px',
-                height: '110px',
+                width: '84px',
+                height: '84px',
                 borderRadius: '50%',
                 objectFit: 'cover',
-                border: checkedIn && !checkedOut ? '4px solid #10b981' : '4px solid #3b82f6',
+                border: checkedIn && !checkedOut ? '3px solid #10b981' : '3px solid #3b82f6',
                 boxShadow: checkedIn && !checkedOut
-                  ? '0 0 20px rgba(16, 185, 129, 0.4)'
-                  : '0 8px 20px rgba(0,0,0,0.15)',
+                  ? '0 0 16px rgba(16, 185, 129, 0.4)'
+                  : '0 6px 16px rgba(0,0,0,0.15)',
               }}
             />
           ) : (
             <div
               style={{
-                width: '110px',
-                height: '110px',
+                width: '84px',
+                height: '84px',
                 borderRadius: '50%',
                 background: checkedIn && !checkedOut
                   ? 'linear-gradient(135deg, #10b981 0%, #047857 100%)'
@@ -527,12 +531,12 @@ export default function OneTapPunchInterface({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '2.5rem',
+                fontSize: '2rem',
                 fontWeight: 900,
-                border: checkedIn && !checkedOut ? '4px solid #10b981' : '4px solid rgba(255,255,255,0.2)',
+                border: checkedIn && !checkedOut ? '3px solid #10b981' : '3px solid rgba(255,255,255,0.2)',
                 boxShadow: checkedIn && !checkedOut
-                  ? '0 0 20px rgba(16, 185, 129, 0.45)'
-                  : '0 10px 25px rgba(37, 99, 235, 0.35)',
+                  ? '0 0 16px rgba(16, 185, 129, 0.45)'
+                  : '0 8px 20px rgba(37, 99, 235, 0.35)',
               }}
             >
               {getInitials(employee.firstName, employee.lastName)}
@@ -544,19 +548,19 @@ export default function OneTapPunchInterface({
             title={checkedIn && !checkedOut ? 'Currently On Shift' : 'Off Shift'}
             style={{
               position: 'absolute',
-              bottom: '4px',
-              right: '4px',
-              width: '26px',
-              height: '26px',
+              bottom: '2px',
+              right: '2px',
+              width: '22px',
+              height: '22px',
               borderRadius: '50%',
               backgroundColor: checkedIn && !checkedOut ? '#10b981' : (checkedOut ? '#64748b' : '#94a3b8'),
-              border: `3px solid ${isLight ? '#ffffff' : '#1e293b'}`,
+              border: `2.5px solid ${isLight ? '#ffffff' : '#1e293b'}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '0.75rem',
+              fontSize: '0.65rem',
               color: 'white',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             }}
           >
             {checkedIn && !checkedOut ? '✓' : (checkedOut ? '✕' : '•')}
@@ -568,7 +572,7 @@ export default function OneTapPunchInterface({
           <h2
             style={{
               margin: 0,
-              fontSize: 'clamp(1.4rem, 4vw, 1.85rem)',
+              fontSize: 'clamp(1.2rem, 3.5vw, 1.55rem)',
               fontWeight: 800,
               color: 'var(--text-main)',
               letterSpacing: '-0.02em',
@@ -582,18 +586,18 @@ export default function OneTapPunchInterface({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.5rem',
+              gap: '0.4rem',
               flexWrap: 'wrap',
-              marginTop: '0.4rem',
+              marginTop: '0.25rem',
             }}
           >
             <span
               style={{
                 backgroundColor: 'rgba(37, 99, 235, 0.1)',
                 color: 'var(--primary)',
-                padding: '4px 10px',
+                padding: '3px 8px',
                 borderRadius: '99px',
-                fontSize: '0.82rem',
+                fontSize: '0.78rem',
                 fontWeight: 700,
               }}
             >
@@ -602,7 +606,7 @@ export default function OneTapPunchInterface({
             <span
               style={{
                 color: 'var(--text-muted)',
-                fontSize: '0.85rem',
+                fontSize: '0.8rem',
                 fontWeight: 600,
               }}
             >
@@ -613,9 +617,9 @@ export default function OneTapPunchInterface({
                 fontFamily: 'monospace',
                 backgroundColor: isLight ? '#f1f5f9' : '#0f172a',
                 color: 'var(--text-muted)',
-                padding: '3px 8px',
+                padding: '2px 7px',
                 borderRadius: '6px',
-                fontSize: '0.78rem',
+                fontSize: '0.74rem',
                 fontWeight: 700,
               }}
             >
@@ -624,8 +628,8 @@ export default function OneTapPunchInterface({
           </div>
 
           {(employee.morningTime || employee.eveningTime) && (
-            <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              ⏰ Scheduled Shift: <strong>{employee.morningTime || '09:00'} – {employee.eveningTime || '18:00'}</strong>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              ⏰ Shift: <strong>{employee.morningTime || '09:00'} – {employee.eveningTime || '18:00'}</strong>
             </p>
           )}
         </div>
@@ -634,9 +638,9 @@ export default function OneTapPunchInterface({
         <div
           style={{
             width: '100%',
-            maxWidth: '500px',
-            padding: '0.75rem 1.25rem',
-            borderRadius: '12px',
+            maxWidth: '480px',
+            padding: '0.55rem 1rem',
+            borderRadius: '10px',
             backgroundColor: loadingStatus
               ? (isLight ? '#f8fafc' : '#0f172a')
               : checkedIn && !checkedOut
@@ -655,29 +659,29 @@ export default function OneTapPunchInterface({
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '0.5rem',
+            gap: '0.4rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textAlign: 'left' }}>
-            <span style={{ fontSize: '1.2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', textAlign: 'left' }}>
+            <span style={{ fontSize: '1.05rem' }}>
               {loadingStatus ? '⏳' : checkedIn && !checkedOut ? '🟢' : checkedOut ? '🔴' : '⚪'}
             </span>
             <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
                 {loadingStatus
                   ? 'Checking Live Status...'
                   : checkedIn && !checkedOut
-                  ? 'Currently Checked-In (Active On Shift)'
+                  ? 'Currently Checked-In (On Shift)'
                   : checkedOut
                   ? 'Shift Completed for Today'
                   : 'Not Checked-In Today'}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                 {checkedIn && punchInTime && (
                   <span>Checked In: <strong>{formatTimeStr(punchInTime)}</strong></span>
                 )}
                 {checkedOut && punchOutTime && (
-                  <span> • Checked Out: <strong>{formatTimeStr(punchOutTime)}</strong></span>
+                  <span> • Out: <strong>{formatTimeStr(punchOutTime)}</strong></span>
                 )}
                 {!checkedIn && <span>Ready to record Arrival punch</span>}
               </div>
@@ -686,9 +690,9 @@ export default function OneTapPunchInterface({
 
           <div
             style={{
-              fontSize: '0.75rem',
+              fontSize: '0.72rem',
               fontWeight: 800,
-              padding: '3px 8px',
+              padding: '2px 7px',
               borderRadius: '99px',
               backgroundColor: checkedIn && !checkedOut ? '#10b981' : (checkedOut ? '#64748b' : '#3b82f6'),
               color: 'white',
@@ -706,26 +710,25 @@ export default function OneTapPunchInterface({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '0.75rem',
+          gap: '0.5rem',
           flexWrap: 'wrap',
-          margin: '0.25rem 0',
         }}
       >
         <button
           type="button"
           onClick={() => setPunchMode('KIOSK')}
           style={{
-            padding: '0.55rem 1.1rem',
-            borderRadius: '10px',
+            padding: '0.45rem 0.9rem',
+            borderRadius: '8px',
             border: punchMode === 'KIOSK' ? '2px solid var(--primary)' : '1px solid var(--border)',
             backgroundColor: punchMode === 'KIOSK' ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
             color: punchMode === 'KIOSK' ? 'var(--primary)' : 'var(--text-muted)',
             fontWeight: 700,
-            fontSize: '0.82rem',
+            fontSize: '0.78rem',
             cursor: 'pointer',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.4rem',
+            gap: '0.35rem',
             transition: 'all 0.15s ease',
           }}
         >
@@ -737,17 +740,17 @@ export default function OneTapPunchInterface({
           type="button"
           onClick={() => setPunchMode('MOBILE_GEOFENCE')}
           style={{
-            padding: '0.55rem 1.1rem',
-            borderRadius: '10px',
+            padding: '0.45rem 0.9rem',
+            borderRadius: '8px',
             border: punchMode === 'MOBILE_GEOFENCE' ? '2px solid #10b981' : '1px solid var(--border)',
             backgroundColor: punchMode === 'MOBILE_GEOFENCE' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
             color: punchMode === 'MOBILE_GEOFENCE' ? '#10b981' : 'var(--text-muted)',
             fontWeight: 700,
-            fontSize: '0.82rem',
+            fontSize: '0.78rem',
             cursor: 'pointer',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.4rem',
+            gap: '0.35rem',
             transition: 'all 0.15s ease',
           }}
         >
@@ -759,12 +762,12 @@ export default function OneTapPunchInterface({
       {punchMode === 'MOBILE_GEOFENCE' && (
         <div
           style={{
-            padding: '0.5rem 1rem',
+            padding: '0.4rem 0.8rem',
             borderRadius: '8px',
             backgroundColor: 'rgba(16, 185, 129, 0.08)',
             border: '1px dashed rgba(16, 185, 129, 0.3)',
             color: 'var(--text-main)',
-            fontSize: '0.78rem',
+            fontSize: '0.75rem',
             textAlign: 'center',
           }}
         >
@@ -773,61 +776,72 @@ export default function OneTapPunchInterface({
       )}
 
       {/* ========================================================================= */}
-      {/* THE TWO BIG PUNCH BUTTONS (ONE-TAP ACTION WITH SMART HIGHLIGHTING) */}
+      {/* DYNAMIC ONE-TAP PUNCH ACTION (SPACE-SAVING AUTO-MORPH: IN -> OUT -> DONE) */}
       {/* ========================================================================= */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '1.5rem',
+          display: 'flex',
+          justifyContent: 'center',
+          width: '100%',
         }}
       >
-        {/* ======================================================================= */}
-        {/* 🟢 BUTTON 1: CHECK-IN (ARRIVAL) */}
-        {/* ======================================================================= */}
         <button
           type="button"
-          onClick={() => handlePunch('IN')}
-          disabled={processing || checkedIn}
-          className={`punch-btn punch-btn-in ${isCheckInHighlighted ? 'highlighted-default' : ''}`}
+          onClick={() => {
+            if (currentAction === 'IN') handlePunch('IN');
+            else if (currentAction === 'OUT') handlePunch('OUT');
+          }}
+          disabled={processing || loadingStatus || currentAction === 'DONE'}
+          className={`punch-btn ${
+            currentAction === 'IN'
+              ? 'punch-btn-in'
+              : currentAction === 'OUT'
+              ? 'punch-btn-out'
+              : 'punch-btn-done'
+          }`}
           style={{
             position: 'relative',
-            padding: '2rem 1.5rem',
-            borderRadius: '20px',
-            border: isCheckInHighlighted
+            width: '100%',
+            maxWidth: '520px',
+            padding: '1.35rem 1.5rem',
+            borderRadius: '18px',
+            border: currentAction === 'IN'
               ? '3px solid #10b981'
-              : '2px solid rgba(16, 185, 129, 0.3)',
-            background: checkedIn
-              ? (isLight ? '#f1f5f9' : '#0f172a')
-              : isCheckInHighlighted
+              : currentAction === 'OUT'
+              ? '3px solid #ef4444'
+              : (isLight ? '2px solid #cbd5e1' : '2px solid #334155'),
+            background: currentAction === 'IN'
               ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-              : 'linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.9))',
-            color: checkedIn ? 'var(--text-muted)' : '#ffffff',
-            cursor: checkedIn || processing ? 'not-allowed' : 'pointer',
+              : currentAction === 'OUT'
+              ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+              : (isLight ? 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'),
+            color: currentAction === 'DONE' ? 'var(--text-muted)' : '#ffffff',
+            cursor: (processing || loadingStatus || currentAction === 'DONE') ? 'not-allowed' : 'pointer',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '0.5rem',
-            boxShadow: isCheckInHighlighted && !processing && !checkedIn
-              ? '0 0 0 6px rgba(16, 185, 129, 0.3), 0 16px 36px rgba(16, 185, 129, 0.45)'
+            gap: '0.4rem',
+            boxShadow: currentAction === 'IN' && !processing
+              ? '0 0 0 5px rgba(16, 185, 129, 0.25), 0 12px 28px rgba(16, 185, 129, 0.4)'
+              : currentAction === 'OUT' && !processing
+              ? '0 0 0 5px rgba(239, 68, 68, 0.25), 0 12px 28px rgba(239, 68, 68, 0.4)'
               : 'var(--shadow)',
-            transform: isCheckInHighlighted && !processing && !checkedIn ? 'scale(1.02)' : 'scale(1)',
-            opacity: checkedIn ? 0.55 : 1,
+            opacity: processing ? 0.75 : 1,
             transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            minHeight: '160px',
+            minHeight: '125px',
           }}
         >
           {/* Highlight Badge */}
-          {isCheckInHighlighted && !checkedIn && (
+          {currentAction === 'IN' && (
             <div
               style={{
                 position: 'absolute',
-                top: '-12px',
+                top: '-11px',
                 background: '#047857',
                 color: '#ffffff',
                 border: '2px solid #34d399',
-                padding: '3px 12px',
+                padding: '2px 14px',
                 borderRadius: '99px',
                 fontSize: '0.72rem',
                 fontWeight: 900,
@@ -836,81 +850,19 @@ export default function OneTapPunchInterface({
                 animation: 'pulseGlow 2s infinite',
               }}
             >
-              ★ DEFAULT ACTION (ARRIVAL)
+              ★ ONE-TAP ACTION (ARRIVAL)
             </div>
           )}
 
-          <div style={{ fontSize: '2.5rem', lineHeight: 1 }}>🟢</div>
-
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '-0.01em' }}>
-            Check-In (Arrival)
-          </div>
-
-          <div
-            style={{
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              opacity: checkedIn ? 0.7 : 0.95,
-            }}
-          >
-            {checkedIn
-              ? `Already Checked In at ${formatTimeStr(punchInTime)}`
-              : 'One-Tap Arrival Punch'}
-          </div>
-
-          {processing && !checkedIn && (
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, marginTop: '0.25rem' }}>
-              Recording Punch...
-            </div>
-          )}
-        </button>
-
-        {/* ======================================================================= */}
-        {/* 🔴 BUTTON 2: CHECK-OUT (DEPARTURE) */}
-        {/* ======================================================================= */}
-        <button
-          type="button"
-          onClick={() => handlePunch('OUT')}
-          disabled={processing || !checkedIn || checkedOut}
-          className={`punch-btn punch-btn-out ${isCheckOutHighlighted ? 'highlighted-default' : ''}`}
-          style={{
-            position: 'relative',
-            padding: '2rem 1.5rem',
-            borderRadius: '20px',
-            border: isCheckOutHighlighted
-              ? '3px solid #ef4444'
-              : '2px solid rgba(239, 68, 68, 0.3)',
-            background: !checkedIn || checkedOut
-              ? (isLight ? '#f1f5f9' : '#0f172a')
-              : isCheckOutHighlighted
-              ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-              : 'linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9))',
-            color: !checkedIn || checkedOut ? 'var(--text-muted)' : '#ffffff',
-            cursor: !checkedIn || checkedOut || processing ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            boxShadow: isCheckOutHighlighted && !processing && !checkedOut
-              ? '0 0 0 6px rgba(239, 68, 68, 0.3), 0 16px 36px rgba(239, 68, 68, 0.45)'
-              : 'var(--shadow)',
-            transform: isCheckOutHighlighted && !processing && !checkedOut ? 'scale(1.02)' : 'scale(1)',
-            opacity: !checkedIn || checkedOut ? 0.55 : 1,
-            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            minHeight: '160px',
-          }}
-        >
-          {/* Highlight Badge */}
-          {isCheckOutHighlighted && (
+          {currentAction === 'OUT' && (
             <div
               style={{
                 position: 'absolute',
-                top: '-12px',
+                top: '-11px',
                 background: '#b91c1c',
                 color: '#ffffff',
                 border: '2px solid #f87171',
-                padding: '3px 12px',
+                padding: '2px 14px',
                 borderRadius: '99px',
                 fontSize: '0.72rem',
                 fontWeight: 900,
@@ -919,55 +871,78 @@ export default function OneTapPunchInterface({
                 animation: 'pulseGlowRed 2s infinite',
               }}
             >
-              ★ DEFAULT ACTION (DEPARTURE)
+              ★ ONE-TAP ACTION (DEPARTURE)
             </div>
           )}
 
-          <div style={{ fontSize: '2.5rem', lineHeight: 1 }}>🔴</div>
+          {currentAction === 'DONE' && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '-11px',
+                background: isLight ? '#64748b' : '#334155',
+                color: '#ffffff',
+                border: '2px solid #94a3b8',
+                padding: '2px 14px',
+                borderRadius: '99px',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                letterSpacing: '0.05em',
+              }}
+            >
+              ✓ COMPLETED FOR TODAY
+            </div>
+          )}
 
-          <div style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '-0.01em' }}>
-            Check-Out (Departure)
+          <div style={{ fontSize: '2rem', lineHeight: 1 }}>
+            {currentAction === 'IN' ? '🟢' : currentAction === 'OUT' ? '🔴' : '🏁'}
+          </div>
+
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.01em' }}>
+            {currentAction === 'IN'
+              ? 'Check-In (Arrival)'
+              : currentAction === 'OUT'
+              ? 'Check-Out (Departure)'
+              : 'Shift Completed'}
           </div>
 
           <div
             style={{
-              fontSize: '0.85rem',
+              fontSize: '0.84rem',
               fontWeight: 600,
-              opacity: !checkedIn || checkedOut ? 0.7 : 0.95,
+              opacity: currentAction === 'DONE' ? 0.85 : 0.95,
+              textAlign: 'center',
             }}
           >
-            {!checkedIn
-              ? 'Check-In required first'
-              : checkedOut
-              ? `Already Checked Out at ${formatTimeStr(punchOutTime)}`
-              : 'One-Tap Departure Punch'}
+            {processing
+              ? (currentAction === 'IN' ? 'Recording Arrival Punch...' : 'Recording Departure Punch...')
+              : currentAction === 'IN'
+              ? 'One-Tap Arrival Punch • Tap to Clock In'
+              : currentAction === 'OUT'
+              ? `Checked In at ${formatTimeStr(punchInTime)} • Tap to Clock Out`
+              : `In: ${formatTimeStr(punchInTime)} • Out: ${formatTimeStr(punchOutTime)} • All punches logged`}
           </div>
-
-          {processing && checkedIn && !checkedOut && (
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, marginTop: '0.25rem' }}>
-              Recording Punch...
-            </div>
-          )}
         </button>
       </div>
 
       {/* Secondary Actions (Request Leave & My Attendance) - ONLY for self-service staff logged in with email & password */}
       {showLeaveAndHistory && (
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => setShowLeaveModal(true)}
             style={{
-              padding: '0.75rem 1.5rem',
-              borderRadius: '12px',
+              padding: '0.6rem 1.25rem',
+              borderRadius: '10px',
               border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
               background: 'transparent',
               color: 'var(--text-main)',
               fontWeight: 700,
+              fontSize: '0.85rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              gap: '0.45rem',
               transition: 'all 0.15s'
             }}
           >
@@ -977,16 +952,17 @@ export default function OneTapPunchInterface({
             type="button"
             onClick={handleFetchHistory}
             style={{
-              padding: '0.75rem 1.5rem',
-              borderRadius: '12px',
+              padding: '0.6rem 1.25rem',
+              borderRadius: '10px',
               border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
               background: 'transparent',
               color: 'var(--text-main)',
               fontWeight: 700,
+              fontSize: '0.85rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              gap: '0.45rem',
               transition: 'all 0.15s'
             }}
           >
@@ -996,8 +972,8 @@ export default function OneTapPunchInterface({
       )}
 
       {/* Footer Instructions / Switch button */}
-      <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
+      <div style={{ textAlign: 'center', marginTop: '0.25rem' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
           💡 Tap the highlighted button to record your punch in 1 tap. Godwin ERP automatically stamps the server timestamp and calculates shift hours.
         </p>
       </div>

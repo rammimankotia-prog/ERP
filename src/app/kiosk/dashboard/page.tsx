@@ -579,7 +579,7 @@ export default function KioskDashboard() {
         <div
           style={{
             flex: '1 1 500px',
-            padding: 'clamp(1rem, 2.5vw, 2.5rem)',
+            padding: 'clamp(0.5rem, 1.5vw, 1.25rem)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
