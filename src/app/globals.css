@@ -40,12 +40,14 @@
   --sidebar-collapsed-width: 64px;
 }
 
-/* Manual Dark Mode Toggle Class */
+/* Dark Mode Class (Controlled by ThemeProvider & Night Mode) */
+html.dark,
+body.dark,
 .dark {
-  --bg-main: #0f172a;
+  --bg-main: #0b1329;
   --bg-card: #1e293b;
   --card-bg: #1e293b;
-  --text-main: #f1f5f9;
+  --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --border: #334155;
   
@@ -53,18 +55,19 @@
   --glass-border: rgba(255, 255, 255, 0.1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --bg-main: #0f172a;
-    --bg-card: #1e293b;
-    --card-bg: #1e293b;
-    --text-main: #f1f5f9;
-    --text-muted: #94a3b8;
-    --border: #334155;
-    
-    --glass-bg: rgba(30, 41, 59, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.1);
-  }
+/* Explicit Light Mode Class */
+html.light,
+body.light,
+.light {
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --card-bg: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border: #cbd5e1;
+  
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
 }
 
 /* ===== RESET ===== */

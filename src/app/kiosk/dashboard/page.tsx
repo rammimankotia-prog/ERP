@@ -29,7 +29,7 @@ export default function KioskDashboard() {
   const [unreadApproval, setUnreadApproval] = useState<any | null>(null)
 
   const router = useRouter()
-  const { theme } = useTheme()
+  const { theme, toggleTheme } = useTheme()
   const isLight = theme === 'light'
 
   const fetchNotifications = async (empId: string, empCode?: string) => {
@@ -286,31 +286,56 @@ export default function KioskDashboard() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: isLight ? '#f1f5f9' : '#0f172a',
+      background: isLight ? '#f8fafc' : '#0b1329',
       fontFamily: 'sans-serif',
       display: 'flex',
       flexDirection: 'column'
     }}>
       {/* Header */}
       <header style={{
-        background: isLight ? '#ffffff' : '#1e293b',
-        padding: '1.25rem 2rem',
+        background: isLight ? '#ffffff' : '#0f172a',
+        padding: '1rem 1.5rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+        borderBottom: isLight ? '1px solid #cbd5e1' : '1px solid #1e293b',
         position: 'relative',
         zIndex: 50
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ fontSize: '2rem' }}>🏨</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+          <div style={{ fontSize: '1.8rem' }}>🏨</div>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.25rem', color: isLight ? '#0f172a' : '#f8fafc' }}>Terminal 1 - Front Desk</h1>
-            <p style={{ margin: 0, color: isLight ? '#64748b' : '#94a3b8', fontSize: '0.85rem' }}>Self-Service Attendance Kiosk</p>
+            <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc' }}>Terminal 1 - Front Desk</h1>
+            <p style={{ margin: 0, color: isLight ? '#475569' : '#94a3b8', fontSize: '0.82rem', fontWeight: 500 }}>Self-Service Attendance Kiosk</p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {/* Night / Day Mode Toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            style={{
+              background: isLight ? '#f1f5f9' : '#1e293b',
+              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.2rem',
+              cursor: 'pointer',
+              color: isLight ? '#0f172a' : '#f8fafc',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            }}
+            title={isLight ? 'Switch to Night Mode (Dark)' : 'Switch to Day Mode (Light)'}
+            aria-label="Toggle Night/Day Mode"
+          >
+            {isLight ? '🌙' : '☀️'}
+          </button>
+
           {/* Notification Bell Button & Dropdown */}
           <div style={{ position: 'relative' }}>
             <button
@@ -318,15 +343,15 @@ export default function KioskDashboard() {
               onClick={() => setShowNotifs(prev => !prev)}
               style={{
                 position: 'relative',
-                background: isLight ? '#f1f5f9' : '#334155',
-                border: isLight ? '1px solid #e2e8f0' : '1px solid #475569',
+                background: isLight ? '#f1f5f9' : '#1e293b',
+                border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
                 borderRadius: '50%',
-                width: '42px',
-                height: '42px',
+                width: '40px',
+                height: '40px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1.2rem',
+                fontSize: '1.15rem',
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 boxShadow: unreadCount > 0 ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none'
