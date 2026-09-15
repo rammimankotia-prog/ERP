@@ -145,6 +145,26 @@ export async function PUT(req: NextRequest) {
       console.warn('Failed to sync updated user in users.json:', e)
     }
 
+    // When status is ACTIVE, remove any previous revocation blocks
+    if (updatedRecord.status === 'ACTIVE') {
+      try {
+        const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+        const LOCAL_REVOKED_FILE = path.join(process.cwd(), 'data', 'revoked_sessions.json')
+        let revoked = readJson<any[]>(REVOKED_FILE, LOCAL_REVOKED_FILE, [])
+        revoked = revoked.filter(
+          (r: any) =>
+            r.userId !== targetId &&
+            r.employeeId !== targetId &&
+            r.employeeId !== updatedRecord.employeeId &&
+            (!updatedRecord.email || r.email?.toLowerCase() !== updatedRecord.email.toLowerCase()) &&
+            (!updatedRecord.employeeId || r.username?.toLowerCase() !== updatedRecord.employeeId.toLowerCase())
+        )
+        writeJson(REVOKED_FILE, revoked)
+      } catch (e) {
+        console.warn('Failed to clear revoked sessions registry on activate:', e)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       employee: updatedRecord,
@@ -159,4 +179,35 @@ export async function PUT(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return PUT(req)
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const id = searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 })
+    }
+
+    let employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+    const toDelete = employees.find((e: any) => e.id === id || e.employeeId === id)
+    employees = employees.filter((e: any) => e.id !== id && e.employeeId !== id)
+    writeJson(EMPLOYEES_FILE, employees)
+
+    // Remove from users.json as well
+    if (toDelete) {
+      try {
+        const USERS_FILE = path.join(DATA_DIR, 'users.json')
+        const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
+        let users = readJson<any[]>(USERS_FILE, LOCAL_USERS_FILE, [])
+        users = users.filter((u: any) => u.id !== id && (!toDelete.email || u.email?.toLowerCase() !== toDelete.email.toLowerCase()))
+        writeJson(USERS_FILE, users)
+      } catch {}
+    }
+
+    return NextResponse.json({ success: true, message: 'Employee deleted successfully' })
+  } catch (err: any) {
+    console.error('Error in DELETE /api/hr/employees:', err)
+    return NextResponse.json({ error: err.message || 'Failed to delete employee' }, { status: 500 })
+  }
 }

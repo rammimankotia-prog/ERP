@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { toggleEmployeeStatus, deleteEmployee, updateEmployee } from '../actions'
 
 const LOCAL_STORAGE_KEY = 'godwin_erp_employees_v2'
 
@@ -244,18 +243,13 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       window.dispatchEvent(new Event('godwin-employees-updated'))
     } catch {}
 
-    // 3. Direct API Call
+    // 3. Direct API Call to persistent storage
     try {
       await fetch('/api/hr/employees', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedEmp)
       })
-    } catch {}
-
-    // 4. Server Action
-    try {
-      await updateEmployee(editingEmp.id, editForm)
     } catch {}
 
     // 5. If status is deactivated, trigger instant logout across platforms
@@ -343,45 +337,60 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     )
 
     try {
-      const res = await toggleEmployeeStatus(emp.id, newStatus as any)
-      if (res.success) {
-        if (newStatus === 'RESIGNED') {
-          // Instant deactivation & force logout across all platforms
-          try {
-            await fetch('/api/auth/deactivate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                employeeId: emp.id,
-                username: emp.employeeId,
-                email: emp.contactNo || (emp as any).email,
-                reason: 'Deactivated via status toggle in HR directory',
-              }),
-            })
-            const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
-            channel.postMessage({
-              type: 'FORCE_LOGOUT_USER',
-              payload: { employeeId: emp.id, username: emp.employeeId, email: emp.contactNo || (emp as any).email },
-            })
-            channel.close()
-            localStorage.setItem(
-              'GODWIN_DEACTIVATED_USER',
-              JSON.stringify({
-                employeeId: emp.id,
-                username: emp.employeeId,
-                email: emp.contactNo || (emp as any).email,
-                timestamp: Date.now(),
-              })
-            )
-          } catch {}
-        }
-        showToast(
-          `${emp.firstName} ${emp.lastName} is now ${newStatus === 'ACTIVE' ? 'Active' : 'Deactivated'}`,
-          'success'
-        )
-      } else {
-        throw new Error(res.error || 'Failed to update')
+      const apiRes = await fetch('/api/hr/employees', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: emp.id,
+          employeeId: emp.employeeId || emp.id,
+          status: newStatus,
+        }),
+      })
+      const data = await apiRes.json()
+      if (!apiRes.ok) {
+        throw new Error(data.error || 'Failed to update status')
       }
+
+      if (newStatus === 'RESIGNED') {
+        // Instant deactivation & force logout across all platforms
+        try {
+          await fetch('/api/auth/deactivate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              employeeId: emp.id,
+              username: emp.employeeId,
+              email: emp.contactNo || (emp as any).email,
+              reason: 'Deactivated via status toggle in HR directory',
+            }),
+          })
+          const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+          channel.postMessage({
+            type: 'FORCE_LOGOUT_USER',
+            payload: { employeeId: emp.id, username: emp.employeeId, email: emp.contactNo || (emp as any).email },
+          })
+          channel.close()
+          localStorage.setItem(
+            'GODWIN_DEACTIVATED_USER',
+            JSON.stringify({
+              employeeId: emp.id,
+              username: emp.employeeId,
+              email: emp.contactNo || (emp as any).email,
+              timestamp: Date.now(),
+            })
+          )
+        } catch {}
+      } else {
+        // Clear deactivation locks when active again
+        try {
+          localStorage.removeItem('GODWIN_DEACTIVATED_USER')
+        } catch {}
+      }
+
+      showToast(
+        `${emp.firstName} ${emp.lastName} is now ${newStatus === 'ACTIVE' ? 'Active' : 'Deactivated'}`,
+        'success'
+      )
     } catch (err: any) {
       // Revert on failure
       setEmployees((prev) =>
@@ -436,11 +445,14 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     } catch {}
 
     try {
-      const res = await deleteEmployee(target.id)
-      if (res.success) {
+      const delRes = await fetch(`/api/hr/employees?id=${encodeURIComponent(target.id)}`, {
+        method: 'DELETE',
+      })
+      const delData = await delRes.json()
+      if (delRes.ok && delData.success) {
         showToast(`Staff member "${target.firstName} ${target.lastName}" deleted`, 'success')
       } else {
-        throw new Error('Could not delete record')
+        throw new Error(delData.error || 'Could not delete record')
       }
     } catch (err: any) {
       // Revert on error

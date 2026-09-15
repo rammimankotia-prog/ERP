@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { updateEmployee, deleteEmployee, toggleEmployeeStatus } from '../../actions'
 import { EmploymentType, EmployeeStatus } from '@prisma/client'
 
 interface Branch {
@@ -167,17 +166,18 @@ export default function EditEmployeeForm({
         window.dispatchEvent(new Event('godwin-employees-updated'))
       } catch {}
 
-      // 2. Direct HTTP API call to guarantee file write
-      fetch('/api/hr/employees', {
+      // 2. Direct HTTP API call to update employee in persistent storage
+      const res = await fetch('/api/hr/employees', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatePayload),
-      }).catch(() => {})
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update employee details')
+      }
 
-      // 3. Server Action call
-      await updateEmployee(employee.id, updatePayload)
-
-      // 4. If status is deactivated, force instant logout across platforms
+      // 3. If status is deactivated, force instant logout across platforms
       if (status !== 'ACTIVE') {
         try {
           await fetch('/api/auth/deactivate', {
@@ -206,6 +206,10 @@ export default function EditEmployeeForm({
             })
           )
         } catch {}
+      } else {
+        try {
+          localStorage.removeItem('GODWIN_DEACTIVATED_USER')
+        } catch {}
       }
 
       setCurrentStatus(status)
@@ -225,41 +229,56 @@ export default function EditEmployeeForm({
     setLoading(true)
     const newStatus = currentStatus === 'ACTIVE' ? 'RESIGNED' : 'ACTIVE'
     try {
-      const res = await toggleEmployeeStatus(employee.id, newStatus as any)
-      if (res.success) {
-        if (newStatus === 'RESIGNED') {
-          try {
-            await fetch('/api/auth/deactivate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                employeeId: employee.id,
-                username: employee.employeeId,
-                email: employee.contactNo || (employee as any).email,
-                reason: 'Employee deactivated via quick status toggle',
-              }),
-            })
-            const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
-            channel.postMessage({
-              type: 'FORCE_LOGOUT_USER',
-              payload: { employeeId: employee.id, username: employee.employeeId, email: employee.contactNo || (employee as any).email },
-            })
-            channel.close()
-            localStorage.setItem(
-              'GODWIN_DEACTIVATED_USER',
-              JSON.stringify({
-                employeeId: employee.id,
-                username: employee.employeeId,
-                email: employee.contactNo || (employee as any).email,
-                timestamp: Date.now(),
-              })
-            )
-          } catch {}
-        }
-        setCurrentStatus(newStatus)
-        setSuccess(`Status changed to ${newStatus === 'ACTIVE' ? 'Active' : 'Deactivated'}`)
-        setTimeout(() => setSuccess(null), 3000)
+      const res = await fetch('/api/hr/employees', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: employee.id,
+          employeeId: employee.employeeId || employee.id,
+          status: newStatus,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to toggle status')
       }
+
+      if (newStatus === 'RESIGNED') {
+        try {
+          await fetch('/api/auth/deactivate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              employeeId: employee.id,
+              username: employee.employeeId,
+              email: employee.contactNo || (employee as any).email,
+              reason: 'Employee deactivated via quick status toggle',
+            }),
+          })
+          const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
+          channel.postMessage({
+            type: 'FORCE_LOGOUT_USER',
+            payload: { employeeId: employee.id, username: employee.employeeId, email: employee.contactNo || (employee as any).email },
+          })
+          channel.close()
+          localStorage.setItem(
+            'GODWIN_DEACTIVATED_USER',
+            JSON.stringify({
+              employeeId: employee.id,
+              username: employee.employeeId,
+              email: employee.contactNo || (employee as any).email,
+              timestamp: Date.now(),
+            })
+          )
+        } catch {}
+      } else {
+        try {
+          localStorage.removeItem('GODWIN_DEACTIVATED_USER')
+        } catch {}
+      }
+      setCurrentStatus(newStatus)
+      setSuccess(`Status changed to ${newStatus === 'ACTIVE' ? 'Active' : 'Deactivated'}`)
+      setTimeout(() => setSuccess(null), 3000)
     } catch (err: any) {
       setError(err.message || 'Failed to toggle status')
     } finally {
@@ -290,12 +309,15 @@ export default function EditEmployeeForm({
         channel.close()
       } catch {}
 
-      const res = await deleteEmployee(employee.id)
-      if (res.success) {
+      const res = await fetch(`/api/hr/employees?id=${encodeURIComponent(employee.id)}`, {
+        method: 'DELETE',
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
         router.push('/hr/employees')
         router.refresh()
       } else {
-        throw new Error('Could not delete record')
+        throw new Error(data.error || 'Could not delete record')
       }
     } catch (err: any) {
       setError(err.message || 'Failed to delete employee')
