@@ -119,6 +119,32 @@ export async function PUT(req: NextRequest) {
 
     writeJson(EMPLOYEES_FILE, employees)
 
+    // Sync with users.json
+    try {
+      const USERS_FILE = path.join(DATA_DIR, 'users.json')
+      const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
+      const users = readJson<any[]>(USERS_FILE, LOCAL_USERS_FILE, [])
+      const uIdx = users.findIndex(
+        (u: any) =>
+          u.id === targetId ||
+          (updatedRecord.email && u.email?.toLowerCase() === updatedRecord.email.toLowerCase()) ||
+          (updatedRecord.employeeId && u.username?.toLowerCase() === updatedRecord.employeeId.toLowerCase())
+      )
+      if (uIdx !== -1) {
+        users[uIdx] = {
+          ...users[uIdx],
+          name: `${updatedRecord.firstName || ''} ${updatedRecord.lastName || ''}`.trim() || users[uIdx].name,
+          email: updatedRecord.email || users[uIdx].email,
+          username: updatedRecord.email || users[uIdx].username,
+          status: updatedRecord.status === 'ACTIVE' ? 'Active' : 'Inactive',
+          ...(updatedRecord.password ? { password: updatedRecord.password } : {})
+        }
+        writeJson(USERS_FILE, users)
+      }
+    } catch (e) {
+      console.warn('Failed to sync updated user in users.json:', e)
+    }
+
     return NextResponse.json({
       success: true,
       employee: updatedRecord,

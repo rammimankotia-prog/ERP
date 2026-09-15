@@ -86,11 +86,13 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
   // Quick Edit Modal state
   const [editingEmp, setEditingEmp] = useState<Employee | null>(null)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
+  const [showEditPassword, setShowEditPassword] = useState(false)
   const [editForm, setEditForm] = useState({
     firstName: '',
     lastName: '',
     contactNo: '',
     designation: '',
+    password: '',
     morningTime: '08:30',
     eveningTime: '18:00',
     status: 'ACTIVE',
@@ -189,11 +191,13 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
   // Quick edit modal helpers
   const openQuickEdit = (emp: Employee) => {
     setEditingEmp(emp)
+    setShowEditPassword(false)
     setEditForm({
       firstName: emp.firstName || '',
       lastName: emp.lastName || '',
       contactNo: emp.contactNo || '',
       designation: emp.designation || '',
+      password: (emp as any).password || '',
       morningTime: emp.morningTime || '08:30',
       eveningTime: emp.eveningTime || '18:00',
       status: emp.status || 'ACTIVE',
@@ -213,6 +217,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     const updatedEmp: Employee = {
       ...editingEmp,
       ...editForm,
+      ...(editForm.password ? { password: editForm.password } : {}),
       branch: selectedBranchObj ? { id: selectedBranchObj.id, name: selectedBranchObj.name, prefix: selectedBranchObj.prefix } : editingEmp.branch,
       department: selectedDeptObj ? { id: selectedDeptObj.id, name: selectedDeptObj.name } : editingEmp.department,
       updatedAt: new Date().toISOString()
@@ -1579,15 +1584,53 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '0.75rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>Designation</label>
-                  <input
-                    type="text"
-                    required
-                    value={editForm.designation}
-                    onChange={e => setEditForm(prev => ({ ...prev, designation: e.target.value }))}
-                    className="form-input"
-                    style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '0.88rem' }}
-                  />
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>
+                    🔑 Password (Add / Update)
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showEditPassword ? 'text' : 'password'}
+                      value={editForm.password}
+                      onChange={e => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+                      className="form-input"
+                      placeholder="Enter new password"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 2.25rem 0.5rem 0.75rem',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--bg-main)',
+                        color: 'var(--text-main)',
+                        fontSize: '0.88rem',
+                        fontFamily: showEditPassword ? 'inherit' : 'monospace',
+                        letterSpacing: showEditPassword ? 'normal' : '0.1em'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditPassword(p => !p)}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-muted)',
+                        padding: '2px',
+                        fontSize: '1rem',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                      title={showEditPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showEditPassword ? '👁️' : '👁️‍🗨️'}
+                    </button>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem', display: 'block' }}>
+                    Used for staff kiosk & portal login
+                  </span>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-muted)' }}>Status</label>

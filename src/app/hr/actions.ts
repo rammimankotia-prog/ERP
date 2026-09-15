@@ -414,7 +414,7 @@ export async function updateEmployee(id: string, data: any) {
   try {
     const USERS_FILE = path.join(DATA_DIR, 'users.json')
     const users = readJsonFile<any[]>(USERS_FILE, [])
-    const uIdx = users.findIndex((u: any) => u.id === id || (updatedRecord.email && u.email?.toLowerCase() === updatedRecord.email.toLowerCase()))
+    const uIdx = users.findIndex((u: any) => u.id === id || (updatedRecord.email && u.email?.toLowerCase() === updatedRecord.email.toLowerCase()) || (updatedRecord.employeeId && u.username?.toLowerCase() === updatedRecord.employeeId.toLowerCase()))
     if (uIdx !== -1) {
       users[uIdx] = {
         ...users[uIdx],
@@ -422,8 +422,13 @@ export async function updateEmployee(id: string, data: any) {
         email: updatedRecord.email || users[uIdx].email,
         username: updatedRecord.email || users[uIdx].username,
         status: updatedRecord.status === 'ACTIVE' ? 'Active' : 'Inactive',
+        ...(updatedRecord.password ? { password: updatedRecord.password } : {})
       }
       writeJsonFile(USERS_FILE, users)
+      const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
+      if (USERS_FILE !== LOCAL_USERS_FILE) {
+        writeJsonFile(LOCAL_USERS_FILE, users)
+      }
     }
   } catch (e) {
     console.warn('Failed to sync updated user in users.json:', e)
