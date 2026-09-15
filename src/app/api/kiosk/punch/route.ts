@@ -315,6 +315,13 @@ export async function POST(req: NextRequest) {
       const punchOutTime = now.getTime()
       const totalMinutes = Math.max(0, Math.floor((punchOutTime - punchInTime) / 60000))
 
+      // Half-Day Policy: If total hours worked is less than or equal to 5 hours (<= 300 mins), mark as HALF_DAY
+      let finalStatus = allAttendance[existingIndex].status || 'PRESENT'
+      if (totalMinutes <= 300) {
+        finalStatus = 'HALF_DAY'
+      }
+
+      allAttendance[existingIndex].status = finalStatus
       allAttendance[existingIndex].punchOut = nowIso
       allAttendance[existingIndex].punchOutMode = punchMode
       allAttendance[existingIndex].punchOutCoordinates = punchMode === 'MOBILE_GEOFENCE' ? { lat, lng, distanceMeters: minDistance } : null
@@ -330,7 +337,7 @@ export async function POST(req: NextRequest) {
         employeeName,
         action: 'OUT',
         punchMode,
-        status: allAttendance[existingIndex].status,
+        status: finalStatus,
         totalMinutes,
         lat: lat || null,
         lng: lng || null,
@@ -338,13 +345,20 @@ export async function POST(req: NextRequest) {
         nearestHotel,
         ip: clientIp,
         userAgent,
+        note: totalMinutes <= 300 ? `Marked HALF_DAY: ${totalMinutes}m worked (<= 5 hours)` : undefined
       })
+
+      const hoursWorked = Math.floor(totalMinutes / 60)
+      const minsWorked = totalMinutes % 60
+      const statusNote = totalMinutes <= 300 ? ' — Marked as Half Day (≤ 5 hours)' : ''
 
       return NextResponse.json({
         success: true,
         record: allAttendance[existingIndex],
         totalMinutes,
-        message: `Punch-Out Recorded (${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m worked)`
+        status: finalStatus,
+        isHalfDay: totalMinutes <= 300,
+        message: `Punch-Out Recorded (${hoursWorked}h ${minsWorked}m worked${statusNote})`
       })
     }
 

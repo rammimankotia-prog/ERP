@@ -23,6 +23,8 @@ interface CellData {
   punchIn?: string | null
   punchOut?: string | null
   isLate?: boolean
+  isHalfDay?: boolean
+  totalMinutes?: number | null
   title?: string
 }
 
@@ -680,6 +682,19 @@ export default function GuardAttendanceSheet({
                     style={{
                       padding: '0.65rem 0.6rem',
                       textAlign: 'center',
+                      color: '#8b5cf6',
+                      minWidth: '48px',
+                      borderBottom: isLight ? '2px solid #e2e8f0' : '2px solid #334155',
+                      fontWeight: 800,
+                    }}
+                    title="Total Half Days (Worked ≤ 5 Hours)"
+                  >
+                    🌓 ½D
+                  </th>
+                  <th
+                    style={{
+                      padding: '0.65rem 0.6rem',
+                      textAlign: 'center',
                       color: '#d97706',
                       minWidth: '48px',
                       borderBottom: isLight ? '2px solid #e2e8f0' : '2px solid #334155',
@@ -720,6 +735,7 @@ export default function GuardAttendanceSheet({
               <tbody>
                 {sheetData.employees.map(emp => {
                   let presentCount = 0
+                  let halfDayCount = 0
                   let leaveCount = 0
                   let offCount = 0
                   let absentCount = 0
@@ -727,7 +743,8 @@ export default function GuardAttendanceSheet({
                   sheetData.days.forEach(d => {
                     const cell = emp.cells[d.dayNumber]
                     if (!cell) return
-                    if (cell.status === 'PRESENT' || cell.status === 'LATE') presentCount++
+                    if (cell.status === 'HALF_DAY' || cell.isHalfDay) halfDayCount++
+                    else if (cell.status === 'PRESENT' || cell.status === 'LATE') presentCount++
                     else if (cell.status === 'LEAVE') leaveCount++
                     else if (cell.status === 'WEEKLY_OFF') offCount++
                     else if (cell.status === 'ABSENT') absentCount++
@@ -934,7 +951,45 @@ export default function GuardAttendanceSheet({
                           )
                         }
 
-                        // 3. PRESENT / LATE
+                        // 3. HALF DAY (<= 5 hours worked)
+                        if (cell.status === 'HALF_DAY' || cell.isHalfDay) {
+                          return (
+                            <td
+                              key={day.dayNumber}
+                              title={cell.title}
+                              style={{
+                                padding: '0.35rem 0.2rem',
+                                textAlign: 'center',
+                                backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                                borderLeft: isLight ? '1px solid #f1f5f9' : '1px solid #334155',
+                              }}
+                            >
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                                <span
+                                  style={{
+                                    padding: '2px 5px',
+                                    borderRadius: '5px',
+                                    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                                    color: '#7c3aed',
+                                    border: '1px solid rgba(139, 92, 246, 0.45)',
+                                    fontWeight: 800,
+                                    fontSize: '0.66rem',
+                                    boxShadow: '0 1px 3px rgba(139, 92, 246, 0.15)',
+                                  }}
+                                >
+                                  ½ DAY
+                                </span>
+                                {cell.punchIn && (
+                                  <span style={{ fontSize: '0.56rem', color: '#7c3aed', fontWeight: 700 }}>
+                                    {cell.punchIn.split(' ')[0]}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          )
+                        }
+
+                        // 4. PRESENT / LATE
                         if (cell.status === 'PRESENT' || cell.status === 'LATE') {
                           const isLate = cell.isLate || cell.status === 'LATE'
                           return (
@@ -972,7 +1027,7 @@ export default function GuardAttendanceSheet({
                           )
                         }
 
-                        // 4. TODAY WAITING
+                        // 5. TODAY WAITING
                         if (cell.status === 'PENDING_TODAY') {
                           return (
                             <td
@@ -1004,7 +1059,7 @@ export default function GuardAttendanceSheet({
                           )
                         }
 
-                        // 5. ABSENT
+                        // 6. ABSENT
                         return (
                           <td
                             key={day.dayNumber}
@@ -1042,6 +1097,16 @@ export default function GuardAttendanceSheet({
                         }}
                       >
                         {presentCount}
+                      </td>
+                      <td
+                        style={{
+                          padding: '0.5rem',
+                          textAlign: 'center',
+                          fontWeight: 800,
+                          color: '#8b5cf6',
+                        }}
+                      >
+                        {halfDayCount}
                       </td>
                       <td
                         style={{

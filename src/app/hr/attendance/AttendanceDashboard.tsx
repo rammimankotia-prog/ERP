@@ -102,6 +102,7 @@ export default function AttendanceDashboard() {
 
   // Stats
   const totalEmployees = logs.length
+  const halfDayCount = logs.filter(l => l.status === 'HALF_DAY').length
   const presentCount = logs.filter(l => ['PRESENT', 'LATE', 'HALF_DAY'].includes(l.status)).length
   const absentCount = logs.filter(l => l.status === 'ABSENT').length
   const lateCount = logs.filter(l => l.status === 'LATE').length
@@ -137,7 +138,7 @@ export default function AttendanceDashboard() {
           />
         </div>
         <input 
-          type="text"
+          type="text" 
           placeholder="Search employee or department..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
@@ -159,9 +160,10 @@ export default function AttendanceDashboard() {
         {[
           { label: 'Total Employees', value: totalEmployees, color: '#3b82f6' },
           { label: 'Present Today', value: presentCount, color: '#10b981' },
-          { label: 'Absent', value: absentCount, color: '#ef4444' },
+          { label: 'Half Day (≤5h)', value: halfDayCount, color: '#8b5cf6' },
           { label: 'Late In', value: lateCount, color: '#f59e0b' },
-          { label: 'On Leave', value: onLeaveCount, color: '#8b5cf6' },
+          { label: 'On Leave', value: onLeaveCount, color: '#06b6d4' },
+          { label: 'Absent', value: absentCount, color: '#ef4444' },
         ].map(stat => (
           <div key={stat.label} style={{ ...cardStyle, padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
             <div style={{ fontSize: '1.75rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>

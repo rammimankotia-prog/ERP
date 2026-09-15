@@ -36,12 +36,27 @@ export async function GET(req: NextRequest) {
     // Combine employees with their attendance
     const teamAttendance = employees.map(emp => {
       const record = todayAttendance.find(a => a.employeeId === emp.employeeId || a.employeeId === emp.id)
+      let status = record ? record.status : 'ABSENT' // Default absent if no punch in
+
+      // Half-day check: if punched out and worked <= 5 hours (300 minutes), ensure HALF_DAY status
+      if (record && record.punchIn && record.punchOut) {
+        let totalMins = record.totalMinutes
+        if (totalMins === undefined || totalMins === null) {
+          try {
+            totalMins = Math.floor((new Date(record.punchOut).getTime() - new Date(record.punchIn).getTime()) / 60000)
+          } catch {}
+        }
+        if (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300) {
+          status = 'HALF_DAY'
+        }
+      }
+
       return {
         employeeId: emp.employeeId || emp.id,
         employeeName: `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
         department: emp.department?.name || emp.departmentId || 'Unassigned',
         designation: emp.designation || 'Staff',
-        status: record ? record.status : 'ABSENT', // Default absent if no punch in
+        status,
         punchIn: record ? record.punchIn : null,
         punchOut: record ? record.punchOut : null,
         totalMinutes: record ? record.totalMinutes : null,

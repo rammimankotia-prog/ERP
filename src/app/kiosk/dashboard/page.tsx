@@ -697,6 +697,20 @@ function LiveStatusFeed({ isLight, refreshTrigger }: { isLight: boolean, refresh
             <div style={{ textAlign: 'right', fontSize: '0.8rem' }}>
               <div style={{ color: '#10b981', fontWeight: 600 }}>IN: {timeIn}</div>
               {timeOut && <div style={{ color: '#ef4444', fontWeight: 600 }}>OUT: {timeOut}</div>}
+              {log.status === 'HALF_DAY' && (
+                <div style={{
+                  display: 'inline-block',
+                  marginTop: '0.2rem',
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                  color: '#8b5cf6',
+                }}>
+                  ½ Day (≤5h)
+                </div>
+              )}
               {!timeOut && <div style={{ color: '#f59e0b', fontSize: '0.75rem', marginTop: '0.2rem' }}>Working</div>}
             </div>
           </div>

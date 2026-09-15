@@ -207,12 +207,28 @@ export async function GET(req: NextRequest) {
         const otMins = Math.max(0, totalMins - scheduledTotalMins)
 
         let status: ReportRecord['status'] = 'PRESENT'
-        if (isLate && isEarlyOut) {
+        // Half Day Policy: if worked <= 5 hours (300 mins) or already recorded as HALF_DAY
+        if ((punchOutIso && totalMins > 0 && totalMins <= 300) || attendanceRecord.status === 'HALF_DAY') {
+          status = 'HALF_DAY'
+        } else if (isLate && isEarlyOut) {
           status = 'LATE_AND_EARLY'
         } else if (isLate) {
           status = 'LATE'
         } else if (isEarlyOut) {
           status = 'EARLY_OUT'
+        }
+
+        let remarks = 'Present'
+        if (status === 'HALF_DAY') {
+          remarks = `Half Day (worked ${Math.floor(totalMins / 60)}h ${totalMins % 60}m ≤ 5h)`
+        } else if (isLate && isEarlyOut) {
+          remarks = `Late (+${lateMins}m) & Early Out (-${earlyOutMins}m)`
+        } else if (isLate) {
+          remarks = `Late arrival by ${lateMins}m`
+        } else if (isEarlyOut) {
+          remarks = `Early departure by ${earlyOutMins}m`
+        } else if (otMins > 0) {
+          remarks = `Overtime +${otMins}m`
         }
 
         record = {
@@ -237,7 +253,7 @@ export async function GET(req: NextRequest) {
           totalMinutes: totalMins,
           overtimeMinutes: otMins,
           status,
-          remarks: isLate ? `Late arrival by ${lateMins}m` : (otMins > 0 ? `Overtime +${otMins}m` : 'Present')
+          remarks
         }
       } else if (isOffDay) {
         record = {

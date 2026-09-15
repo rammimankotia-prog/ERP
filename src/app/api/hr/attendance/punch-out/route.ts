@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
     const standardMinutes = 480
     const overtimeMinutes = Math.max(0, totalMinutes - standardMinutes)
 
-    // Determine if half-day
+    // Determine if half-day (<= 5 hours = 300 minutes)
     let status = existing.status
-    if (totalMinutes < 240 && status === 'PRESENT') {
+    if (totalMinutes <= 300) {
       status = 'HALF_DAY' as any
     }
 

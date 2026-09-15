@@ -287,17 +287,32 @@ export async function GET(req: NextRequest) {
         const inFormatted = formatTime(attRecord.punchIn)
         const outFormatted = attRecord.punchOut ? formatTime(attRecord.punchOut) : null
 
+        let totalMins = attRecord.totalMinutes
+        if ((totalMins === undefined || totalMins === null) && attRecord.punchIn && attRecord.punchOut) {
+          try {
+            totalMins = Math.floor((new Date(attRecord.punchOut).getTime() - new Date(attRecord.punchIn).getTime()) / 60000)
+          } catch {}
+        }
+
+        const isHalfDay = attRecord.status === 'HALF_DAY' || (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300 && !!attRecord.punchOut)
+        const displayStatus = isHalfDay ? 'HALF_DAY' : (attRecord.status || 'PRESENT')
+        const badgeText = isHalfDay ? '½ DAY' : (attRecord.status === 'LATE' ? 'LATE' : 'P')
+
         dailyCells[dayNum] = {
-          status: attRecord.status || 'PRESENT',
-          badgeText: attRecord.status === 'LATE' ? 'LATE' : 'P',
+          status: displayStatus,
+          badgeText,
           punchIn: inFormatted,
           punchOut: outFormatted,
           punchInRaw: attRecord.punchIn,
           punchOutRaw: attRecord.punchOut,
           isLate: attRecord.isLate || false,
+          isHalfDay,
+          totalMinutes: totalMins,
           isNonAmended: false,
           leaveReason: null,
-          title: `🟢 Present | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`,
+          title: isHalfDay
+            ? `🟣 Half Day (${typeof totalMins === 'number' ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m ≤ 5h` : '≤ 5 hours'}) | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ''}`
+            : `🟢 Present | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`,
         }
         return
       }

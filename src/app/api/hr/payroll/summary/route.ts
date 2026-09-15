@@ -49,17 +49,26 @@ export async function GET(req: NextRequest) {
       let presentDays = 0
       let absentDays = 0
       let lateDays = 0
+      let halfDays = 0
       let totalMinutes = 0
 
       empLogs.forEach(log => {
-        if (log.status === 'PRESENT') presentDays++
-        else if (log.status === 'LATE') { presentDays++; lateDays++ }
-        else if (log.status === 'ABSENT') absentDays++
+        const isHalf = log.status === 'HALF_DAY' || (log.totalMinutes && log.totalMinutes > 0 && log.totalMinutes <= 300)
+        if (isHalf) {
+          halfDays++
+        } else if (log.status === 'PRESENT') {
+          presentDays++
+        } else if (log.status === 'LATE') {
+          presentDays++
+          lateDays++
+        } else if (log.status === 'ABSENT') {
+          absentDays++
+        }
         totalMinutes += log.totalMinutes || 0
       })
 
       const baseSalary = emp.baseSalary || 25000
-      const payableDays = presentDays
+      const payableDays = presentDays + (halfDays * 0.5)
       const dailyRate = Math.round(baseSalary / daysInMonth)
       const grossEarned = Math.round(dailyRate * payableDays)
       const deductions = 0
@@ -77,7 +86,7 @@ export async function GET(req: NextRequest) {
         presentDays,
         absentDays,
         lateDays,
-        halfDays: 0,
+        halfDays,
         leaveDays: 0,
         totalMinutes,
         overtimeMinutes: 0,
