@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
+import './login.css';
 
 type LoginMode = 'staff' | 'security';
 
@@ -12,7 +13,12 @@ export default function LoginPage() {
 
   const [mode, setMode] = useState<LoginMode>('staff');
   const [rememberMe, setRememberMe] = useState(true);
-  const [geofence, setGeofence] = useState<{enabled: boolean, lat: number, lng: number, radius: number} | null>(null);
+  const [geofence, setGeofence] = useState<{enabled: boolean, lat: number, lng: number, radius: number} | null>({
+    enabled: true,
+    lat: 28.645870262027557,
+    lng: 77.2153564554722,
+    radius: 50,
+  });
 
   useEffect(() => {
     fetch('/api/settings/global')
@@ -21,9 +27,9 @@ export default function LoginPage() {
         if (data.geofence) {
           setGeofence({
             enabled: data.geofence.enabled !== undefined ? data.geofence.enabled : true,
-            lat: data.geofence.lat || 28.6448,
-            lng: data.geofence.lng || 77.2140,
-            radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 20,
+            lat: data.geofence.lat || 28.645870262027557,
+            lng: data.geofence.lng || 77.2153564554722,
+            radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 50,
           });
         }
       })
@@ -290,7 +296,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="lp-wrap">
+    <div
+      className="lp-wrap"
+      style={{
+        minHeight: '100vh',
+        width: '100%',
+        maxWidth: '100vw',
+        background: 'radial-gradient(ellipse at 50% 0%, #0f1e2e 0%, #070d14 70%)',
+        color: '#f8fafc',
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      }}
+    >
       {/* Ambient glows */}
       <div className={`lp-glow lp-glow-top ${mode === 'security' ? 'glow-blue' : 'glow-green'}`} />
       <div className="lp-glow lp-glow-bottom" />
@@ -614,627 +630,52 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <style jsx>{`
-        * {
-          box-sizing: border-box;
-          -webkit-tap-highlight-color: transparent;
-        }
-
+      <style dangerouslySetInnerHTML={{ __html: `
+        *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         .lp-wrap {
-          min-height: 100vh;
-          min-height: 100dvh;
-          width: 100%;
-          max-width: 100vw;
-          background: radial-gradient(ellipse at 50% 0%, #0f1e2e 0%, #070d14 70%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          min-height: 100vh; min-height: 100dvh; width: 100%; max-width: 100vw;
+          background: radial-gradient(ellipse at 50% 0%, #0f1e2e 0%, #070d14 70%) !important;
+          display: flex; align-items: center; justify-content: center;
           padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-          position: relative;
-          overflow-x: hidden;
-          overflow-y: auto;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-          -webkit-overflow-scrolling: touch;
+          position: relative; overflow-x: hidden; overflow-y: auto;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          color: #f8fafc;
         }
-
-        /* Ambient Glows - safely contained */
-        .lp-glow {
-          position: absolute;
-          border-radius: 50%;
-          pointer-events: none;
-          transition: background 0.5s ease;
-          max-width: 100vw;
-          filter: blur(40px);
-          -webkit-filter: blur(40px);
-        }
-        .lp-glow-top {
-          top: -10%;
-          right: -5%;
-          width: clamp(260px, 45vw, 550px);
-          height: clamp(260px, 45vw, 550px);
-        }
-        .glow-green { background: radial-gradient(circle, rgba(16,185,129,0.14) 0%, transparent 70%); }
-        .glow-blue  { background: radial-gradient(circle, rgba(59,130,246,0.14) 0%, transparent 70%); }
-        .lp-glow-bottom {
-          bottom: -10%;
-          left: -5%;
-          width: clamp(240px, 35vw, 450px);
-          height: clamp(240px, 35vw, 450px);
-          background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
-        }
-
         .lp-card {
-          width: 100%;
-          max-width: 490px;
-          margin: auto;
+          width: 100%; max-width: 490px; margin: auto;
           background: rgba(10, 18, 30, 0.94);
-          backdrop-filter: blur(28px);
-          -webkit-backdrop-filter: blur(28px);
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 24px;
-          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.05);
-          padding: clamp(1.4rem, 4.5vw, 2.4rem);
-          position: relative;
-          z-index: 1;
-          box-sizing: border-box;
-          word-break: break-word;
-          overflow-wrap: break-word;
+          backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
+          border: 1px solid rgba(255,255,255,0.1); border-radius: 24px;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.85);
+          padding: clamp(1.4rem, 4.5vw, 2.4rem); position: relative; z-index: 1;
         }
-
-        .lp-accent-bar {
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 4px;
-          border-top-left-radius: 24px;
-          border-top-right-radius: 24px;
-          transition: background 0.35s ease;
-        }
+        .lp-accent-bar { position: absolute; top: 0; left: 0; right: 0; height: 4px; border-top-left-radius: 24px; border-top-right-radius: 24px; }
         .bar-green { background: linear-gradient(90deg, #059669, #10b981, #06b6d4); }
-        .bar-blue  { background: linear-gradient(90deg, #2563eb, #3b82f6, #6366f1); }
-
-        /* Brand */
-        .lp-brand {
-          display: flex;
-          align-items: center;
-          gap: 0.85rem;
-          margin-bottom: 1.35rem;
-          padding-bottom: 1.15rem;
-          border-bottom: 1px solid rgba(255,255,255,0.08);
-          min-width: 0;
-        }
-        .lp-brand-logo {
-          width: 44px;
-          height: 44px;
-          min-width: 44px;
-          background: rgba(255,255,255,0.07);
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.4rem;
-          flex-shrink: 0;
-        }
-        .lp-brand-text {
-          min-width: 0;
-          overflow: hidden;
-        }
-        .lp-brand-name {
-          font-size: 1rem;
-          font-weight: 800;
-          color: #f1f5f9;
-          line-height: 1.25;
-          letter-spacing: -0.01em;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .lp-brand-sub {
-          font-size: 0.72rem;
-          color: #64748b;
-          font-weight: 500;
-          margin-top: 2px;
-          line-height: 1.3;
-        }
-
-        /* Mode Switcher */
-        .lp-mode-switcher {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 0.45rem;
-          background: rgba(0,0,0,0.45);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 14px;
-          padding: 0.35rem;
-          margin-bottom: 1.5rem;
-          width: 100%;
-          box-sizing: border-box;
-        }
-        .lp-mode-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.55rem;
-          padding: 0.7rem 0.6rem;
-          border-radius: 10px;
-          border: 1px solid transparent;
-          background: transparent;
-          color: #64748b;
-          cursor: pointer;
-          text-align: left;
-          transition: all 0.2s ease;
-          min-height: 54px;
-          min-width: 0;
-          box-sizing: border-box;
-          touch-action: manipulation;
-        }
-        .lp-mode-btn:hover:not(.mode-active-green):not(.mode-active-blue) {
-          background: rgba(255,255,255,0.04);
-          color: #94a3b8;
-        }
-        .lp-mode-icon {
-          font-size: 1.35rem;
-          flex-shrink: 0;
-        }
-        .lp-mode-text {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-          overflow: hidden;
-        }
-        .lp-mode-title {
-          font-size: 0.82rem;
-          font-weight: 800;
-          line-height: 1.2;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .lp-mode-hint {
-          font-size: 0.65rem;
-          font-weight: 500;
-          color: #475569;
-          line-height: 1.3;
-          margin-top: 2px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .mode-active-green {
-          background: rgba(16,185,129,0.14);
-          border-color: rgba(16,185,129,0.35);
-          color: #34d399;
-          box-shadow: 0 4px 14px rgba(16,185,129,0.15);
-        }
-        .mode-active-green .lp-mode-hint { color: #6ee7b7; opacity: 0.9; }
-        .mode-active-blue {
-          background: rgba(59,130,246,0.14);
-          border-color: rgba(59,130,246,0.35);
-          color: #60a5fa;
-          box-shadow: 0 4px 14px rgba(59,130,246,0.15);
-        }
-        .mode-active-blue .lp-mode-hint { color: #bfdbfe; opacity: 0.9; }
-
-        /* Section */
-        .lp-section {
-          animation: fadeIn 0.22s ease;
-          width: 100%;
-        }
-        .lp-section-header {
-          text-align: center;
-          margin-bottom: 1.35rem;
-        }
-        .lp-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          padding: 0.3rem 0.85rem;
-          border-radius: 20px;
-          font-size: 0.68rem;
-          font-weight: 800;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          margin-bottom: 0.65rem;
-        }
-        .badge-green {
-          background: rgba(16,185,129,0.12);
-          border: 1px solid rgba(16,185,129,0.28);
-          color: #34d399;
-        }
-        .badge-blue {
-          background: rgba(59,130,246,0.12);
-          border: 1px solid rgba(59,130,246,0.28);
-          color: #60a5fa;
-        }
-        .lp-title {
-          font-size: clamp(1.4rem, 4.5vw, 1.85rem);
-          font-weight: 900;
-          color: #ffffff;
-          margin: 0 0 0.35rem 0;
-          letter-spacing: -0.02em;
-          line-height: 1.25;
-        }
-        .lp-subtitle {
-          font-size: 0.82rem;
-          color: #64748b;
-          line-height: 1.45;
-          margin: 0;
-          word-break: break-word;
-        }
-
-        /* Form */
-        .lp-form {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          width: 100%;
-        }
-        .lp-alert {
-          padding: 0.85rem 1rem;
-          border-radius: 12px;
-          font-size: 0.82rem;
-          font-weight: 600;
-          display: flex;
-          align-items: flex-start;
-          gap: 0.6rem;
-          line-height: 1.45;
-          word-break: break-word;
-          overflow-wrap: break-word;
-          box-sizing: border-box;
-          width: 100%;
-        }
-        .lp-alert-error {
-          background: rgba(239,68,68,0.14);
-          border-left: 3px solid #ef4444;
-          color: #fca5a5;
-        }
-        .lp-field {
-          display: flex;
-          flex-direction: column;
-          width: 100%;
-        }
-        .lp-label {
-          font-size: 0.72rem;
-          font-weight: 800;
-          color: #94a3b8;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 0.45rem;
-        }
-        .lp-input-wrap {
-          display: flex;
-          align-items: center;
-          background: rgba(2,6,23,0.75);
-          border: 1px solid rgba(255,255,255,0.12);
-          border-radius: 12px;
-          padding: 0 0.85rem;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          width: 100%;
-          box-sizing: border-box;
-          min-height: 48px;
-        }
-        .lp-focus-green:focus-within {
-          border-color: #10b981;
-          box-shadow: 0 0 0 3px rgba(16,185,129,0.18);
-        }
-        .lp-focus-blue:focus-within {
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59,130,246,0.18);
-        }
-        .lp-input-icon {
-          font-size: 1rem;
-          color: #64748b;
-          margin-right: 0.65rem;
-          flex-shrink: 0;
-        }
-        .lp-input {
-          width: 100%;
-          background: transparent;
-          border: none;
-          padding: 0.85rem 0;
-          color: #ffffff;
-          font-size: 16px !important;
-          font-weight: 600;
-          outline: none;
-          box-sizing: border-box;
-          -webkit-appearance: none;
-          appearance: none;
-        }
-        .lp-input::placeholder { color: #334155; font-weight: 500; }
-        
-        .lp-input:-webkit-autofill,
-        .lp-input:-webkit-autofill:hover, 
-        .lp-input:-webkit-autofill:focus {
-          -webkit-text-fill-color: #ffffff !important;
-          -webkit-box-shadow: 0 0 0px 1000px #09131e inset !important;
-          transition: background-color 5000s ease-in-out 0s;
-        }
-
-        .lp-eye-btn {
-          background: transparent;
-          border: none;
-          color: #64748b;
-          cursor: pointer;
-          padding: 0.45rem;
-          font-size: 1.15rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          touch-action: manipulation;
-          min-width: 36px;
-          min-height: 36px;
-        }
-        .lp-eye-btn:hover { color: #94a3b8; }
-
-        /* Remember Me Box */
-        .lp-remember-box {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem 0.9rem;
-          border-radius: 12px;
-          cursor: pointer;
-          user-select: none;
-          transition: all 0.15s ease;
-          width: 100%;
-          box-sizing: border-box;
-          touch-action: manipulation;
-        }
-        .lp-remember-staff {
-          background: rgba(16, 185, 129, 0.07);
-          border: 1px solid rgba(16, 185, 129, 0.35);
-        }
-        .lp-remember-sec {
-          background: rgba(59, 130, 246, 0.07);
-          border: 1px solid rgba(59, 130, 246, 0.35);
-        }
-        .lp-checkbox {
-          width: 19px;
-          height: 19px;
-          cursor: pointer;
-          accent-color: #10b981;
-          flex-shrink: 0;
-          margin: 0;
-        }
-        .lp-checkbox-blue {
-          accent-color: #3b82f6;
-        }
-        .lp-remember-text {
-          flex: 1;
-          min-width: 0;
-        }
-        .lp-remember-label {
-          cursor: pointer;
-          font-weight: 700;
-          font-size: 0.86rem;
-          display: block;
-          line-height: 1.3;
-          color: #cbd5e1;
-        }
-        .lp-remember-staff .lp-remember-label { color: #34d399; }
-        .lp-remember-sec .lp-remember-label { color: #60a5fa; }
-        .lp-remember-hint {
-          font-size: 0.72rem;
-          color: #94a3b8;
-          display: block;
-          margin-top: 2px;
-          line-height: 1.3;
-        }
-        .lp-remember-badge {
-          font-size: 0.68rem;
-          padding: 3px 8px;
-          border-radius: 99px;
-          font-weight: 800;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-        .badge-green-pill {
-          background: rgba(16, 185, 129, 0.2);
-          color: #34d399;
-          border: 1px solid rgba(16, 185, 129, 0.3);
-        }
-        .badge-blue-pill {
-          background: rgba(59, 130, 246, 0.2);
-          color: #93c5fd;
-          border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-
-        /* Notices */
-        .lp-geo-notice {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.6rem;
-          padding: 0.75rem 0.9rem;
-          background: rgba(16,185,129,0.08);
-          border: 1px solid rgba(16,185,129,0.22);
-          border-radius: 10px;
-          font-size: 0.78rem;
-          color: #6ee7b7;
-          line-height: 1.45;
-          word-break: break-word;
-        }
-        .lp-kiosk-notice {
-          padding: 0.75rem 0.9rem;
-          background: rgba(59,130,246,0.08);
-          border: 1px solid rgba(59,130,246,0.22);
-          border-radius: 10px;
-          font-size: 0.78rem;
-          color: #93c5fd;
-          line-height: 1.45;
-          word-break: break-word;
-        }
-        .lp-kiosk-notice-row {
-          display: flex;
-          align-items: flex-start;
-          gap: 0.6rem;
-        }
-
-        /* Submit Button */
-        .lp-submit-btn {
-          color: #fff;
-          border: none;
-          border-radius: 12px;
-          padding: 0.95rem 1.25rem;
-          font-size: 0.96rem;
-          font-weight: 800;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.6rem;
-          min-height: 50px;
-          margin-top: 0.25rem;
-          width: 100%;
-          box-sizing: border-box;
-          touch-action: manipulation;
-          -webkit-appearance: none;
-        }
-        .btn-green {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          box-shadow: 0 10px 24px -6px rgba(16,185,129,0.45);
-        }
-        .btn-green:hover:not(:disabled) {
-          background: linear-gradient(135deg, #34d399 0%, #047857 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 14px 28px -6px rgba(16,185,129,0.55);
-        }
-        .btn-blue {
-          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-          box-shadow: 0 10px 24px -6px rgba(59,130,246,0.45);
-        }
-        .btn-blue:hover:not(:disabled) {
-          background: linear-gradient(135deg, #60a5fa 0%, #1d4ed8 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 14px 28px -6px rgba(59,130,246,0.55);
-        }
-        .lp-submit-btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-          transform: none !important;
-        }
-        .lp-spinner {
-          width: 18px;
-          height: 18px;
-          border: 2.5px solid rgba(255,255,255,0.4);
-          border-top-color: #fff;
-          border-radius: 50%;
-          animation: spin 0.75s linear infinite;
-          display: inline-block;
-        }
-
-        /* Admin link */
-        .lp-admin-link {
-          margin-top: 1.5rem;
-          padding: 0.85rem 1rem;
-          background: rgba(255,255,255,0.025);
-          border: 1px dashed rgba(255,255,255,0.12);
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 0.6rem;
-          font-size: 0.8rem;
-          color: #64748b;
-          width: 100%;
-          box-sizing: border-box;
-        }
-        .lp-admin-btn {
-          font-size: 0.78rem;
-          font-weight: 700;
-          color: #fbbf24;
-          background: rgba(245,158,11,0.1);
-          border: 1px solid rgba(245,158,11,0.28);
-          border-radius: 8px;
-          padding: 0.35rem 0.75rem;
-          text-decoration: none;
-          transition: background 0.15s;
-          white-space: nowrap;
-          touch-action: manipulation;
-        }
-        .lp-admin-btn:hover { background: rgba(245,158,11,0.2); }
-
-        /* Footer */
-        .lp-footer {
-          margin-top: 1.25rem;
-          text-align: center;
-          font-size: 0.72rem;
-          color: #475569;
-          line-height: 1.4;
-          word-break: break-word;
-        }
-        .lp-footer-link {
-          color: #64748b;
-          text-decoration: none;
-        }
-        .lp-footer-link:hover { color: #94a3b8; }
-
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        /* Comprehensive Responsive Breakpoints */
-        @media (max-width: 480px) {
-          .lp-wrap {
-            padding: max(1rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
-          }
-          .lp-card {
-            padding: 1.35rem 1rem;
-            border-radius: 18px;
-          }
-          .lp-brand {
-            margin-bottom: 1.15rem;
-            padding-bottom: 1rem;
-          }
-          .lp-title {
-            font-size: 1.38rem;
-          }
-          .lp-mode-btn {
-            padding: 0.6rem 0.45rem;
-            min-height: 50px;
-          }
-          .lp-mode-title {
-            font-size: 0.78rem;
-          }
-          .lp-mode-hint {
-            font-size: 0.62rem;
-          }
-          .lp-admin-link {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          .lp-admin-btn {
-            align-self: flex-start;
-          }
-        }
-
-        @media (max-width: 360px) {
-          .lp-card {
-            padding: 1.15rem 0.85rem;
-            border-radius: 16px;
-          }
-          .lp-mode-icon {
-            font-size: 1.15rem;
-          }
-          .lp-mode-hint {
-            display: none;
-          }
-          .lp-mode-btn {
-            justify-content: center;
-            text-align: center;
-          }
-          .lp-remember-box {
-            padding: 0.65rem 0.75rem;
-          }
-          .lp-remember-badge {
-            display: none;
-          }
-        }
-      `}</style>
+        .bar-blue { background: linear-gradient(90deg, #2563eb, #3b82f6, #6366f1); }
+        .lp-brand { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.35rem; padding-bottom: 1.15rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .lp-brand-name { font-size: 1rem; font-weight: 800; color: #f1f5f9; line-height: 1.25; }
+        .lp-brand-sub { font-size: 0.72rem; color: #64748b; font-weight: 500; }
+        .lp-mode-switcher { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 0.35rem; margin-bottom: 1.5rem; }
+        .lp-mode-btn { display: flex; align-items: center; gap: 0.55rem; padding: 0.7rem 0.6rem; border-radius: 10px; border: 1px solid transparent; background: transparent; color: #64748b; cursor: pointer; min-height: 54px; }
+        .mode-active-green { background: rgba(16,185,129,0.14); border-color: rgba(16,185,129,0.35); color: #34d399; }
+        .mode-active-blue { background: rgba(59,130,246,0.14); border-color: rgba(59,130,246,0.35); color: #60a5fa; }
+        .lp-section-header { text-align: center; margin-bottom: 1.35rem; }
+        .lp-badge { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.65rem; }
+        .badge-green { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.28); color: #34d399; }
+        .badge-blue { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.28); color: #60a5fa; }
+        .lp-title { font-size: clamp(1.4rem, 4.5vw, 1.85rem); font-weight: 900; color: #ffffff; margin: 0 0 0.35rem 0; }
+        .lp-subtitle { font-size: 0.82rem; color: #64748b; line-height: 1.45; }
+        .lp-form { display: flex; flex-direction: column; gap: 1rem; width: 100%; }
+        .lp-field { display: flex; flex-direction: column; width: 100%; }
+        .lp-label { font-size: 0.72rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.45rem; }
+        .lp-input-wrap { display: flex; align-items: center; background: rgba(2,6,23,0.75); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 0 0.85rem; min-height: 48px; width: 100%; }
+        .lp-input-icon { font-size: 1rem; color: #64748b; margin-right: 0.65rem; flex-shrink: 0; }
+        .lp-input { width: 100%; background: transparent; border: none; padding: 0.85rem 0; color: #ffffff; font-size: 16px; outline: none; }
+        .lp-remember-box { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.9rem; border-radius: 12px; background: rgba(16, 185, 129, 0.07); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399; }
+        .lp-submit-btn { color: #fff; border: none; border-radius: 12px; padding: 0.95rem 1.25rem; font-size: 0.96rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.6rem; min-height: 50px; width: 100%; }
+        .btn-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .btn-blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+      `}} />
     </div>
   );
 }
