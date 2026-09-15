@@ -246,3 +246,79 @@ describe('RBAC Access Control', () => {
     expect(checkAccess('HOD', ['ADMIN', 'HR_MANAGER', 'HOD'])).toBe(200)
   })
 })
+
+describe('IST Late Arrival & Remarks Detection (e.g. 12:30 PM Punch vs 09:00 Shift)', () => {
+  // Test function identical to parseTimeToISTMinutes in reports/punch routes
+  function parseTimeToISTMinutes(timeOrIso: string | null | undefined): number {
+    if (!timeOrIso) return 0
+    const trimmed = timeOrIso.trim()
+
+    const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i)
+    if (ampmMatch) {
+      let h = parseInt(ampmMatch[1], 10)
+      const m = parseInt(ampmMatch[2], 10)
+      const isPm = ampmMatch[3].toLowerCase() === 'pm'
+      if (isPm && h < 12) h += 12
+      if (!isPm && h === 12) h = 0
+      return h * 60 + m
+    }
+
+    const time24Match = trimmed.match(/^(\d{1,2}):(\d{2})$/)
+    if (time24Match) {
+      const h = parseInt(time24Match[1], 10)
+      const m = parseInt(time24Match[2], 10)
+      return h * 60 + m
+    }
+
+    try {
+      const d = new Date(trimmed)
+      if (!isNaN(d.getTime())) {
+        const istStr = d.toLocaleTimeString('en-GB', {
+          timeZone: 'Asia/Kolkata',
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+        const [hStr, mStr] = istStr.split(':')
+        const h = parseInt(hStr, 10) || 0
+        const m = parseInt(mStr, 10) || 0
+        return h * 60 + m
+      }
+    } catch {}
+
+    return 0
+  }
+
+  test('✅ PASS: Shift 09:00 parses to 540 minutes', () => {
+    expect(parseTimeToISTMinutes('09:00')).toBe(540)
+  })
+
+  test('✅ PASS: 12:30 pm string parses to 750 minutes (12*60 + 30)', () => {
+    expect(parseTimeToISTMinutes('12:30 pm')).toBe(750)
+  })
+
+  test('✅ PASS: UTC ISO timestamp 2026-09-15T07:00:00.000Z parses to 12:30 PM IST (750 mins)', () => {
+    expect(parseTimeToISTMinutes('2026-09-15T07:00:00.000Z')).toBe(750)
+  })
+
+  test('❌ FAIL: Punch at 12:30 PM against 09:00 shift must be flagged LATE by 210 minutes (3h 30m)', () => {
+    const shiftMins = parseTimeToISTMinutes('09:00') // 540
+    const punchMins = parseTimeToISTMinutes('2026-09-15T07:00:00.000Z') // 750 (12:30 PM IST)
+    const lateMins = punchMins - shiftMins
+    const isLate = lateMins > 15
+
+    expect(lateMins).toBe(210) // 3.5 hours late
+    expect(isLate).toBe(true)
+  })
+
+  test('✅ PASS: Punch at 09:14 AM against 09:00 shift is within 15 min grace (14 mins <= 15)', () => {
+    const shiftMins = parseTimeToISTMinutes('09:00') // 540
+    const punchMins = parseTimeToISTMinutes('09:14') // 554
+    const lateMins = punchMins - shiftMins
+    const isLate = lateMins > 15
+
+    expect(lateMins).toBe(14)
+    expect(isLate).toBe(false)
+  })
+})
+

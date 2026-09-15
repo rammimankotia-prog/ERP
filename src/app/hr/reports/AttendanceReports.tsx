@@ -255,9 +255,9 @@ export default function AttendanceReports() {
 
     // Quick exception pills
     if (selectedException === 'LATE') {
-      list = list.filter(r => r.isLate)
+      list = list.filter(r => r.isLate || r.status === 'LATE' || r.status === 'LATE_AND_EARLY')
     } else if (selectedException === 'EARLY_OUT') {
-      list = list.filter(r => r.isEarlyOut)
+      list = list.filter(r => r.isEarlyOut || r.status === 'EARLY_OUT' || r.status === 'LATE_AND_EARLY')
     } else if (selectedException === 'UNPAID_LEAVE') {
       list = list.filter(r => r.status === 'UNPAID_LEAVE')
     } else if (selectedException === 'PAID_LEAVE') {
@@ -1160,7 +1160,7 @@ export default function AttendanceReports() {
                         </td>
 
                         {/* Punch In */}
-                        <td style={{ padding: '0.8rem 0.75rem', textAlign: 'center' }}>
+                        <td style={{ padding: '0.8rem 1rem' }}>
                           {record.punchIn ? (
                             <div>
                               <span
@@ -1174,7 +1174,7 @@ export default function AttendanceReports() {
                               </span>
                               {record.isLate && (
                                 <div style={{ fontSize: '0.7rem', color: '#f59e0b', fontWeight: 600 }}>
-                                  +{record.lateMinutes}m late
+                                  +{record.lateMinutes >= 60 ? `${Math.floor(record.lateMinutes / 60)}h ${record.lateMinutes % 60}m` : `${record.lateMinutes}m`} late
                                 </div>
                               )}
                             </div>
@@ -1184,7 +1184,7 @@ export default function AttendanceReports() {
                         </td>
 
                         {/* Punch Out */}
-                        <td style={{ padding: '0.8rem 0.75rem', textAlign: 'center' }}>
+                        <td style={{ padding: '0.8rem 1rem' }}>
                           {record.punchOut ? (
                             <div>
                               <span
@@ -1198,7 +1198,7 @@ export default function AttendanceReports() {
                               </span>
                               {record.isEarlyOut && (
                                 <div style={{ fontSize: '0.7rem', color: '#f97316', fontWeight: 600 }}>
-                                  -{record.earlyOutMinutes}m early
+                                  -{record.earlyOutMinutes >= 60 ? `${Math.floor(record.earlyOutMinutes / 60)}h ${record.earlyOutMinutes % 60}m` : `${record.earlyOutMinutes}m`} early
                                 </div>
                               )}
                             </div>
@@ -1221,8 +1221,58 @@ export default function AttendanceReports() {
                         <td style={{ padding: '0.8rem 1rem' }}>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
                             {/* Primary Status Badge */}
-                            {record.status === 'PRESENT' && (
-                              <span className="badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                            {(record.status === 'LATE' || (record.status === 'PRESENT' && record.isLate)) && (
+                              <span
+                                className="badge"
+                                style={{
+                                  backgroundColor: 'rgba(245, 158, 11, 0.18)',
+                                  color: '#f59e0b',
+                                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                                  fontWeight: 700
+                                }}
+                              >
+                                ⚠️ Late ({record.lateMinutes >= 60 ? `${Math.floor(record.lateMinutes / 60)}h ${record.lateMinutes % 60}m` : `+${record.lateMinutes}m`})
+                              </span>
+                            )}
+
+                            {record.status === 'LATE_AND_EARLY' && (
+                              <span
+                                className="badge"
+                                style={{
+                                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                  color: '#ef4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                                  fontWeight: 700
+                                }}
+                              >
+                                ⚠️ Late & Early Out
+                              </span>
+                            )}
+
+                            {record.status === 'EARLY_OUT' && (
+                              <span
+                                className="badge"
+                                style={{
+                                  backgroundColor: 'rgba(249, 115, 22, 0.18)',
+                                  color: '#f97316',
+                                  border: '1px solid rgba(249, 115, 22, 0.4)',
+                                  fontWeight: 700
+                                }}
+                              >
+                                🚪 Early Out (-{record.earlyOutMinutes}m)
+                              </span>
+                            )}
+
+                            {record.status === 'PRESENT' && !record.isLate && !record.isEarlyOut && (
+                              <span
+                                className="badge"
+                                style={{
+                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10b981',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  fontWeight: 600
+                                }}
+                              >
                                 ✅ On Time
                               </span>
                             )}
@@ -1257,8 +1307,8 @@ export default function AttendanceReports() {
                               </span>
                             )}
 
-                            {/* Exception Tags */}
-                            {record.isLate && (
+                            {/* Exception Tags (when not already shown as primary status) */}
+                            {record.isLate && record.status !== 'LATE' && record.status !== 'LATE_AND_EARLY' && (
                               <span
                                 style={{
                                   padding: '0.2rem 0.5rem',
@@ -1274,7 +1324,7 @@ export default function AttendanceReports() {
                               </span>
                             )}
 
-                            {record.isEarlyOut && (
+                            {record.isEarlyOut && record.status !== 'EARLY_OUT' && record.status !== 'LATE_AND_EARLY' && (
                               <span
                                 style={{
                                   padding: '0.2rem 0.5rem',

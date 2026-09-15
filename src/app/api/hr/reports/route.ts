@@ -53,10 +53,60 @@ export type ReportRecord = {
   remarks?: string
 }
 
+export function parseTimeToISTMinutes(timeOrIso: string | null | undefined): number {
+  if (!timeOrIso) return 0
+  const trimmed = timeOrIso.trim()
+
+  // 1. "12:30 pm", "09:00 am", "9:15 AM"
+  const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i)
+  if (ampmMatch) {
+    let h = parseInt(ampmMatch[1], 10)
+    const m = parseInt(ampmMatch[2], 10)
+    const isPm = ampmMatch[3].toLowerCase() === 'pm'
+    if (isPm && h < 12) h += 12
+    if (!isPm && h === 12) h = 0
+    return h * 60 + m
+  }
+
+  // 2. "09:00", "18:30" (24-hour simple format)
+  const time24Match = trimmed.match(/^(\d{1,2}):(\d{2})$/)
+  if (time24Match) {
+    const h = parseInt(time24Match[1], 10)
+    const m = parseInt(time24Match[2], 10)
+    return h * 60 + m
+  }
+
+  // 3. ISO timestamp or date string (e.g. "2026-09-15T07:00:00.000Z") converted to Asia/Kolkata (IST UTC+5:30)
+  try {
+    const d = new Date(trimmed)
+    if (!isNaN(d.getTime())) {
+      const istStr = d.toLocaleTimeString('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      const [hStr, mStr] = istStr.split(':')
+      const h = parseInt(hStr, 10) || 0
+      const m = parseInt(mStr, 10) || 0
+      return h * 60 + m
+    }
+  } catch {}
+
+  return 0
+}
+
+export function formatDurationHoursMinutes(minutes: number): string {
+  if (!minutes || minutes <= 0) return '0m'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h > 0 && m > 0) return `${h}h ${m}m`
+  if (h > 0) return `${h}h`
+  return `${m}m`
+}
+
 function parseTimeToMinutes(t: string): number {
-  if (!t) return 0
-  const parts = t.split(':').map(Number)
-  return (parts[0] || 0) * 60 + (parts[1] || 0)
+  return parseTimeToISTMinutes(t)
 }
 
 function formatYMD(d: Date): string {
@@ -185,18 +235,21 @@ export async function GET(req: NextRequest) {
         const punchInIso = attendanceRecord.punchIn
         const punchOutIso = attendanceRecord.punchOut || null
 
-        const punchInDate = new Date(punchInIso)
-        const punchInMinutes = punchInDate.getHours() * 60 + punchInDate.getMinutes()
-        const lateMins = Math.max(0, punchInMinutes - shiftInMins)
-        const isLate = lateMins > 15
+        // Accurate IST minutes calculation
+        const punchInMinutes = parseTimeToISTMinutes(punchInIso)
+        const computedLateMins = Math.max(0, punchInMinutes - shiftInMins)
+        const isLateComputed = computedLateMins > 15
+        const isLate = isLateComputed || attendanceRecord.isLate === true || attendanceRecord.status === 'LATE'
+        const lateMins = attendanceRecord.lateMinutes && attendanceRecord.lateMinutes > 0
+          ? attendanceRecord.lateMinutes
+          : computedLateMins
 
         let earlyOutMins = 0
         let isEarlyOut = false
         let totalMins = attendanceRecord.totalMinutes || 0
 
         if (punchOutIso) {
-          const punchOutDate = new Date(punchOutIso)
-          const punchOutMinutes = punchOutDate.getHours() * 60 + punchOutDate.getMinutes()
+          const punchOutMinutes = parseTimeToISTMinutes(punchOutIso)
           earlyOutMins = Math.max(0, shiftOutMins - punchOutMinutes)
           isEarlyOut = earlyOutMins > 15
           if (!totalMins) {
@@ -218,17 +271,18 @@ export async function GET(req: NextRequest) {
           status = 'EARLY_OUT'
         }
 
-        let remarks = 'Present'
+        let remarks = 'On Time (Present)'
         if (status === 'HALF_DAY') {
-          remarks = `Half Day (worked ${Math.floor(totalMins / 60)}h ${totalMins % 60}m ≤ 5h)`
+          const latePart = isLate ? ` • Late by ${formatDurationHoursMinutes(lateMins)}` : ''
+          remarks = `Half Day (worked ${formatDurationHoursMinutes(totalMins)} ≤ 5h)${latePart}`
         } else if (isLate && isEarlyOut) {
-          remarks = `Late (+${lateMins}m) & Early Out (-${earlyOutMins}m)`
+          remarks = `Late (+${formatDurationHoursMinutes(lateMins)}) & Early Out (-${formatDurationHoursMinutes(earlyOutMins)})`
         } else if (isLate) {
-          remarks = `Late arrival by ${lateMins}m`
+          remarks = `Late arrival by ${formatDurationHoursMinutes(lateMins)} (+${lateMins}m)`
         } else if (isEarlyOut) {
-          remarks = `Early departure by ${earlyOutMins}m`
+          remarks = `Early departure by ${formatDurationHoursMinutes(earlyOutMins)} (-${earlyOutMins}m)`
         } else if (otMins > 0) {
-          remarks = `Overtime +${otMins}m`
+          remarks = `Overtime +${formatDurationHoursMinutes(otMins)}`
         }
 
         record = {

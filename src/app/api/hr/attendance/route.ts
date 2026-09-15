@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 
+import { parseTimeToISTMinutes } from '@/app/api/hr/reports/route'
+
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const LOCAL_DATA_DIR = path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
@@ -38,6 +40,19 @@ export async function GET(req: NextRequest) {
       const record = todayAttendance.find(a => a.employeeId === emp.employeeId || a.employeeId === emp.id)
       let status = record ? record.status : 'ABSENT' // Default absent if no punch in
 
+      // Determine late arrival against employee morningTime (with 15 min grace)
+      let isLate = false
+      let lateMinutes = 0
+      if (record && record.punchIn) {
+        const shiftInMinutes = parseTimeToISTMinutes(emp.morningTime || '09:00')
+        const punchInMinutes = parseTimeToISTMinutes(record.punchIn)
+        lateMinutes = Math.max(0, punchInMinutes - shiftInMinutes)
+        isLate = record.isLate === true || record.status === 'LATE' || lateMinutes > 15
+        if (isLate && status === 'PRESENT') {
+          status = 'LATE'
+        }
+      }
+
       // Half-day check: if punched out and worked <= 5 hours (300 minutes), ensure HALF_DAY status
       if (record && record.punchIn && record.punchOut) {
         let totalMins = record.totalMinutes
@@ -57,6 +72,8 @@ export async function GET(req: NextRequest) {
         department: emp.department?.name || emp.departmentId || 'Unassigned',
         designation: emp.designation || 'Staff',
         status,
+        isLate,
+        lateMinutes,
         punchIn: record ? record.punchIn : null,
         punchOut: record ? record.punchOut : null,
         totalMinutes: record ? record.totalMinutes : null,

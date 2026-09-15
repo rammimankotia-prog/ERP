@@ -1,1 +1,15 @@
-[]
+[
+  {
+    "id": "att-1789455887000",
+    "employeeId": "GG-1001",
+    "date": "2026-09-15",
+    "punchIn": "2026-09-15T07:00:00.000Z",
+    "punchOut": null,
+    "status": "LATE",
+    "isLate": true,
+    "lateMinutes": 210,
+    "punchInMode": "KIOSK",
+    "totalMinutes": null,
+    "remarks": "Late arrival by 3h 30m (+210m)"
+  }
+]

@@ -10,6 +10,8 @@ type TeamAttendanceLog = {
   punchIn: string | null
   punchOut: string | null
   status: string
+  isLate?: boolean
+  lateMinutes?: number
   totalMinutes: number | null
   punchInMode: string | null
 }
@@ -217,10 +219,17 @@ export default function AttendanceDashboard() {
                         backgroundColor: `${STATUS_COLOR[log.status] || '#64748b'}22`, 
                         color: STATUS_COLOR[log.status] || '#64748b' 
                       }}>
-                        {log.status}
+                        {log.status === 'LATE' ? '⚠️ LATE' : log.status}
                       </span>
                     </td>
-                    <td style={{ padding: '1rem 1.25rem', color: 'var(--success)', fontWeight: 600 }}>{formatTime(log.punchIn)}</td>
+                    <td style={{ padding: '1rem 1.25rem', color: (log.isLate || log.status === 'LATE') ? '#f59e0b' : 'var(--success)', fontWeight: 600 }}>
+                      {formatTime(log.punchIn)}
+                      {(log.isLate || log.status === 'LATE') && log.lateMinutes ? (
+                        <span style={{ display: 'block', fontSize: '0.7rem', color: '#f59e0b', fontWeight: 600 }}>
+                          +{log.lateMinutes >= 60 ? `${Math.floor(log.lateMinutes / 60)}h ${log.lateMinutes % 60}m` : `${log.lateMinutes}m`} late
+                        </span>
+                      ) : null}
+                    </td>
                     <td style={{ padding: '1rem 1.25rem', color: log.punchOut ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 600 }}>{formatTime(log.punchOut)}</td>
                     <td style={{ padding: '1rem 1.25rem', color: 'var(--text-main)', fontWeight: 600 }}>{formatMinutes(log.totalMinutes)}</td>
                     <td style={{ padding: '1rem 1.25rem' }}><span style={{ fontSize: '1rem' }} title={log.punchInMode || 'Unknown'}>{log.punchInMode ? MODE_ICON[log.punchInMode] : '—'}</span></td>

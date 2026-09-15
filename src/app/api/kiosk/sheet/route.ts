@@ -3,6 +3,8 @@ import fs from 'fs'
 import path from 'path'
 import { PrismaClient } from '@prisma/client'
 
+import { parseTimeToISTMinutes } from '@/app/api/hr/reports/route'
+
 export const dynamic = 'force-dynamic'
 
 const prisma = new PrismaClient()
@@ -294,9 +296,13 @@ export async function GET(req: NextRequest) {
           } catch {}
         }
 
+        const shiftInMinutes = parseTimeToISTMinutes(emp.morningTime || '09:00')
+        const punchInMinutes = parseTimeToISTMinutes(attRecord.punchIn)
+        const lateMinutes = Math.max(0, punchInMinutes - shiftInMinutes)
+        const isLate = attRecord.isLate === true || attRecord.status === 'LATE' || lateMinutes > 15
         const isHalfDay = attRecord.status === 'HALF_DAY' || (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300 && !!attRecord.punchOut)
-        const displayStatus = isHalfDay ? 'HALF_DAY' : (attRecord.status || 'PRESENT')
-        const badgeText = isHalfDay ? '½ DAY' : (attRecord.status === 'LATE' ? 'LATE' : 'P')
+        const displayStatus = isHalfDay ? 'HALF_DAY' : (isLate ? 'LATE' : (attRecord.status || 'PRESENT'))
+        const badgeText = isHalfDay ? '½ DAY' : (isLate ? 'LATE' : 'P')
 
         dailyCells[dayNum] = {
           status: displayStatus,
@@ -305,14 +311,17 @@ export async function GET(req: NextRequest) {
           punchOut: outFormatted,
           punchInRaw: attRecord.punchIn,
           punchOutRaw: attRecord.punchOut,
-          isLate: attRecord.isLate || false,
+          isLate,
+          lateMinutes: isLate ? (attRecord.lateMinutes || lateMinutes) : 0,
           isHalfDay,
           totalMinutes: totalMins,
           isNonAmended: false,
           leaveReason: null,
           title: isHalfDay
-            ? `🟣 Half Day (${typeof totalMins === 'number' ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m ≤ 5h` : '≤ 5 hours'}) | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ''}`
-            : `🟢 Present | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`,
+            ? `🟣 Half Day (${typeof totalMins === 'number' ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m ≤ 5h` : '≤ 5 hours'})${isLate ? ` • Late (+${lateMinutes}m)` : ''} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ''}`
+            : isLate
+              ? `⚠️ Late Arrival (+${lateMinutes}m) | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`
+              : `🟢 Present | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`,
         }
         return
       }

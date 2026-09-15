@@ -46,6 +46,55 @@ function getHaversineDistanceMeters(lat1: number, lon1: number, lat2: number, lo
   return Math.round(R * c)
 }
 
+function parseTimeToISTMinutes(timeOrIso: string | null | undefined): number {
+  if (!timeOrIso) return 0
+  const trimmed = timeOrIso.trim()
+
+  const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i)
+  if (ampmMatch) {
+    let h = parseInt(ampmMatch[1], 10)
+    const m = parseInt(ampmMatch[2], 10)
+    const isPm = ampmMatch[3].toLowerCase() === 'pm'
+    if (isPm && h < 12) h += 12
+    if (!isPm && h === 12) h = 0
+    return h * 60 + m
+  }
+
+  const time24Match = trimmed.match(/^(\d{1,2}):(\d{2})$/)
+  if (time24Match) {
+    const h = parseInt(time24Match[1], 10)
+    const m = parseInt(time24Match[2], 10)
+    return h * 60 + m
+  }
+
+  try {
+    const d = new Date(trimmed)
+    if (!isNaN(d.getTime())) {
+      const istStr = d.toLocaleTimeString('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      const [hStr, mStr] = istStr.split(':')
+      const h = parseInt(hStr, 10) || 0
+      const m = parseInt(mStr, 10) || 0
+      return h * 60 + m
+    }
+  } catch {}
+
+  return 0
+}
+
+function formatDurationHoursMinutes(minutes: number): string {
+  if (!minutes || minutes <= 0) return '0m'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h > 0 && m > 0) return `${h}h ${m}m`
+  if (h > 0) return `${h}h`
+  return `${m}m`
+}
+
 function readJson<T>(file: string, fallbackFile: string = '', fallback: T = [] as unknown as T): T {
   const list = [file]
   if (fallbackFile && typeof fallbackFile === 'string') list.push(fallbackFile)
@@ -118,6 +167,8 @@ export async function GET(req: NextRequest) {
       punchOutTime: record?.punchOut || null,
       totalMinutes: record?.totalMinutes || null,
       status: record ? record.status : 'ABSENT',
+      isLate: !!(record?.isLate || record?.status === 'LATE'),
+      lateMinutes: record?.lateMinutes || 0,
       punchInMode: record?.punchInMode || null,
       punchOutMode: record?.punchOutMode || null,
       record: record || null
@@ -248,18 +299,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Already punched in today' }, { status: 400 })
       }
 
-      // AUTO-LATE FLAGGING against shift start + 15 mins grace period
-      let attendanceStatus = 'PRESENT'
+      // AUTO-LATE FLAGGING against shift start + 15 mins grace period using IST
       const shiftStartTime = emp?.morningTime || '09:00'
-      const [shiftH, shiftM] = shiftStartTime.split(':').map(Number)
-      
-      // Calculate shift start with 15 mins grace period in current date
-      const scheduledArrival = new Date(now)
-      scheduledArrival.setHours(shiftH || 9, (shiftM || 0) + 15, 0, 0)
-
-      if (now.getTime() > scheduledArrival.getTime()) {
-        attendanceStatus = 'LATE'
-      }
+      const punchInMinutes = parseTimeToISTMinutes(nowIso)
+      const scheduledInMinutes = parseTimeToISTMinutes(shiftStartTime)
+      const lateMinutes = Math.max(0, punchInMinutes - scheduledInMinutes)
+      const isLate = lateMinutes > 15
+      const attendanceStatus = isLate ? 'LATE' : 'PRESENT'
 
       const newRecord = {
         id: `att-${Date.now()}`,
@@ -268,9 +314,12 @@ export async function POST(req: NextRequest) {
         punchIn: nowIso,
         punchOut: null,
         status: attendanceStatus,
+        isLate,
+        lateMinutes: isLate ? lateMinutes : 0,
         punchInMode: punchMode,
         punchInCoordinates: punchMode === 'MOBILE_GEOFENCE' ? { lat, lng, distanceMeters: minDistance } : null,
-        totalMinutes: null
+        totalMinutes: null,
+        remarks: isLate ? `Late arrival by ${formatDurationHoursMinutes(lateMinutes)} (+${lateMinutes}m)` : 'Present'
       }
 
       allAttendance.push(newRecord)
@@ -286,20 +335,24 @@ export async function POST(req: NextRequest) {
         punchMode,
         status: attendanceStatus,
         shiftScheduled: shiftStartTime,
+        lateMinutes: isLate ? lateMinutes : 0,
         lat: lat || null,
         lng: lng || null,
         distanceMeters: minDistance,
         nearestHotel,
         ip: clientIp,
         userAgent,
+        note: isLate ? `Marked LATE: Arrived at +${lateMinutes}m (Shift: ${shiftStartTime} + 15m grace)` : undefined
       })
 
       return NextResponse.json({
         success: true,
         record: newRecord,
         status: attendanceStatus,
+        isLate,
+        lateMinutes: isLate ? lateMinutes : 0,
         message: attendanceStatus === 'LATE' 
-          ? `Punch-In Recorded (Marked Late - Past ${shiftStartTime} + 15m grace period)`
+          ? `Punch-In Recorded (Marked Late: ${formatDurationHoursMinutes(lateMinutes)} late - Past ${shiftStartTime} + 15m grace period)`
           : `Punch-In Recorded (On-Time / Present)`
       })
 
@@ -315,10 +368,24 @@ export async function POST(req: NextRequest) {
       const punchOutTime = now.getTime()
       const totalMinutes = Math.max(0, Math.floor((punchOutTime - punchInTime) / 60000))
 
-      // Half-Day Policy: If total hours worked is less than or equal to 5 hours (<= 300 mins), mark as HALF_DAY
+      // Compute early departure against shift end time
+      const shiftEndTime = emp?.eveningTime || '18:00'
+      const shiftOutMinutes = parseTimeToISTMinutes(shiftEndTime)
+      const punchOutMinutes = parseTimeToISTMinutes(nowIso)
+      const earlyOutMinutes = Math.max(0, shiftOutMinutes - punchOutMinutes)
+      const isEarlyOut = earlyOutMinutes > 15
+
+      // Half-Day Policy: If total hours worked is <= 5 hours (300 mins), mark as HALF_DAY
+      const wasLate = allAttendance[existingIndex].status === 'LATE' || allAttendance[existingIndex].isLate === true
       let finalStatus = allAttendance[existingIndex].status || 'PRESENT'
       if (totalMinutes <= 300) {
         finalStatus = 'HALF_DAY'
+      } else if (wasLate && isEarlyOut) {
+        finalStatus = 'LATE_AND_EARLY'
+      } else if (wasLate) {
+        finalStatus = 'LATE'
+      } else if (isEarlyOut) {
+        finalStatus = 'EARLY_OUT'
       }
 
       allAttendance[existingIndex].status = finalStatus
@@ -326,6 +393,8 @@ export async function POST(req: NextRequest) {
       allAttendance[existingIndex].punchOutMode = punchMode
       allAttendance[existingIndex].punchOutCoordinates = punchMode === 'MOBILE_GEOFENCE' ? { lat, lng, distanceMeters: minDistance } : null
       allAttendance[existingIndex].totalMinutes = totalMinutes
+      allAttendance[existingIndex].isEarlyOut = isEarlyOut
+      allAttendance[existingIndex].earlyOutMinutes = isEarlyOut ? earlyOutMinutes : 0
 
       writeJson(ATTENDANCE_FILE, allAttendance, LOCAL_ATTENDANCE_FILE)
 
@@ -339,18 +408,27 @@ export async function POST(req: NextRequest) {
         punchMode,
         status: finalStatus,
         totalMinutes,
+        earlyOutMinutes: isEarlyOut ? earlyOutMinutes : 0,
         lat: lat || null,
         lng: lng || null,
         distanceMeters: minDistance,
         nearestHotel,
         ip: clientIp,
         userAgent,
-        note: totalMinutes <= 300 ? `Marked HALF_DAY: ${totalMinutes}m worked (<= 5 hours)` : undefined
+        note: totalMinutes <= 300
+          ? `Marked HALF_DAY: ${totalMinutes}m worked (<= 5 hours)`
+          : isEarlyOut
+            ? `Early Out: departed -${earlyOutMinutes}m before shift end`
+            : undefined
       })
 
       const hoursWorked = Math.floor(totalMinutes / 60)
       const minsWorked = totalMinutes % 60
-      const statusNote = totalMinutes <= 300 ? ' — Marked as Half Day (≤ 5 hours)' : ''
+      const statusNote = totalMinutes <= 300
+        ? ' — Marked as Half Day (≤ 5 hours)'
+        : isEarlyOut
+          ? ` — Early Departure (-${formatDurationHoursMinutes(earlyOutMinutes)})`
+          : ''
 
       return NextResponse.json({
         success: true,
@@ -358,6 +436,8 @@ export async function POST(req: NextRequest) {
         totalMinutes,
         status: finalStatus,
         isHalfDay: totalMinutes <= 300,
+        isEarlyOut,
+        earlyOutMinutes: isEarlyOut ? earlyOutMinutes : 0,
         message: `Punch-Out Recorded (${hoursWorked}h ${minsWorked}m worked${statusNote})`
       })
     }

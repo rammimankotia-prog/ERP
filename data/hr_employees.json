@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "id": "GG-1001",
+    "employeeId": "GG-1001",
+    "firstName": "Raman",
+    "lastName": "Mankotia",
+    "email": "mail@godwinhotels.com",
+    "contactNo": "+91 98765 43210",
+    "gender": "Male",
+    "department": { "id": "dept-1", "name": "Operations" },
+    "departmentId": "dept-1",
+    "designation": "Master Admin",
+    "branch": { "id": "branch-1", "name": "Hotel Grand Godwin" },
+    "branchId": "branch-1",
+    "morningTime": "09:00",
+    "eveningTime": "18:00",
+    "offDays": ["Sunday"],
+    "status": "ACTIVE"
+  }
+]
