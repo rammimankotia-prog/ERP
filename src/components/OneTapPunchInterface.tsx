@@ -161,9 +161,9 @@ export default function OneTapPunchInterface({
       } catch (geoErr: any) {
         setProcessing(false);
         setGeoLocating(false);
-        let msg = '📍 Please turn ON GPS / Location on your device to punch within 20m of hotel premises.';
+        let msg = '📍 Please turn ON GPS / Location on your device to punch within 50m of hotel premises.';
         if (geoErr?.code === 1) { // PERMISSION_DENIED
-          msg = '📍 Location Permission Denied: Please allow Location Access in your browser settings so we can verify you are within 20m of hotel premises.';
+          msg = '📍 Location Permission Denied: Please allow Location Access in your browser settings so we can verify you are within 50m of hotel premises.';
         } else if (geoErr?.code === 2) { // POSITION_UNAVAILABLE
           msg = '📍 Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
         } else if (geoErr?.code === 3) { // TIMEOUT
@@ -720,7 +720,7 @@ export default function OneTapPunchInterface({
           width: '100%',
         }}
       >
-        📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (20m in-premises boundary). Device GPS must be ON.
+        📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (50m in-premises boundary). Device GPS must be ON.
       </div>
 
       {/* ========================================================================= */}

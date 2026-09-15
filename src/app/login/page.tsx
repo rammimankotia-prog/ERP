@@ -70,9 +70,9 @@ export default function LoginPage() {
           }
         },
         (error) => {
-          let err = '📍 Device GPS is OFF or Location Permission Needed! Please turn ON GPS / Location on your device to log in within 20m of hotel premises.';
+          let err = '📍 Device GPS is OFF or Location Permission Needed! Please turn ON GPS / Location on your device to log in within 50m of hotel premises.';
           if (error.code === 1) { // PERMISSION_DENIED
-            err = '📍 Location Permission Denied: Please allow location access in your browser settings so we can verify you are within 20m of hotel premises.';
+            err = '📍 Location Permission Denied: Please allow location access in your browser settings so we can verify you are within 50m of hotel premises.';
           } else if (error.code === 2) { // POSITION_UNAVAILABLE
             err = '📍 Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
           } else if (error.code === 3) { // TIMEOUT

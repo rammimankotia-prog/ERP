@@ -12,13 +12,17 @@ const LOCAL_AUDIT_FILE = path.join(process.cwd(), 'data', 'audit_trail.json')
 const CONFIG_FILE = path.join(DATA_DIR, 'global_config.json')
 const LOCAL_CONFIG_FILE = path.join(process.cwd(), 'data', 'global_config.json')
 
-// Hotel premises geo-coordinates for geofencing (Default 20m in-premises)
+// Hotel premises geo-coordinates for geofencing (Default 50m in-premises)
 function getGeofenceConfig() {
   const config = readJson<any>(CONFIG_FILE, LOCAL_CONFIG_FILE, {})
-  const radius = typeof config?.geofence?.radius === 'number' ? config.geofence.radius : 20
+  const radius = typeof config?.geofence?.radius === 'number' ? config.geofence.radius : 50
   const enabled = config?.geofence?.enabled !== undefined ? config.geofence.enabled : true
   
+  const defaultLat = config?.geofence?.lat ? Number(config.geofence.lat) : 28.645870262027557
+  const defaultLng = config?.geofence?.lng ? Number(config.geofence.lng) : 77.2153564554722
+
   const locations = [
+    { name: 'Hotel Grand Godwin & Godwin Deluxe Premises', lat: defaultLat, lng: defaultLng, radiusMeters: radius },
     { name: 'Hotel Grand Godwin', lat: 28.6448, lng: 77.2140, radiusMeters: radius },
     { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: radius },
   ]
@@ -233,7 +237,7 @@ export async function POST(req: NextRequest) {
       if (geofenceEnabled) {
         if (typeof lat !== 'number' || typeof lng !== 'number') {
           return NextResponse.json(
-            { error: '📍 GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within 20m of hotel premises.' },
+            { error: `📍 GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within ${defaultRadius || 50}m of hotel premises.` },
             { status: 400 }
           )
         }
@@ -242,14 +246,14 @@ export async function POST(req: NextRequest) {
         const distances = hotelLocations.map(loc => ({
           name: loc.name,
           distance: getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng),
-          radius: loc.radiusMeters || defaultRadius || 20,
+          radius: loc.radiusMeters || defaultRadius || 50,
         }))
 
         const closest = distances.reduce((prev, curr) => (curr.distance < prev.distance ? curr : prev))
         minDistance = closest.distance
         nearestHotel = closest.name
 
-        // Check if within 20m boundary
+        // Check if within boundary
         if (closest.distance > closest.radius) {
           // Log rejected attempt in audit
           logAudit({
@@ -267,7 +271,7 @@ export async function POST(req: NextRequest) {
             allowedRadius: closest.radius,
             ip: clientIp,
             userAgent,
-            note: `Rejected: ${closest.distance}m away (20m premises limit: ${closest.radius}m)`
+            note: `Rejected: ${closest.distance}m away (${closest.radius}m premises limit)`
           })
 
           return NextResponse.json(
