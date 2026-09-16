@@ -100,7 +100,7 @@ export default function KioskDashboard() {
           const res = await fetch(`/api/auth/session-check?employeeId=${encodeURIComponent(emp.id)}&email=${encodeURIComponent(emp.email || '')}`)
           if (res.ok) {
             const data = await res.json()
-            if (data.active === false) {
+            if (data.active === false && (data.reason === 'USER_INACTIVE' || data.reason === 'EMPLOYEE_INACTIVE' || data.reason === 'SESSION_REVOKED')) {
               setEmployee(null)
               try {
                 localStorage.removeItem('kiosk_employee')

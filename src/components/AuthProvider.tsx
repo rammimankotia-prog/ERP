@@ -269,7 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         if (res.ok) {
           const data = await res.json();
-          if (data.active === false) {
+          if (data.active === false && (data.reason === 'USER_INACTIVE' || data.reason === 'EMPLOYEE_INACTIVE' || data.reason === 'SESSION_REVOKED')) {
             setUser(null);
             try {
               sessionStorage.clear();
