@@ -591,20 +591,22 @@ export default function KioskDashboard() {
         </div>
       )}
 
-      {/* Main Content Split Layout */}
+      {/* Main Content Layout - Private Staff Self-Service Punch Interface */}
       <div
         style={{
           display: 'flex',
           flex: 1,
-          flexWrap: 'wrap',
+          justifyContent: 'center',
+          alignItems: 'center',
           overflow: 'auto',
+          padding: 'clamp(0.5rem, 2vw, 1.5rem)',
+          width: '100%',
         }}
       >
-        {/* Left Side: One-Tap Punch Interface */}
         <div
           style={{
-            flex: '1 1 500px',
-            padding: 'clamp(0.5rem, 1.5vw, 1.25rem)',
+            width: '100%',
+            maxWidth: '680px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -620,127 +622,7 @@ export default function KioskDashboard() {
             }}
           />
         </div>
-
-        {/* Right Side: Live Status Log */}
-        <div style={{
-          width: '400px',
-          background: isLight ? '#ffffff' : '#1e293b',
-          borderLeft: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <div style={{
-            padding: '1.5rem',
-            borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-            background: isLight ? '#f8fafc' : '#0f172a'
-          }}>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', color: isLight ? '#0f172a' : '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }}></span>
-              Live Shift Activity
-            </h3>
-            <p style={{ margin: '0.25rem 0 0', color: isLight ? '#64748b' : '#94a3b8', fontSize: '0.85rem' }}>
-              Employees currently on shift
-            </p>
-          </div>
-          
-          <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
-            <LiveStatusFeed isLight={isLight} refreshTrigger={hasPunchedIn || hasPunchedOut} />
-          </div>
-        </div>
-
       </div>
-    </div>
-  )
-}
-
-function LiveStatusFeed({ isLight, refreshTrigger }: { isLight: boolean, refreshTrigger: any }) {
-  const [logs, setLogs] = useState<any[]>([])
-
-  useEffect(() => {
-    const fetchLive = async () => {
-      try {
-        const res = await fetch(`/api/hr/attendance?date=${new Date().toISOString().split('T')[0]}`)
-        if (res.ok) {
-          const data = await res.json()
-          // Only show people who have punched in
-          const active = data.logs.filter((l: any) => l.punchIn)
-          // Sort by latest punch in (descending)
-          active.sort((a: any, b: any) => new Date(b.punchIn).getTime() - new Date(a.punchIn).getTime())
-          setLogs(active)
-        }
-      } catch (err) {}
-    }
-    fetchLive()
-    // Poll every 10 seconds to keep feed alive
-    const interval = setInterval(fetchLive, 10000)
-    return () => clearInterval(interval)
-  }, [refreshTrigger])
-
-  if (logs.length === 0) {
-    return <div style={{ padding: '2rem', textAlign: 'center', color: isLight ? '#94a3b8' : '#64748b' }}>No activity yet today.</div>
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      {logs.map((log: any, idx: number) => {
-        const timeIn = new Date(log.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-        const timeOut = log.punchOut ? new Date(log.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : null
-        const isCompleted = !!log.punchOut
-
-        return (
-          <div key={idx} style={{
-            padding: '1rem',
-            borderRadius: '12px',
-            background: isLight ? (isCompleted ? '#f8fafc' : '#eff6ff') : (isCompleted ? '#0f172a' : 'rgba(37, 99, 235, 0.1)'),
-            border: isLight ? `1px solid ${isCompleted ? '#e2e8f0' : '#bfdbfe'}` : `1px solid ${isCompleted ? '#1e293b' : 'rgba(37, 99, 235, 0.3)'}`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem'
-          }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              background: isCompleted ? (isLight ? '#e2e8f0' : '#334155') : '#3b82f6',
-              color: isCompleted ? (isLight ? '#64748b' : '#94a3b8') : 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: '1rem'
-            }}>
-              {log.employeeName.charAt(0)}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, color: isLight ? '#0f172a' : '#f8fafc', fontSize: '0.95rem' }}>
-                {log.employeeName}
-              </div>
-              <div style={{ fontSize: '0.8rem', color: isLight ? '#64748b' : '#94a3b8' }}>
-                {log.department}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right', fontSize: '0.8rem' }}>
-              <div style={{ color: '#10b981', fontWeight: 600 }}>IN: {timeIn}</div>
-              {timeOut && <div style={{ color: '#ef4444', fontWeight: 600 }}>OUT: {timeOut}</div>}
-              {log.status === 'HALF_DAY' && (
-                <div style={{
-                  display: 'inline-block',
-                  marginTop: '0.2rem',
-                  padding: '1px 6px',
-                  borderRadius: '4px',
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  backgroundColor: 'rgba(139, 92, 246, 0.15)',
-                  color: '#8b5cf6',
-                }}>
-                  ½ Day (≤5h)
-                </div>
-              )}
-              {!timeOut && <div style={{ color: '#f59e0b', fontSize: '0.75rem', marginTop: '0.2rem' }}>Working</div>}
-            </div>
-          </div>
-        )
-      })}
     </div>
   )
 }
