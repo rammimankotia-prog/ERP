@@ -3,8 +3,8 @@
   "model": "gemini-2.5-flash",
   "geofence": {
     "enabled": true,
-    "lat": 28.6475,
-    "lng": 77.21699,
+    "lat": 28.6457421,
+    "lng": 77.2153514,
     "radius": 80
   }
 }

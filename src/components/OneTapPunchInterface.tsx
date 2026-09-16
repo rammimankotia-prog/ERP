@@ -209,23 +209,37 @@ export default function OneTapPunchInterface({
 
       playChime(action);
 
-      const timeFormatted = new Date().toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-      });
+      // IMPORTANT: Always use server-returned timestamp (IST, server-side)
+      // NEVER use new Date() here — client clock may be manipulated
+      const serverPunchInIso: string | null = data.record?.punchIn || null;
+      const serverPunchOutIso: string | null = data.record?.punchOut || null;
+
+      const displayIso = action === 'IN' ? serverPunchInIso : serverPunchOutIso;
+      const timeFormatted = displayIso
+        ? new Date(displayIso).toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            timeZone: 'Asia/Kolkata',
+          })
+        : new Date().toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+          });
 
       const lateNote = data.status === 'LATE' ? ' ⚠️ (Marked Late - Grace Period Exceeded)' : '';
       const geoNote = punchMode === 'MOBILE_GEOFENCE' ? ` [📍 GPS Verified: ${data.record?.punchInCoordinates?.distanceMeters ?? 0}m]` : '';
 
       if (action === 'IN') {
         setCheckedIn(true);
-        setPunchInTime(new Date().toISOString());
+        setPunchInTime(serverPunchInIso || new Date().toISOString());
         setPunchSuccess(`Check-In (Arrival) Recorded at ${timeFormatted}${lateNote}${geoNote}`);
       } else {
         setCheckedOut(true);
-        setPunchOutTime(new Date().toISOString());
+        setPunchOutTime(serverPunchOutIso || new Date().toISOString());
         setPunchSuccess(`Check-Out (Departure) Recorded at ${timeFormatted}${geoNote}`);
       }
 

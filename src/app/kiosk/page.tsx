@@ -72,12 +72,16 @@ export default function KioskPage() {
         (position) => {
           const allowedRadius = typeof geofence.radius === 'number' ? geofence.radius : 80;
           const premisesPoints = [
-            { lat: geofence.lat, lng: geofence.lng },
-            { lat: 28.6475, lng: 77.21699 },
-            { lat: 28.645870262027557, lng: 77.2153564554722 },
-            { lat: 28.64864864864865, lng: 77.21923732550276 },
+            // PRIMARY: Hotel Grand Godwin — Google My Business verified pin
+            { lat: 28.6457421, lng: 77.2153514 },
+            // SECONDARY: Hotel Godwin Deluxe
             { lat: 28.6445, lng: 77.2142 },
           ];
+          // Also include config-overridden point if different
+          if (geofence.lat && geofence.lng &&
+              (geofence.lat !== 28.6457421 || geofence.lng !== 77.2153514)) {
+            premisesPoints.push({ lat: geofence.lat, lng: geofence.lng });
+          }
           const distances = premisesPoints.map(p => getDistance(position.coords.latitude, position.coords.longitude, p.lat, p.lng));
           const minDistance = Math.min(...distances);
 

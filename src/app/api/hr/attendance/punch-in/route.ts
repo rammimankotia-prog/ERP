@@ -3,29 +3,34 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
-// Geo-fence validation
-const HOTEL_LOCATIONS = {
-  'GG': { lat: 28.6475, lng: 77.21699, radiusMeters: 500 }, // Hotel Grand Godwin, Delhi
-  'GD': { lat: 28.6528, lng: 77.2195, radiusMeters: 500 }, // Hotel Godwin Deluxe
-  'IG': { lat: 28.6512, lng: 77.2210, radiusMeters: 300 }, // Indian Grill
-  'CB': { lat: 28.6498, lng: 77.2180, radiusMeters: 300 }, // Cafe Brownie
+// Hotel Grand Godwin — Google My Business verified coordinates (Chelmsford Road, New Delhi)
+// ALL radii updated to 80m per operations requirement
+const HOTEL_GEOFENCE_LOCATIONS = [
+  { name: 'Hotel Grand Godwin', lat: 28.6457421, lng: 77.2153514, radiusMeters: 80 },
+  { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: 80 },
+]
+
+function getHaversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return Math.round(R * c)
 }
 
-function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const R = 6371000
-  const φ1 = lat1 * Math.PI / 180
-  const φ2 = lat2 * Math.PI / 180
-  const Δφ = (lat2 - lat1) * Math.PI / 180
-  const Δλ = (lng2 - lng1) * Math.PI / 180
-  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-function isWithinGeoFence(branchPrefix: string, lat: number, lng: number): boolean {
-  const location = HOTEL_LOCATIONS[branchPrefix as keyof typeof HOTEL_LOCATIONS]
-  if (!location) return true // unknown branch — allow
-  const distance = getDistanceMeters(lat, lng, location.lat, location.lng)
-  return distance <= location.radiusMeters
+function isWithinAnyHotelFence(lat: number, lng: number): { allowed: boolean; distance: number; name: string; radius: number } {
+  let minDist = Infinity, nearestName = '', nearestRadius = 80
+  for (const loc of HOTEL_GEOFENCE_LOCATIONS) {
+    const d = getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng)
+    if (d < minDist) { minDist = d; nearestName = loc.name; nearestRadius = loc.radiusMeters }
+    if (d <= loc.radiusMeters) return { allowed: true, distance: d, name: loc.name, radius: loc.radiusMeters }
+  }
+  return { allowed: false, distance: minDist, name: nearestName, radius: nearestRadius }
 }
 
 function getAttendanceStatus(punchInTime: Date, shiftStartTime: string, graceMinutes: number): string {
@@ -40,31 +45,36 @@ function getAttendanceStatus(punchInTime: Date, shiftStartTime: string, graceMin
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { employeeId, mode = 'WEB', lat, lng, date: requestDate } = body
+    const { employeeId, mode = 'WEB', lat, lng } = body
 
     if (!employeeId) {
       return NextResponse.json({ error: 'employeeId is required' }, { status: 400 })
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // IST-based today date string (YYYY-MM-DD) — server-side, cannot be spoofed by client
+    const nowServer = new Date()
+    const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(nowServer)
 
+    // If client sends a date, validate it must equal today IST
+    const requestDate = body.date
     if (requestDate) {
-      const target = new Date(requestDate)
-      target.setHours(0, 0, 0, 0)
-      if (target.getTime() < today.getTime()) {
+      if (requestDate < todayIST) {
         return NextResponse.json({
           error: 'PAST_DATE_LOCKED',
           message: 'Strict Security Restriction: Check-in is strictly prohibited for past dates.'
         }, { status: 403 })
       }
-      if (target.getTime() > today.getTime()) {
+      if (requestDate > todayIST) {
         return NextResponse.json({
           error: 'FUTURE_DATE_LOCKED',
           message: 'Check-in is not permitted for future dates.'
         }, { status: 403 })
       }
     }
+
+    // Build server-side today Date at midnight UTC for Prisma lookup
+    const today = new Date(todayIST + 'T00:00:00+05:30')
+    today.setHours(0, 0, 0, 0)
 
     // Check if already punched in today
     const existing = await prisma.attendanceLog.findUnique({
@@ -74,20 +84,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Already punched in today', log: existing }, { status: 409 })
     }
 
-    // Geo-fence validation for GEO mode
-    if (mode === 'GEO' && lat !== undefined && lng !== undefined) {
-      const employee = await prisma.employee.findUnique({
-        where: { id: employeeId },
-        include: { branch: true }
-      })
-      if (employee?.branch?.prefix) {
-        const allowed = isWithinGeoFence(employee.branch.prefix, lat, lng)
-        if (!allowed) {
-          return NextResponse.json({
-            error: 'GEO_FENCE_VIOLATION',
-            message: 'You are outside the allowed check-in radius. Please be on hotel premises.'
-          }, { status: 403 })
-        }
+    // Geo-fence validation: enforce 80m boundary if lat/lng are provided
+    if (lat !== undefined && lng !== undefined) {
+      const fenceResult = isWithinAnyHotelFence(lat, lng)
+      if (!fenceResult.allowed) {
+        return NextResponse.json({
+          error: 'GEO_FENCE_VIOLATION',
+          message: `📍 Outside hotel premises! You are ${fenceResult.distance}m from ${fenceResult.name}. Punch-in is restricted within ${fenceResult.radius}m.`,
+          distanceMeters: fenceResult.distance,
+          allowedRadius: fenceResult.radius
+        }, { status: 403 })
       }
     }
 

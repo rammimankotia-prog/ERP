@@ -12,29 +12,25 @@ const LOCAL_AUDIT_FILE = path.join(process.cwd(), 'data', 'audit_trail.json')
 const CONFIG_FILE = path.join(DATA_DIR, 'global_config.json')
 const LOCAL_CONFIG_FILE = path.join(process.cwd(), 'data', 'global_config.json')
 
-// Hotel premises geo-coordinates for geofencing (Default 80m in-premises)
+// Hotel premises geo-coordinates for geofencing
+// PRIMARY: Hotel Grand Godwin — Google My Business pin: 28.6457421, 77.2153514 (Chelmsford Rd, New Delhi)
+// SECONDARY: Hotel Godwin Deluxe — 28.6445, 77.2142
 function getGeofenceConfig() {
   const config = readJson<any>(CONFIG_FILE, LOCAL_CONFIG_FILE, {})
   const radius = typeof config?.geofence?.radius === 'number' ? config.geofence.radius : 80
   const enabled = config?.geofence?.enabled !== undefined ? config.geofence.enabled : true
-  
-  const defaultLat = config?.geofence?.lat ? Number(config.geofence.lat) : 28.6475
-  const defaultLng = config?.geofence?.lng ? Number(config.geofence.lng) : 77.21699
+
+  // Use config override if present, else fall back to verified GMB pin
+  const primaryLat = config?.geofence?.lat ? Number(config.geofence.lat) : 28.6457421
+  const primaryLng = config?.geofence?.lng ? Number(config.geofence.lng) : 77.2153514
 
   const locations = [
-    { name: 'Hotel Grand Godwin (Google My Business)', lat: defaultLat, lng: defaultLng, radiusMeters: radius },
-    { name: 'Hotel Grand Godwin & Godwin Deluxe Campus', lat: 28.645870262027557, lng: 77.2153564554722, radiusMeters: radius },
-    { name: 'Hotel Godwin Premises', lat: 28.64864864864865, lng: 77.21923732550276, radiusMeters: radius },
+    // PRIMARY — Hotel Grand Godwin (Google My Business verified pin)
+    { name: 'Hotel Grand Godwin', lat: primaryLat, lng: primaryLng, radiusMeters: radius },
+    // SECONDARY — Hotel Godwin Deluxe (same campus group)
     { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: radius },
   ]
-  if (config?.geofence?.lat && config?.geofence?.lng) {
-    locations.push({
-      name: 'Configured Geofence Area',
-      lat: Number(config.geofence.lat),
-      lng: Number(config.geofence.lng),
-      radiusMeters: radius
-    })
-  }
+
   return { enabled, radius, locations }
 }
 
