@@ -772,7 +772,7 @@ export default function OneTapPunchInterface({
             position: 'relative',
             width: '100%',
             maxWidth: '520px',
-            padding: '1.35rem 1.5rem',
+            padding: 'clamp(0.85rem, 2vw, 1.35rem) 1.5rem',
             borderRadius: '18px',
             border: currentAction === 'IN'
               ? '3px solid #10b981'
@@ -798,7 +798,7 @@ export default function OneTapPunchInterface({
               : 'var(--shadow)',
             opacity: processing ? 0.75 : 1,
             transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            minHeight: '125px',
+            minHeight: 'clamp(88px, 15vw, 125px)',
           }}
         >
           {/* Highlight Badge */}

@@ -265,255 +265,256 @@ export default function KioskPage() {
         flexDirection: 'column',
       }}
     >
-      {/* Kiosk Terminal Header */}
+      {/* ============================================================ */}
+      {/* KIOSK HEADER — sticky, compact, mobile-first                 */}
+      {/* ============================================================ */}
       <header
         style={{
           width: '100%',
           background: isLight ? '#ffffff' : '#1e293b',
           borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-          padding: '0.75rem 1.5rem',
+          padding: '0.5rem 0.85rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
+          gap: '0.5rem',
           zIndex: 100,
+          position: 'sticky',
+          top: 0,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {/* Left: Hotel icon + Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
           <div
             style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
+              width: '34px',
+              height: '34px',
+              flexShrink: 0,
+              borderRadius: '9px',
               background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.4rem',
-              boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)',
+              fontSize: '1rem',
+              boxShadow: '0 3px 8px rgba(217, 119, 6, 0.3)',
             }}
           >
             🏨
           </div>
-          <div>
+          <div style={{ minWidth: 0, overflow: 'hidden' }}>
             <h1
               style={{
                 margin: 0,
-                fontSize: '1.05rem',
+                fontSize: 'clamp(0.72rem, 2.4vw, 0.95rem)',
                 fontWeight: 900,
                 color: isLight ? '#0f172a' : '#f8fafc',
                 letterSpacing: '-0.01em',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
-              Godwin ERP • Security Gate Kiosk
+              Terminal 1 &ndash; Front Desk
             </h1>
             <p
               style={{
                 margin: 0,
-                fontSize: '0.72rem',
+                fontSize: '0.6rem',
                 fontWeight: 700,
                 color: '#64748b',
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em',
+                whiteSpace: 'nowrap',
               }}
             >
-              Fixed Station Punch-In / Punch-Out Terminal
+              Self-Service Attendance Kiosk
             </p>
           </div>
         </div>
 
-        {/* Right side live clock & controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <div style={{ textAlign: 'right' }}>
+        {/* Right: Clock + controls — flex-shrink:0 so they never wrap below title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+
+          {/* Live clock */}
+          <div style={{ textAlign: 'right', lineHeight: 1.15 }}>
             <div
               style={{
-                fontSize: '1.4rem',
+                fontSize: 'clamp(0.82rem, 2.8vw, 1.25rem)',
                 fontWeight: 800,
                 color: 'var(--primary)',
                 letterSpacing: '-0.02em',
                 fontVariantNumeric: 'tabular-nums',
               }}
             >
-              {currentTime.toLocaleTimeString('en-IN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true,
-              })}
+              {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              {currentTime.toLocaleDateString('en-IN', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-              })}
+            {/* Hide date on phones (<=480px via className) */}
+            <div className="kiosk-hdr-date" style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              {currentTime.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
             </div>
           </div>
 
+          {/* Theme toggle */}
           <button
             type="button"
             onClick={toggleTheme}
-            title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            title={isLight ? 'Dark Mode' : 'Light Mode'}
             style={{
-              padding: '0.45rem 0.75rem',
-              borderRadius: '9px',
+              padding: '0.32rem 0.5rem',
+              borderRadius: '7px',
               border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
-              background: isLight ? '#f8fafc' : 'rgba(255, 255, 255, 0.08)',
+              background: isLight ? '#f8fafc' : 'rgba(255,255,255,0.08)',
               color: isLight ? '#1e293b' : '#f8fafc',
               cursor: 'pointer',
-              fontSize: '1.1rem',
+              fontSize: '0.95rem',
+              lineHeight: 1,
             }}
           >
             {isLight ? '🌙' : '☀️'}
           </button>
 
+          {/* Guard badge — first name only, hidden on phone */}
           {isGuardAuthenticated && user && (
             <div
+              className="kiosk-hdr-badge"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.35rem 0.75rem',
-                borderRadius: '8px',
+                gap: '0.28rem',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '7px',
                 background: 'rgba(16, 185, 129, 0.1)',
                 border: '1px solid rgba(16, 185, 129, 0.3)',
               }}
             >
-              <span style={{ fontSize: '1rem' }}>🛡️</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#10b981' }}>
-                {user.name} ({user.role})
+              <span style={{ fontSize: '0.8rem' }}>🛡️</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>
+                {(user.name || '').split(' ')[0]}
               </span>
             </div>
           )}
 
+          {/* Lock terminal — icon only on phone */}
           {isGuardAuthenticated && (
             <button
               type="button"
               onClick={logout}
-              title="Lock terminal and sign out guard"
+              title="Lock terminal and sign out"
               style={{
-                padding: '0.45rem 0.85rem',
-                borderRadius: '9px',
+                padding: '0.32rem 0.55rem',
+                borderRadius: '7px',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 background: 'rgba(239, 68, 68, 0.1)',
                 color: '#ef4444',
-                fontSize: '0.82rem',
+                fontSize: '0.75rem',
                 fontWeight: 700,
                 cursor: 'pointer',
+                whiteSpace: 'nowrap',
               }}
             >
-              🔒 Lock Terminal
+              🔒<span className="kiosk-hdr-locktext">&nbsp;Lock</span>
             </button>
           )}
 
+          {/* ERP back link — hidden on mobile */}
           {isGuardAuthenticated && user?.role !== 'Security Guard' && (
             <Link
               href="/hr/attendance"
+              className="kiosk-hdr-erplink"
               style={{
-                padding: '0.45rem 0.85rem',
-                borderRadius: '9px',
+                padding: '0.32rem 0.6rem',
+                borderRadius: '7px',
                 border: '1px solid var(--border)',
                 background: 'transparent',
                 color: 'var(--text-muted)',
-                fontSize: '0.82rem',
+                fontSize: '0.72rem',
                 fontWeight: 600,
                 textDecoration: 'none',
+                whiteSpace: 'nowrap',
               }}
             >
-              ← ERP Dashboard
+              ← ERP
             </Link>
           )}
         </div>
       </header>
 
-      {/* Security Guard Mode Switcher Tabs */}
+
+
+      {/* ============================================================ */}
+      {/* TAB BAR — compact, icon-only on mobile                       */}
+      {/* ============================================================ */}
       {isGuardAuthenticated && (
         <div
           style={{
             width: '100%',
             background: isLight ? '#ffffff' : '#1e293b',
             borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-            padding: '0.65rem 1.5rem',
+            padding: '0.4rem 0.85rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '0.75rem',
+            gap: '0.5rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <button
               type="button"
-              onClick={() => {
-                setKioskTab('punch');
-                setSelectedEmployee(null);
-              }}
+              onClick={() => { setKioskTab('punch'); setSelectedEmployee(null); }}
               style={{
-                padding: '0.55rem 1.15rem',
-                borderRadius: '10px',
+                padding: '0.4rem 0.8rem',
+                borderRadius: '9px',
                 border: kioskTab === 'punch' ? '2px solid var(--primary)' : (isLight ? '1px solid #cbd5e1' : '1px solid #475569'),
                 background: kioskTab === 'punch' ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
                 color: kioskTab === 'punch' ? 'var(--primary)' : 'var(--text-muted)',
                 fontWeight: 800,
-                fontSize: '0.88rem',
+                fontSize: '0.82rem',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem',
+                gap: '0.3rem',
+                whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
               }}
             >
               <span>📇</span>
-              <span>Punch Station (Terminal)</span>
+              <span className="kiosk-tab-text">Punch Station</span>
             </button>
 
             <button
               type="button"
-              onClick={() => {
-                setKioskTab('sheet');
-                setSelectedEmployee(null);
-              }}
+              onClick={() => { setKioskTab('sheet'); setSelectedEmployee(null); }}
               style={{
-                padding: '0.55rem 1.15rem',
-                borderRadius: '10px',
+                padding: '0.4rem 0.8rem',
+                borderRadius: '9px',
                 border: kioskTab === 'sheet' ? '2px solid #d97706' : (isLight ? '1px solid #cbd5e1' : '1px solid #475569'),
                 background: kioskTab === 'sheet' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
                 color: kioskTab === 'sheet' ? '#d97706' : 'var(--text-muted)',
                 fontWeight: 800,
-                fontSize: '0.88rem',
+                fontSize: '0.82rem',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem',
+                gap: '0.3rem',
+                whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
               }}
             >
               <span>📋</span>
-              <span>Staff Attendance Sheet (Till Today)</span>
-              <span
-                style={{
-                  fontSize: '0.65rem',
-                  padding: '1px 6px',
-                  borderRadius: '4px',
-                  background: '#f59e0b',
-                  color: '#ffffff',
-                  fontWeight: 900,
-                }}
-              >
-                SHIFT MGR
-              </span>
+              <span className="kiosk-tab-text">Attendance Sheet</span>
+              <span style={{ fontSize: '0.58rem', padding: '1px 4px', borderRadius: '3px', background: '#f59e0b', color: '#fff', fontWeight: 900 }}>MGR</span>
             </button>
           </div>
 
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            {kioskTab === 'sheet'
-              ? '🔒 Shift Manager Mode: Real-time Attendance up to Today (Future dates hidden)'
-              : '⚡ One-Tap Mode: Fast Check-In / Check-Out'}
+          <div className="kiosk-tab-hint" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {kioskTab === 'sheet' ? '🔒 Shift Manager' : '⚡ One-Tap'}
           </div>
         </div>
       )}
+
+
+
 
       {/* Main Container */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -719,49 +720,50 @@ export default function KioskPage() {
             <div
               style={{
                 background: isLight ? '#ffffff' : '#1e293b',
-                borderRadius: '16px',
-                padding: 'clamp(1.25rem, 3vw, 2rem)',
+                borderRadius: '14px',
+                padding: 'clamp(0.85rem, 2.5vw, 1.5rem)',
                 border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
                 boxShadow: 'var(--shadow)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: '1.25rem',
+                gap: '0.75rem',
               }}
             >
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <h2
                   style={{
-                    margin: '0 0 0.4rem 0',
-                    fontSize: 'clamp(1.4rem, 3.5vw, 1.85rem)',
+                    margin: '0 0 0.2rem 0',
+                    fontSize: 'clamp(0.95rem, 3.5vw, 1.5rem)',
                     fontWeight: 800,
                     color: 'var(--text-main)',
+                    lineHeight: 1.2,
                   }}
                 >
-                  👋 Tap Your Name or Search to Clock In/Out
+                  👋 Tap Your Name to Clock In/Out
                 </h2>
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-                  Select your profile below for <strong>One-Tap Check-In / Check-Out</strong>. The system automatically highlights your next action.
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 'clamp(0.75rem, 2vw, 0.88rem)' }}>
+                  One-Tap <strong>Check-In / Check-Out</strong>. System shows your next action.
                 </p>
               </div>
-
               <button
                 type="button"
                 onClick={() => setShowPasswordLogin(!showPasswordLogin)}
                 style={{
-                  padding: '0.65rem 1.25rem',
-                  borderRadius: '10px',
+                  padding: '0.5rem 0.9rem',
+                  borderRadius: '9px',
                   border: '1px solid var(--border)',
                   background: showPasswordLogin ? 'var(--primary)' : 'var(--bg-main)',
                   color: showPasswordLogin ? 'white' : 'var(--text-main)',
                   cursor: 'pointer',
                   fontWeight: 700,
-                  fontSize: '0.85rem',
+                  fontSize: '0.82rem',
+                  flexShrink: 0,
                   transition: 'all 0.15s ease',
                 }}
               >
-                {showPasswordLogin ? '✕ Close Form Login' : '🔑 Login with Password'}
+                {showPasswordLogin ? '✕ Close' : '🔑 Password Login'}
               </button>
             </div>
 
@@ -976,8 +978,8 @@ export default function KioskPage() {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
-                  gap: '1rem',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))',
+                  gap: 'clamp(0.5rem, 2vw, 1rem)',
                 }}
               >
                 {filteredEmployees.map(emp => {
@@ -1131,10 +1133,34 @@ export default function KioskPage() {
       </main>
 
       <style jsx>{`
+        /* ===== KIOSK — MOBILE RESPONSIVE ===== */
+        .employee-kiosk-card { transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         .employee-kiosk-card:hover {
-          transform: translateY(-3px) scale(1.02);
+          transform: translateY(-2px) scale(1.015);
           border-color: var(--primary) !important;
-          box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2) !important;
+          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.18) !important;
+        }
+        .employee-kiosk-card:active { transform: scale(0.97); }
+
+        /* Phone portrait <=480px */
+        @media (max-width: 480px) {
+          .kiosk-hdr-date   { display: none !important; }
+          .kiosk-hdr-badge  { display: none !important; }
+          .kiosk-hdr-erplink{ display: none !important; }
+          .kiosk-hdr-locktext { display: none !important; }
+          .kiosk-tab-text   { display: none !important; }
+          .kiosk-tab-hint   { display: none !important; }
+        }
+
+        /* Small phone <=600px */
+        @media (max-width: 600px) {
+          .kiosk-tab-hint   { display: none !important; }
+          .kiosk-hdr-erplink{ display: none !important; }
+        }
+
+        /* Tablet <=768px */
+        @media (max-width: 768px) {
+          .kiosk-hdr-erplink{ display: none !important; }
         }
       `}</style>
     </div>
