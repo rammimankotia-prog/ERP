@@ -15,8 +15,8 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [geofence, setGeofence] = useState<{enabled: boolean, lat: number, lng: number, radius: number} | null>({
     enabled: true,
-    lat: 28.645870262027557,
-    lng: 77.2153564554722,
+    lat: 28.64864864864865,
+    lng: 77.21923732550276,
     radius: 50,
   });
 
@@ -27,8 +27,8 @@ export default function LoginPage() {
         if (data.geofence) {
           setGeofence({
             enabled: data.geofence.enabled !== undefined ? data.geofence.enabled : true,
-            lat: data.geofence.lat || 28.645870262027557,
-            lng: data.geofence.lng || 77.2153564554722,
+            lat: data.geofence.lat || 28.64864864864865,
+            lng: data.geofence.lng || 77.21923732550276,
             radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 50,
           });
         }
@@ -65,7 +65,7 @@ export default function LoginPage() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const distance = getDistance(position.coords.latitude, position.coords.longitude, geofence.lat, geofence.lng);
-          const allowedRadius = geofence.radius || 20;
+          const allowedRadius = typeof geofence.radius === 'number' ? geofence.radius : 50;
           if (distance <= allowedRadius) {
             resolve(true);
           } else {
