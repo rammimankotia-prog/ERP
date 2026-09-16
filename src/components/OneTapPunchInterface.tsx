@@ -352,74 +352,41 @@ export default function OneTapPunchInterface({
         gap: '0.85rem',
       }}
     >
-      {/* Top Header Navigation Bar */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '0.75rem',
-          borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #1e293b',
-          paddingBottom: '0.65rem',
-        }}
-      >
-        <button
-          type="button"
-          onClick={onBack}
+      {/* Top Header Navigation Bar - Only for Kiosk mode to switch employee (self-service dashboard already has page header) */}
+      {!showLeaveAndHistory && (
+        <div
           style={{
-            background: showLeaveAndHistory
-              ? (isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)')
-              : 'transparent',
-            border: showLeaveAndHistory
-              ? '1.5px solid rgba(239, 68, 68, 0.35)'
-              : (isLight ? '1px solid #cbd5e1' : '1px solid #334155'),
-            color: showLeaveAndHistory
-              ? '#dc2626'
-              : (isLight ? '#334155' : '#cbd5e1'),
-            padding: '0.45rem 0.95rem',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '0.85rem',
-            fontWeight: 700,
-            display: 'inline-flex',
+            display: 'flex',
+            justifyContent: 'space-between',
             alignItems: 'center',
-            gap: '0.4rem',
-            transition: 'all 0.15s ease',
+            gap: '0.5rem',
+            borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #1e293b',
+            paddingBottom: '0.45rem',
           }}
-          title={showLeaveAndHistory ? 'Sign out of your account' : 'Return to employee list'}
         >
-          <span>{showLeaveAndHistory ? '🚪' : '←'}</span>
-          <span>{showLeaveAndHistory ? 'Log Out' : 'Switch Employee'}</span>
-        </button>
-
-        <div style={{ textAlign: 'right' }}>
-          <div
+          <button
+            type="button"
+            onClick={onBack}
             style={{
-              fontSize: '1.25rem',
-              fontWeight: 800,
-              color: 'var(--primary)',
-              letterSpacing: '-0.02em',
-              fontVariantNumeric: 'tabular-nums',
+              background: 'transparent',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+              color: isLight ? '#334155' : '#cbd5e1',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '7px',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
             }}
+            title="Return to employee list"
           >
-            {currentTime.toLocaleTimeString('en-IN', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true,
-            })}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            {currentTime.toLocaleDateString('en-IN', {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
-          </div>
+            <span>←</span>
+            <span>Switch Employee</span>
+          </button>
         </div>
-      </div>
+      )}
 
       {/* Error Alert */}
       {errorMsg && (
@@ -724,32 +691,6 @@ export default function OneTapPunchInterface({
         </div>
       </div>
 
-      {/* 20m In-Premises Geo-Fence Active Status */}
-      <div
-        style={{
-          padding: '0.45rem 0.85rem',
-          borderRadius: '8px',
-          backgroundColor: isLight ? '#ecfdf5' : 'rgba(16, 185, 129, 0.15)',
-          border: isLight ? '1px solid #a7f3d0' : '1px dashed rgba(52, 211, 153, 0.4)',
-          color: isLight ? '#065f46' : '#34d399',
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          textAlign: 'center',
-          maxWidth: '520px',
-          margin: '0 auto',
-          width: '100%',
-        }}
-      >
-        {punchMode === 'KIOSK' ? (
-          <>
-            🛡️ <strong>Guard Terminal Kiosk:</strong> Verified On-Premises Terminal (Hotel Grand Godwin &amp; Godwin Deluxe).
-          </>
-        ) : (
-          <>
-            📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (80m in-premises boundary). Device GPS must be ON.
-          </>
-        )}
-      </div>
 
       {/* ========================================================================= */}
       {/* DYNAMIC ONE-TAP PUNCH ACTION (SPACE-SAVING AUTO-MORPH: IN -> OUT -> DONE) */}

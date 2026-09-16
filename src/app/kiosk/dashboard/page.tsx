@@ -304,43 +304,44 @@ export default function KioskDashboard() {
       {/* Header */}
       <header style={{
         background: isLight ? '#ffffff' : '#0f172a',
-        padding: '1rem 1.5rem',
+        padding: '0.4rem 0.75rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         borderBottom: isLight ? '1px solid #cbd5e1' : '1px solid #1e293b',
-        position: 'relative',
-        zIndex: 50
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+        gap: '0.4rem',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-          <div style={{ fontSize: '1.8rem' }}>🏨</div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc' }}>Terminal 1 - Front Desk</h1>
-            <p style={{ margin: 0, color: isLight ? '#475569' : '#94a3b8', fontSize: '0.82rem', fontWeight: 500 }}>Self-Service Attendance Kiosk</p>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
+          <div style={{ fontSize: '1.25rem' }}>🏨</div>
+          <span style={{ fontSize: '0.88rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc', whiteSpace: 'nowrap' }}>
+            Grand Godwin
+          </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
           {/* Night / Day Mode Toggle */}
           <button
             type="button"
             onClick={toggleTheme}
             style={{
               background: isLight ? '#f1f5f9' : '#1e293b',
-              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
+              borderRadius: '7px',
+              width: '30px',
+              height: '30px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.2rem',
+              fontSize: '0.9rem',
               cursor: 'pointer',
               color: isLight ? '#0f172a' : '#f8fafc',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+              padding: 0,
+              flexShrink: 0,
             }}
-            title={isLight ? 'Switch to Night Mode (Dark)' : 'Switch to Day Mode (Light)'}
+            title={isLight ? 'Dark Mode' : 'Light Mode'}
             aria-label="Toggle Night/Day Mode"
           >
             {isLight ? '🌙' : '☀️'}
@@ -354,17 +355,18 @@ export default function KioskDashboard() {
               style={{
                 position: 'relative',
                 background: isLight ? '#f1f5f9' : '#1e293b',
-                border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
+                border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
+                borderRadius: '7px',
+                width: '30px',
+                height: '30px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1.15rem',
+                fontSize: '0.88rem',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                boxShadow: unreadCount > 0 ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none'
+                padding: 0,
+                flexShrink: 0,
+                boxShadow: unreadCount > 0 ? '0 0 6px rgba(239, 68, 68, 0.4)' : 'none'
               }}
               title="Notifications"
               aria-label="Notifications"
@@ -373,17 +375,16 @@ export default function KioskDashboard() {
               {unreadCount > 0 && (
                 <span style={{
                   position: 'absolute',
-                  top: '-4px',
-                  right: '-4px',
+                  top: '-3px',
+                  right: '-3px',
                   background: '#ef4444',
                   color: '#ffffff',
                   borderRadius: '999px',
-                  padding: '2px 6px',
-                  fontSize: '0.7rem',
+                  padding: '1px 3px',
+                  fontSize: '0.6rem',
                   fontWeight: 700,
                   lineHeight: 1,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
-                  minWidth: '18px',
+                  minWidth: '14px',
                   textAlign: 'center'
                 }}>
                   {unreadCount}
@@ -395,10 +396,10 @@ export default function KioskDashboard() {
             {showNotifs && (
               <div style={{
                 position: 'absolute',
-                top: '52px',
+                top: '38px',
                 right: '0',
-                width: '360px',
-                maxHeight: '450px',
+                width: '320px',
+                maxHeight: '420px',
                 background: isLight ? '#ffffff' : '#1e293b',
                 border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
                 borderRadius: '16px',
@@ -524,16 +525,17 @@ export default function KioskDashboard() {
             )}
           </div>
 
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#2563eb', letterSpacing: '-0.02em' }}>
-              {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          {/* Compact Date / Time */}
+          <div style={{ textAlign: 'right', lineHeight: 1.15, flexShrink: 0 }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#2563eb', letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+              {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
             </div>
-            <div style={{ fontSize: '0.85rem', color: isLight ? '#64748b' : '#94a3b8', fontWeight: 600 }}>
-              {currentTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            <div style={{ fontSize: '0.62rem', color: isLight ? '#64748b' : '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              {currentTime.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
             </div>
           </div>
 
-          {/* Explicit Log Out button */}
+          {/* Compact Log Out button */}
           <button
             type="button"
             onClick={handleLogout}
@@ -541,22 +543,21 @@ export default function KioskDashboard() {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.5rem 0.95rem',
-              borderRadius: '10px',
-              border: '1.5px solid rgba(239, 68, 68, 0.35)',
+              gap: '0.25rem',
+              padding: '0.28rem 0.55rem',
+              borderRadius: '7px',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
               background: isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)',
               color: '#dc2626',
               fontWeight: 700,
-              fontSize: '0.88rem',
+              fontSize: '0.78rem',
               cursor: 'pointer',
-              boxShadow: isLight ? '0 1px 4px rgba(239, 68, 68, 0.12)' : '0 2px 5px rgba(0,0,0,0.3)',
-              transition: 'all 0.15s ease',
               whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
-            <span style={{ fontSize: '1.05rem' }}>🚪</span>
-            <span>Log Out</span>
+            <span>🚪</span>
+            <span>Logout</span>
           </button>
         </div>
       </header>
