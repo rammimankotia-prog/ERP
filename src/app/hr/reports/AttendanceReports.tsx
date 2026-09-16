@@ -182,6 +182,7 @@ export default function AttendanceReports() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isFullScreen, setIsFullScreen] = useState(false)
+  const [isExportingPDF, setIsExportingPDF] = useState(false)
 
   const toggleFullScreen = () => {
     if (!isFullScreen) {
@@ -358,6 +359,89 @@ export default function AttendanceReports() {
     URL.revokeObjectURL(url)
   }
 
+  // Resolved scope labels for printable header
+  const selectedEmployeeObj = liveEmployees.find(e => e.id === employeeFilter || e.employeeId === employeeFilter)
+  const employeeLabel = employeeFilter === 'ALL'
+    ? 'All Employees (Entire Team)'
+    : (selectedEmployeeObj ? `${selectedEmployeeObj.employeeId} - ${selectedEmployeeObj.name}` : employeeFilter)
+  const selectedBranchObj = liveBranches.find(b => b.id === branchFilter)
+  const branchLabel = branchFilter === 'ALL' ? 'All Branches' : (selectedBranchObj ? selectedBranchObj.name : branchFilter)
+  const selectedDeptObj = liveDepartments.find(d => d.id === deptFilter)
+  const deptLabel = deptFilter === 'ALL' ? 'All Departments' : (selectedDeptObj ? selectedDeptObj.name : deptFilter)
+
+  // Direct PDF Download Handler
+  const handleDownloadPDF = async () => {
+    if (!reportData) return
+    setIsExportingPDF(true)
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const { jsPDF } = await import('jspdf')
+
+      const element = document.getElementById('printable-report-wrapper')
+      if (!element) {
+        window.print()
+        return
+      }
+
+      // Temporarily reveal print elements for html2canvas capture
+      const printOnlyEls = element.querySelectorAll<HTMLElement>('.print-only')
+      printOnlyEls.forEach(el => {
+        if (el.classList.contains('print-footer')) {
+          el.style.display = 'flex'
+        } else {
+          el.style.display = 'block'
+        }
+      })
+      const printHideEls = element.querySelectorAll<HTMLElement>('.print-hide-col, .no-print')
+      printHideEls.forEach(el => { el.style.display = 'none' })
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      })
+
+      // Revert inline display styles
+      printOnlyEls.forEach(el => { el.style.display = '' })
+      printHideEls.forEach(el => { el.style.display = '' })
+
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      })
+
+      const pdfWidth = 297
+      const pdfHeight = 210
+      const margin = 8
+      const contentWidth = pdfWidth - margin * 2
+      const contentHeight = (canvas.height * contentWidth) / canvas.width
+
+      let heightLeft = contentHeight
+      let position = margin
+
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, contentWidth, contentHeight)
+      heightLeft -= (pdfHeight - margin * 2)
+
+      while (heightLeft > 0) {
+        position = heightLeft - contentHeight + margin
+        pdf.addPage()
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, contentWidth, contentHeight)
+        heightLeft -= (pdfHeight - margin * 2)
+      }
+
+      const cleanFrom = activeRange.from || 'start'
+      const cleanTo = activeRange.to || 'end'
+      pdf.save(`Attendance_Report_${cleanFrom}_to_${cleanTo}.pdf`)
+    } catch (err) {
+      console.error('Direct PDF export error:', err)
+      window.print()
+    } finally {
+      setIsExportingPDF(false)
+    }
+  }
+
   const summary = reportData?.summary
 
   return (
@@ -390,7 +474,7 @@ export default function AttendanceReports() {
     >
       {/* Top Header Card with Report Mode Switcher */}
       <div
-        className="card"
+        className="card no-print"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -477,7 +561,7 @@ export default function AttendanceReports() {
 
       {/* Control / Filter Bar */}
       <div
-        className="card"
+        className="card no-print"
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -613,8 +697,47 @@ export default function AttendanceReports() {
             </button>
             <button
               className="btn btn-outline"
+              onClick={handleDownloadPDF}
+              disabled={isExportingPDF || !reportData || filteredRecords.length === 0}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                borderColor: 'rgba(239, 68, 68, 0.35)',
+                color: '#f87171',
+                fontWeight: 600,
+                cursor: isExportingPDF ? 'not-allowed' : 'pointer'
+              }}
+              title="Download direct PDF file (.pdf)"
+            >
+              {isExportingPDF ? (
+                <>
+                  <span style={{ width: 13, height: 13, border: '2px solid #f87171', borderRightColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.75s linear infinite' }} />
+                  <span>Exporting...</span>
+                </>
+              ) : (
+                <>
+                  <span>📄</span>
+                  <span>Download PDF</span>
+                </>
+              )}
+            </button>
+            <button
+              className="btn btn-primary"
               onClick={() => window.print()}
-              title="Print report or save to PDF"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                color: '#ffffff',
+                fontWeight: 700,
+                border: '1px solid #3b82f6',
+                boxShadow: '0 2px 10px rgba(37, 99, 235, 0.35)',
+                cursor: 'pointer'
+              }}
+              title="Print report or save to PDF (A4 Landscape formatted)"
             >
               🖨️ Print PDF
             </button>
@@ -769,6 +892,7 @@ export default function AttendanceReports() {
       {/* Analytics KPI Metric Cards */}
       {summary && (
         <div
+          className="no-print"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
@@ -818,7 +942,68 @@ export default function AttendanceReports() {
       )}
 
       {/* Main Content Area with View Tabs */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div id="printable-report-wrapper" className="card printable-card" style={{ padding: 0, overflow: 'hidden' }}>
+        {/* Print-Only Official Letterhead Header */}
+        <div
+          className="print-only letterhead-section"
+          style={{
+            padding: '1.25rem 1.5rem',
+            borderBottom: '2px solid #1e3a8a',
+            backgroundColor: '#ffffff',
+            color: '#0f172a'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18pt' }}>👑</span>
+                <h1 style={{ margin: 0, fontSize: '18pt', fontWeight: 900, color: '#1e3a8a', letterSpacing: '-0.5px' }}>
+                  HOTEL GRAND GODWIN & HOTEL GODWIN DELUXE
+                </h1>
+              </div>
+              <div style={{ fontSize: '8.5pt', color: '#475569', marginTop: '3px', fontWeight: 500 }}>
+                EXECUTIVE ENTERPRISE PORTAL • 8501/42, Arakashan Road, Ram Nagar, Paharganj, New Delhi - 110055 • Ph: +91 11 4766 5500
+              </div>
+              <h2 style={{ margin: '10px 0 0', fontSize: '13pt', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {mode === 'WEEKLY' ? 'Weekly' : mode === 'MONTHLY' ? 'Monthly' : 'Custom Period'} Attendance & Exception Ledger
+              </h2>
+            </div>
+
+            <div style={{ textAlign: 'right', fontSize: '8.5pt', color: '#334155', lineHeight: 1.5 }}>
+              <div><strong>Period:</strong> {formatDateDisplay(activeRange.from)} to {formatDateDisplay(activeRange.to)}</div>
+              <div><strong>Generated:</strong> {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}, {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</div>
+              <div><strong>Scope:</strong> {branchLabel} • {deptLabel}</div>
+              <div><strong>Employee:</strong> {employeeLabel}</div>
+              <div><strong>Active View:</strong> {viewTab === 'SUMMARY' ? 'Employee Summary Matrix' : 'Detailed Daily Attendance Log'}</div>
+            </div>
+          </div>
+
+          {/* Compact Executive KPI Strip for Print */}
+          {summary && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(6, 1fr)',
+                gap: '8px',
+                marginTop: '12px',
+                background: '#f8fafc',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '8pt',
+                textAlign: 'center'
+              }}
+            >
+              <div><span style={{ color: '#64748b' }}>Staff Evaluated:</span> <strong style={{ color: '#0f172a', display: 'block', fontSize: '10pt' }}>{summary.totalEmployees}</strong></div>
+              <div><span style={{ color: '#64748b' }}>Present Days:</span> <strong style={{ color: '#16a34a', display: 'block', fontSize: '10pt' }}>{summary.totalPresent}</strong></div>
+              <div><span style={{ color: '#64748b' }}>Late Arrivals:</span> <strong style={{ color: '#d97706', display: 'block', fontSize: '10pt' }}>{summary.totalLate}</strong></div>
+              <div><span style={{ color: '#64748b' }}>Early Exits:</span> <strong style={{ color: '#ea580c', display: 'block', fontSize: '10pt' }}>{summary.totalEarlyOut}</strong></div>
+              <div><span style={{ color: '#64748b' }}>Leaves:</span> <strong style={{ color: '#dc2626', display: 'block', fontSize: '10pt' }}>{summary.totalUnpaidLeave} LWP / {summary.totalPaidLeave} PL</strong></div>
+              <div><span style={{ color: '#64748b' }}>Total Hours / Rate:</span> <strong style={{ color: '#2563eb', display: 'block', fontSize: '10pt' }}>{fmtMinutes(summary.totalWorkingMinutes)} ({summary.attendanceRate}%)</strong></div>
+            </div>
+          )}
+        </div>
+
         {/* Table View Switcher Header */}
         <div
           style={{
@@ -842,7 +1027,7 @@ export default function AttendanceReports() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="no-print" style={{ display: 'flex', gap: '0.5rem' }}>
             <button
               onClick={() => setViewTab('SUMMARY')}
               style={{
@@ -913,7 +1098,7 @@ export default function AttendanceReports() {
                   <th style={{ padding: '0.85rem 0.75rem', textAlign: 'right', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Total Hours</th>
                   <th style={{ padding: '0.85rem 0.75rem', textAlign: 'right', fontWeight: 600, color: '#8b5cf6', fontSize: '0.75rem', textTransform: 'uppercase' }}>Overtime</th>
                   <th style={{ padding: '0.85rem 1rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Attendance %</th>
-                  <th style={{ padding: '0.85rem 1rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Action</th>
+                  <th className="print-hide-col" style={{ padding: '0.85rem 1rem', textAlign: 'center', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1071,7 +1256,7 @@ export default function AttendanceReports() {
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
+                      <td className="print-hide-col" style={{ padding: '0.85rem 1rem', textAlign: 'center' }}>
                         <button
                           className="btn btn-outline"
                           style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
@@ -1369,37 +1554,146 @@ export default function AttendanceReports() {
             </table>
           </div>
         )}
+
+        {/* Print-Only Official Footer */}
+        <div
+          className="print-only print-footer"
+          style={{
+            display: 'none',
+            padding: '12px 20px',
+            borderTop: '1px solid #cbd5e1',
+            backgroundColor: '#ffffff',
+            fontSize: '8pt',
+            color: '#64748b',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          <div>Hotel Grand Godwin ERP • Official Attendance Record • System Generated</div>
+          <div>Authorized HR Signatory: __________________________</div>
+        </div>
       </div>
 
       {/* Printable Report Styles */}
       <style jsx global>{`
-        @media print {
-          body {
-            background: #fff !important;
-            color: #000 !important;
-            font-size: 11pt !important;
-          }
-          nav, header, .btn, select, input, button {
+        @media screen {
+          .print-only {
             display: none !important;
           }
-          .card {
-            border: 1px solid #ccc !important;
+        }
+
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 8mm 10mm 10mm 10mm;
+          }
+
+          /* Unlock scrolling and fixed height so browser can paginate across multiple pages */
+          html, body, .dashboard-container, #__next, div[style*="height: 100vh"], div[style*="overflow"] {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            position: static !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+          }
+
+          /* Hide navigation, sidebars, buttons, inputs, interactive filters */
+          aside, nav, header, [class*="sidebar"], [class*="topnavbar"], .no-print, .btn, select, input, button, .print-hide-col {
+            display: none !important;
+          }
+
+          /* Display print-only letterhead & footer */
+          .print-only {
+            display: block !important;
+          }
+          .print-only.letterhead-section {
+            display: block !important;
+          }
+          .print-only.print-footer {
+            display: flex !important;
+          }
+
+          /* Container & card adjustments for clean paper print */
+          .page-container, #printable-report-wrapper {
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            background: #ffffff !important;
             box-shadow: none !important;
-            background: #fff !important;
-            color: #000 !important;
-            page-break-inside: avoid;
           }
+
+          .card {
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            break-inside: auto !important;
+            padding: 0 !important;
+            margin: 0 0 12px 0 !important;
+            overflow: visible !important;
+          }
+
+          /* Table pagination and border styling */
+          .table-scroll-container {
+            overflow: visible !important;
+            max-height: none !important;
+            width: 100% !important;
+          }
+
           table {
-            color: #000 !important;
-            border: 1px solid #ddd !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 8pt !important;
+            color: #0f172a !important;
           }
+
+          thead {
+            display: table-header-group !important;
+          }
+
+          tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
           th {
             background-color: #f1f5f9 !important;
-            color: #1e293b !important;
+            color: #0f172a !important;
+            font-weight: 700 !important;
+            border: 1px solid #cbd5e1 !important;
+            padding: 6px 8px !important;
+            font-size: 7.5pt !important;
+            text-transform: uppercase !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
+
           td {
-            border-top: 1px solid #e2e8f0 !important;
+            border: 1px solid #e2e8f0 !important;
+            padding: 5px 8px !important;
             color: #1e293b !important;
+            font-size: 8pt !important;
+            background-color: transparent !important;
+          }
+
+          /* Ensure all nested text colors are dark in print */
+          td * {
+            color: inherit !important;
+          }
+
+          /* Badges in print */
+          .badge, span[style*="border-radius"] {
+            border: 1px solid #cbd5e1 !important;
+            color: #0f172a !important;
+            background: #f8fafc !important;
+            font-size: 7pt !important;
+            padding: 1px 4px !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
       `}</style>
