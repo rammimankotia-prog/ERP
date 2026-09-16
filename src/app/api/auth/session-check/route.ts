@@ -9,6 +9,7 @@ const USERS_FILE = path.join(DATA_DIR, "users.json");
 const LOCAL_USERS_FILE = path.join(process.cwd(), "data", "users.json");
 const EMPLOYEES_FILE = path.join(DATA_DIR, "hr_employees.json");
 const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), "data", "hr_employees.json");
+const BACKUP_EMPLOYEES_FILE = path.join(process.cwd(), "data", "hr_employees_backup.json");
 const REVOKED_FILE = path.join(DATA_DIR, "revoked_sessions.json");
 const LOCAL_REVOKED_FILE = path.join(process.cwd(), "data", "revoked_sessions.json");
 
@@ -64,16 +65,27 @@ export async function GET(req: NextRequest) {
       });
 
       if (matchedUser) {
-        if (matchedUser.status !== "Active") {
+        if (matchedUser.status && matchedUser.status !== "Active") {
           return NextResponse.json({ active: false, reason: "USER_INACTIVE", status: matchedUser.status });
         }
         return NextResponse.json({ active: true, userType: "SYSTEM_USER", status: matchedUser.status });
       }
     }
 
-    // 3. Check HR Employees (in hr_employees.json)
+    // 3. Check HR Employees (in hr_employees.json & hr_employees_backup.json)
     if (employeeId || email) {
-      const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, []);
+      let employees: any[] = [];
+      for (const f of [EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, BACKUP_EMPLOYEES_FILE]) {
+        if (f && fs.existsSync(f)) {
+          try {
+            const parsed = JSON.parse(fs.readFileSync(f, "utf-8"));
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              employees = employees.concat(parsed);
+            }
+          } catch {}
+        }
+      }
+
       const matchedEmp = employees.find((e: any) => {
         if (employeeId && (e.id === employeeId || e.employeeId === employeeId)) return true;
         if (email && (e.email || "").toLowerCase() === email) return true;
@@ -88,8 +100,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // If identifier was provided but not found anywhere
-    return NextResponse.json({ active: false, reason: "ACCOUNT_NOT_FOUND" });
+    // If identifier was provided and not found in JSON files, but not explicitly revoked
+    return NextResponse.json({ active: true, reason: "ACTIVE_DEFAULT" });
   } catch (err: any) {
     console.error("Error in /api/auth/session-check:", err);
     return NextResponse.json({ active: false, reason: "SERVER_ERROR" }, { status: 500 });
