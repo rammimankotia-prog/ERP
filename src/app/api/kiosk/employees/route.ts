@@ -8,6 +8,8 @@ const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees.json
 const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
 const LOCAL_ATTENDANCE_FILE = path.join(process.cwd(), 'data', 'hr_attendance.json')
 
+const BACKUP_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees_backup.json')
+
 function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
   for (const f of [file, fallbackFile]) {
     try {
@@ -21,9 +23,29 @@ function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
   return fallback
 }
 
+function getMergedEmployees(): any[] {
+  const map = new Map<string, any>()
+  for (const f of [BACKUP_EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, EMPLOYEES_FILE]) {
+    try {
+      if (fs.existsSync(f)) {
+        const list = JSON.parse(fs.readFileSync(f, 'utf-8'))
+        if (Array.isArray(list)) {
+          for (const emp of list) {
+            const key = emp.employeeId || emp.id
+            if (key) {
+              map.set(key, { ...(map.get(key) || {}), ...emp })
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  return Array.from(map.values())
+}
+
 export async function GET() {
   try {
-    const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+    const employees = getMergedEmployees()
     const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
     const dateStr = new Date().toISOString().split('T')[0]
 

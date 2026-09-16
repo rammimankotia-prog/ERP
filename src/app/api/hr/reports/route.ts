@@ -13,6 +13,7 @@ const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
 const LOCAL_ATTENDANCE_FILE = path.join(LOCAL_DATA_DIR, 'hr_attendance.json')
 const LEAVES_FILE = path.join(DATA_DIR, 'hr_leaves.json')
 const LOCAL_LEAVES_FILE = path.join(LOCAL_DATA_DIR, 'hr_leaves.json')
+const BACKUP_EMPLOYEES_FILE = path.join(LOCAL_DATA_DIR, 'hr_employees_backup.json')
 
 function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
   for (const f of [file, fallbackFile]) {
@@ -25,6 +26,26 @@ function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
     } catch {}
   }
   return fallback
+}
+
+function getMergedEmployees(): any[] {
+  const map = new Map<string, any>()
+  for (const f of [BACKUP_EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, EMPLOYEES_FILE]) {
+    try {
+      if (fs.existsSync(f)) {
+        const list = JSON.parse(fs.readFileSync(f, 'utf-8'))
+        if (Array.isArray(list)) {
+          for (const emp of list) {
+            const key = emp.employeeId || emp.id
+            if (key) {
+              map.set(key, { ...(map.get(key) || {}), ...emp })
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  return Array.from(map.values())
 }
 
 export type ReportRecord = {
@@ -138,7 +159,7 @@ export async function GET(req: NextRequest) {
   const toDate = new Date(toStr + 'T23:59:59')
 
   // Load real records
-  const rawEmployees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+  const rawEmployees = getMergedEmployees()
   const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
   const allLeaves = readJson<any[]>(LEAVES_FILE, LOCAL_LEAVES_FILE, [])
 

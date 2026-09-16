@@ -13,9 +13,33 @@ const BRANCHES_FILE = path.join(DATA_DIR, 'hr_branches.json')
 const LOCAL_BRANCHES_FILE = path.join(process.cwd(), 'data', 'hr_branches.json')
 const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')
 const LOCAL_DEPARTMENTS_FILE = path.join(process.cwd(), 'data', 'hr_departments.json')
+const BACKUP_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees_backup.json')
 
 function readJsonFile<T>(file: string, fallbackFile: string = '', fallback: T = [] as unknown as T): T {
-  for (const f of [file, fallbackFile]) {
+  const fileName = path.basename(file)
+  const localDataDir = path.join(process.cwd(), 'data')
+  const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
+
+  if (fileName === 'hr_employees.json') {
+    const map = new Map<string, any>()
+    for (const f of [file, fallbackFile, backupFile]) {
+      if (f && fs.existsSync(f)) {
+        try {
+          const content = fs.readFileSync(f, 'utf-8')
+          const list = JSON.parse(content)
+          if (Array.isArray(list)) {
+            for (const item of list) {
+              const k = item.id || item.employeeId
+              if (k && !map.has(k)) map.set(k, item)
+            }
+          }
+        } catch {}
+      }
+    }
+    if (map.size > 0) return Array.from(map.values()) as unknown as T
+  }
+
+  for (const f of [file, fallbackFile, backupFile]) {
     if (f) {
       try {
         if (fs.existsSync(f)) {
@@ -33,7 +57,8 @@ function writeJsonFile(file: string, data: any): void {
   const localDataDir = path.join(process.cwd(), 'data')
   const fileName = path.basename(file)
   const localFile = path.join(localDataDir, fileName)
-  for (const target of [file, localFile]) {
+  const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
+  for (const target of [file, localFile, backupFile]) {
     try {
       const dir = path.dirname(target)
       if (!fs.existsSync(dir)) {

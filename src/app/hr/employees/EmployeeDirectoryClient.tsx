@@ -152,13 +152,31 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       .then(res => res.json())
       .then(data => {
         if (data && Array.isArray(data.employees)) {
-          if (data.employees.length === 0) {
-            try { localStorage.removeItem(LOCAL_STORAGE_KEY) } catch {}
-            setEmployees([])
-          } else {
-            const merged = mergeWithLocalStorage(data.employees)
-            setEmployees(merged)
-          }
+          const serverList = data.employees
+          const merged = mergeWithLocalStorage(serverList)
+          setEmployees(merged)
+
+          // Auto-sync: If there are any employees in local cache that are missing on the server,
+          // automatically upload them to the server so they persist permanently.
+          try {
+            const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
+            if (cachedStr) {
+              const rawCache: any[] = JSON.parse(cachedStr)
+              if (Array.isArray(rawCache)) {
+                const serverEmpIds = new Set(serverList.map((e: any) => e.employeeId || e.id))
+                const missingOnServer = rawCache.filter(
+                  (c: any) => c && (c.employeeId || c.id) && !serverEmpIds.has(c.employeeId) && !serverEmpIds.has(c.id)
+                )
+                for (const emp of missingOnServer) {
+                  fetch('/api/hr/employees', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(emp)
+                  }).catch(() => {})
+                }
+              }
+            }
+          } catch {}
         }
       })
       .catch(() => {})

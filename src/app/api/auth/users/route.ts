@@ -38,20 +38,102 @@ function getActiveUsersFile(): string {
   return LOCAL_USERS_FILE;
 }
 
-function getUsers() {
+const EMPLOYEES_FILE = path.join(DATA_DIR, "hr_employees.json");
+const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), "data", "hr_employees.json");
+const BACKUP_EMPLOYEES_FILE = path.join(process.cwd(), "data", "hr_employees_backup.json");
+
+function getUsers(): any[] {
+  let users: any[] = [];
   try {
     for (const file of [USERS_FILE, LOCAL_USERS_FILE]) {
       if (fs.existsSync(file)) {
         const data = fs.readFileSync(file, "utf-8");
-        const users = JSON.parse(data);
-        if (Array.isArray(users) && users.length > 0) return users;
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          users = parsed;
+          break;
+        }
       }
     }
   } catch (error) {
     console.error("Error reading users file:", error);
   }
-  saveUsers(DEFAULT_USERS);
-  return DEFAULT_USERS;
+
+  if (users.length === 0) {
+    users = [...DEFAULT_USERS];
+  }
+
+  // Auto-sync all employees from hr_employees.json into users list
+  try {
+    let employees: any[] = [];
+    for (const empFile of [EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, BACKUP_EMPLOYEES_FILE]) {
+      if (fs.existsSync(empFile)) {
+        try {
+          const empData = JSON.parse(fs.readFileSync(empFile, "utf-8"));
+          if (Array.isArray(empData) && empData.length > 0) {
+            employees = empData;
+            break;
+          }
+        } catch {}
+      }
+    }
+
+    let modified = false;
+    for (const emp of employees) {
+      const empEmail = (emp.email || "").trim().toLowerCase();
+      const empCode = (emp.employeeId || emp.id || "").trim().toLowerCase();
+      const existingIdx = users.findIndex((u: any) => {
+        const uEmail = (u.email || "").trim().toLowerCase();
+        const uUsername = (u.username || "").trim().toLowerCase();
+        const uId = (u.id || "").trim().toLowerCase();
+        return (empEmail && uEmail === empEmail) || (empCode && uUsername === empCode) || uId === emp.id;
+      });
+
+      if (existingIdx === -1) {
+        // Auto-register employee in users list
+        const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.name || "Staff Member";
+        const desig = (emp.designation || "").toLowerCase();
+        const dept = (emp.department?.name || emp.department || "").toLowerCase();
+        let role = "Employee";
+        let perms: any = { kiosk: { access: true } };
+
+        if (desig.includes("manager") || desig.includes("supervisor")) {
+          role = "Manager";
+          perms = {
+            hr: { employees: { view: true, edit: true }, attendance: { view: true, edit: true }, shifts: { view: true, edit: true }, leave: { view: true, approve: true }, reports: { view: true } },
+            kiosk: { access: true }
+          };
+        } else if (desig.includes("guard") || dept.includes("security")) {
+          role = "Security Guard";
+          perms = { kiosk: { access: true } };
+        } else if (desig.includes("admin")) {
+          role = "Admin";
+          perms = MASTER_ADMIN_PERMISSIONS;
+        }
+
+        users.push({
+          id: emp.id || emp.employeeId,
+          username: emp.email || emp.employeeId,
+          name: fullName,
+          email: emp.email || `${emp.employeeId?.toLowerCase()}@godwinhotels.com`,
+          password: emp.password || "Godwin@123",
+          role: emp.role || role,
+          status: emp.status === "ACTIVE" || !emp.status ? "Active" : "Inactive",
+          createdAt: emp.createdAt ? emp.createdAt.split("T")[0] : new Date().toISOString().split("T")[0],
+          permissions: perms,
+        });
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      saveUsers(users);
+    }
+  } catch (syncErr) {
+    console.warn("Failed to auto-sync employees to users list:", syncErr);
+  }
+
+  return users;
 }
 
 function saveUsers(users: any[]) {

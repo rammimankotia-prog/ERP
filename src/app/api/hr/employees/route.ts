@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
 const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees.json')
+const BACKUP_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees_backup.json')
 const BRANCHES_FILE = path.join(DATA_DIR, 'hr_branches.json')
 const LOCAL_BRANCHES_FILE = path.join(process.cwd(), 'data', 'hr_branches.json')
 const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')
@@ -27,11 +28,33 @@ function readJson<T>(file: string, fallbackFile: string = '', fallback: T = [] a
   return fallback
 }
 
+function getMergedEmployees(): any[] {
+  const mergedMap = new Map<string, any>()
+  for (const f of [EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, BACKUP_EMPLOYEES_FILE]) {
+    if (fs.existsSync(f)) {
+      try {
+        const raw = fs.readFileSync(f, 'utf-8')
+        const list = JSON.parse(raw)
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            const key = item.id || item.employeeId
+            if (key && !mergedMap.has(key)) {
+              mergedMap.set(key, item)
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+  return Array.from(mergedMap.values())
+}
+
 function writeJson(file: string, data: any): void {
   const localDataDir = path.join(process.cwd(), 'data')
   const fileName = path.basename(file)
   const localFile = path.join(localDataDir, fileName)
-  for (const target of [file, localFile]) {
+  const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
+  for (const target of [file, localFile, backupFile]) {
     try {
       const dir = path.dirname(target)
       if (!fs.existsSync(dir)) {
@@ -51,7 +74,7 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status')
   const search = searchParams.get('search')
 
-  let employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+  let employees = getMergedEmployees()
   const branches = readJson<any[]>(BRANCHES_FILE, LOCAL_BRANCHES_FILE, [])
   const departments = readJson<any[]>(DEPARTMENTS_FILE, LOCAL_DEPARTMENTS_FILE, [])
 
@@ -95,7 +118,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 })
     }
 
-    const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+    const employees = getMergedEmployees()
     const index = employees.findIndex((e: any) => e.id === targetId || e.employeeId === targetId)
 
     let updatedRecord: any = null
@@ -189,7 +212,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 })
     }
 
-    let employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+    let employees = getMergedEmployees()
     const toDelete = employees.find((e: any) => e.id === id || e.employeeId === id)
     employees = employees.filter((e: any) => e.id !== id && e.employeeId !== id)
     writeJson(EMPLOYEES_FILE, employees)

@@ -38,7 +38,28 @@ function readJsonFile<T>(filePath: string, fallback: T): T {
   const localDataDir = path.join(process.cwd(), 'data')
   const fileName = path.basename(filePath)
   const localFile = path.join(localDataDir, fileName)
-  for (const f of [filePath, localFile]) {
+  const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
+
+  if (fileName === 'hr_employees.json') {
+    const map = new Map<string, any>()
+    for (const f of [filePath, localFile, backupFile]) {
+      try {
+        if (fs.existsSync(f)) {
+          const raw = fs.readFileSync(f, 'utf-8')
+          const list = JSON.parse(raw)
+          if (Array.isArray(list)) {
+            for (const item of list) {
+              const k = item.id || item.employeeId
+              if (k && !map.has(k)) map.set(k, item)
+            }
+          }
+        }
+      } catch {}
+    }
+    if (map.size > 0) return Array.from(map.values()) as unknown as T
+  }
+
+  for (const f of [filePath, localFile, backupFile]) {
     try {
       if (fs.existsSync(f)) {
         const raw = fs.readFileSync(f, 'utf-8')
@@ -54,7 +75,8 @@ function writeJsonFile(filePath: string, data: any): void {
   const localDataDir = path.join(process.cwd(), 'data')
   const fileName = path.basename(filePath)
   const localFile = path.join(localDataDir, fileName)
-  for (const target of [filePath, localFile]) {
+  const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
+  for (const target of [filePath, localFile, backupFile]) {
     try {
       const dir = path.dirname(target)
       if (!fs.existsSync(dir)) {

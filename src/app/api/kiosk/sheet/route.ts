@@ -20,6 +20,7 @@ const LOCAL_ATTENDANCE_FILE = path.join(LOCAL_DATA_DIR, 'hr_attendance.json')
 
 const LEAVES_FILE = path.join(DATA_DIR, 'hr_leaves.json')
 const LOCAL_LEAVES_FILE = path.join(LOCAL_DATA_DIR, 'hr_leaves.json')
+const BACKUP_EMPLOYEES_FILE = path.join(LOCAL_DATA_DIR, 'hr_employees_backup.json')
 
 function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
   for (const f of [file, fallbackFile]) {
@@ -32,6 +33,26 @@ function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
     } catch {}
   }
   return fallback
+}
+
+function getMergedEmployees(): any[] {
+  const map = new Map<string, any>()
+  for (const f of [BACKUP_EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, EMPLOYEES_FILE]) {
+    try {
+      if (fs.existsSync(f)) {
+        const list = JSON.parse(fs.readFileSync(f, 'utf-8'))
+        if (Array.isArray(list)) {
+          for (const emp of list) {
+            const key = emp.employeeId || emp.id
+            if (key) {
+              map.set(key, { ...(map.get(key) || {}), ...emp })
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  return Array.from(map.values())
 }
 
 const WEEK_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -120,10 +141,17 @@ export async function GET(req: NextRequest) {
     }
   } catch {}
 
-  if (employees.length === 0) {
-    employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
-      .filter((e: any) => e.status === 'ACTIVE' || !e.status)
-  }
+  const jsonEmployees = getMergedEmployees().filter((e: any) => e.status === 'ACTIVE' || !e.status)
+  const empMap = new Map<string, any>()
+  jsonEmployees.forEach(e => {
+    const k = e.employeeId || e.id
+    if (k) empMap.set(k, e)
+  })
+  employees.forEach(e => {
+    const k = e.employeeId || e.id
+    if (k) empMap.set(k, { ...(empMap.get(k) || {}), ...e })
+  })
+  employees = Array.from(empMap.values())
 
   if (branchId && branchId !== 'ALL') {
     employees = employees.filter(e => e.branchId === branchId || e.branch?.id === branchId || e.branch === branchId)
