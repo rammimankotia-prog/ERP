@@ -291,16 +291,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const now = new Date()
+    const nowIso = now.toISOString()
+    const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now)
+
+    // Strict Restriction: Check-in, punch-in, and punch-out are only allowed for TODAY
+    const targetDate = body.date || todayIST
+    if (targetDate < todayIST) {
+      return NextResponse.json(
+        { error: 'Strict Security Restriction: Check-in, punch-in, and punch-out are strictly prohibited for past dates.' },
+        { status: 403 }
+      )
+    }
+    if (targetDate > todayIST) {
+      return NextResponse.json(
+        { error: 'Strict Security Restriction: Check-in, punch-in, and punch-out are not permitted for future dates.' },
+        { status: 403 }
+      )
+    }
+
+    const dateStr = todayIST
+
     const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
-    const dateStr = new Date().toISOString().split('T')[0]
 
     let existingIndex = allAttendance.findIndex(a => 
       (a.employeeId === employeeId || (emp && (a.employeeId === emp.id || a.employeeId === emp.employeeId))) && 
       a.date === dateStr
     )
-
-    const now = new Date()
-    const nowIso = now.toISOString()
 
     if (action === 'IN') {
       if (existingIndex !== -1 && allAttendance[existingIndex].punchIn) {

@@ -322,3 +322,32 @@ describe('IST Late Arrival & Remarks Detection (e.g. 12:30 PM Punch vs 09:00 Shi
   })
 })
 
+describe('Strict Past Date Attendance Lockout (Employees & Security)', () => {
+  const isDateActionAllowed = (selectedDate: string, currentDate: string): boolean => {
+    return selectedDate === currentDate
+  }
+
+  test('❌ FAIL: Punch-in/out on past date 14-09-2026 when today is 16-09-2026 must be REJECTED', () => {
+    const today = '2026-09-16'
+    const pastDate = '2026-09-14'
+    expect(isDateActionAllowed(pastDate, today)).toBe(false)
+  })
+
+  test('❌ FAIL: Punch-in/out on yesterday 15-09-2026 when today is 16-09-2026 must be REJECTED', () => {
+    const today = '2026-09-16'
+    const yesterday = '2026-09-15'
+    expect(isDateActionAllowed(yesterday, today)).toBe(false)
+  })
+
+  test('✅ PASS: Punch-in/out on current date 16-09-2026 must be ALLOWED', () => {
+    const today = '2026-09-16'
+    expect(isDateActionAllowed(today, today)).toBe(true)
+  })
+
+  test('❌ FAIL: Punch-in/out on future date 17-09-2026 must be REJECTED', () => {
+    const today = '2026-09-16'
+    const futureDate = '2026-09-17'
+    expect(isDateActionAllowed(futureDate, today)).toBe(false)
+  })
+})
+

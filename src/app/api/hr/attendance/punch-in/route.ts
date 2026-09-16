@@ -40,7 +40,7 @@ function getAttendanceStatus(punchInTime: Date, shiftStartTime: string, graceMin
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { employeeId, mode = 'WEB', lat, lng } = body
+    const { employeeId, mode = 'WEB', lat, lng, date: requestDate } = body
 
     if (!employeeId) {
       return NextResponse.json({ error: 'employeeId is required' }, { status: 400 })
@@ -48,6 +48,23 @@ export async function POST(req: NextRequest) {
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+
+    if (requestDate) {
+      const target = new Date(requestDate)
+      target.setHours(0, 0, 0, 0)
+      if (target.getTime() < today.getTime()) {
+        return NextResponse.json({
+          error: 'PAST_DATE_LOCKED',
+          message: 'Strict Security Restriction: Check-in is strictly prohibited for past dates.'
+        }, { status: 403 })
+      }
+      if (target.getTime() > today.getTime()) {
+        return NextResponse.json({
+          error: 'FUTURE_DATE_LOCKED',
+          message: 'Check-in is not permitted for future dates.'
+        }, { status: 403 })
+      }
+    }
 
     // Check if already punched in today
     const existing = await prisma.attendanceLog.findUnique({
