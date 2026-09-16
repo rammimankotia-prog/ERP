@@ -54,6 +54,58 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
   const [selectedStatus, setSelectedStatus] = useState('ALL')
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
 
+  // Drag-to-sort employee state
+  const [draggedEmpId, setDraggedEmpId] = useState<string | null>(null)
+  const [dragOverEmpId, setDragOverEmpId] = useState<string | null>(null)
+  const [dropPosition, setDropPosition] = useState<'above' | 'below' | null>(null)
+
+  // Restore employee custom order from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedOrder = localStorage.getItem('godwin_employees_sort_order')
+      if (savedOrder) {
+        try {
+          const ids: string[] = JSON.parse(savedOrder)
+          setEmployees(prev => {
+            const copy = [...prev]
+            copy.sort((a, b) => {
+              const idxA = ids.indexOf(a.id)
+              const idxB = ids.indexOf(b.id)
+              if (idxA === -1 && idxB === -1) return 0
+              if (idxA === -1) return 1
+              if (idxB === -1) return -1
+              return idxA - idxB
+            })
+            return copy
+          })
+        } catch {}
+      }
+    }
+  }, [])
+
+  const handleReorderEmployee = (sourceId: string, targetId: string, position: 'above' | 'below') => {
+    setEmployees(prev => {
+      const sourceIdx = prev.findIndex(x => x.id === sourceId)
+      if (sourceIdx === -1) return prev
+      const targetIdx = prev.findIndex(x => x.id === targetId)
+      if (targetIdx === -1) return prev
+
+      const nextList = [...prev]
+      const [moved] = nextList.splice(sourceIdx, 1)
+      const newTargetIdx = nextList.findIndex(x => x.id === targetId)
+      const insertIdx = position === 'above' ? newTargetIdx : newTargetIdx + 1
+      nextList.splice(insertIdx, 0, moved)
+
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('godwin_employees_sort_order', JSON.stringify(nextList.map(x => x.id)))
+        } catch {}
+      }
+      return nextList
+    })
+    setToastMessage({ text: 'Staff order updated successfully', type: 'success' })
+  }
+
   // Deduplicated and branch-aware department options for filter dropdown
   const filterDepartments = useMemo(() => {
     const list = selectedBranch
@@ -1062,6 +1114,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
                     color: 'var(--text-muted)',
                   }}
                 >
+                  <th style={{ width: '44px', padding: '1rem 0.5rem 1rem 1rem', textAlign: 'center' }}>↕</th>
                   <th style={{ padding: '1rem 1.5rem' }}>Employee</th>
                   <th style={{ padding: '1rem 1.25rem' }}>Staff ID</th>
                   <th style={{ padding: '1rem 1.25rem' }}>Branch & Department</th>
@@ -1076,15 +1129,84 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
                   const isActive = emp.status === 'ACTIVE'
                   const isOnLeave = emp.status === 'ON_LEAVE'
                   const isBusy = actionLoadingId === emp.id
+                  const isEmpDragged = draggedEmpId === emp.id
+                  const isEmpDragOver = dragOverEmpId === emp.id
+                  const borderTopHighlight = isEmpDragOver && dropPosition === 'above' ? '3px solid var(--primary)' : undefined
+                  const borderBottomHighlight = isEmpDragOver && dropPosition === 'below' ? '3px solid var(--primary)' : '1px solid var(--border)'
 
                   return (
                     <tr
                       key={emp.id}
+                      onDragOver={(e) => {
+                        if (!draggedEmpId) return
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'move'
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const midY = rect.top + rect.height / 2
+                        const pos = e.clientY < midY ? 'above' : 'below'
+                        if (dragOverEmpId !== emp.id || dropPosition !== pos) {
+                          setDragOverEmpId(emp.id)
+                          setDropPosition(pos)
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverEmpId === emp.id) {
+                          setDragOverEmpId(null)
+                          setDropPosition(null)
+                        }
+                      }}
+                      onDrop={(e) => {
+                        if (!draggedEmpId) return
+                        e.preventDefault()
+                        e.stopPropagation()
+                        if (draggedEmpId !== emp.id) {
+                          handleReorderEmployee(draggedEmpId, emp.id, dropPosition || 'below')
+                        }
+                        setDraggedEmpId(null)
+                        setDragOverEmpId(null)
+                        setDropPosition(null)
+                      }}
                       style={{
-                        borderBottom: '1px solid var(--border)',
+                        borderBottom: borderBottomHighlight,
+                        borderTop: borderTopHighlight,
+                        opacity: isEmpDragged ? 0.35 : 1,
+                        backgroundColor: isEmpDragOver ? 'rgba(37, 99, 235, 0.08)' : undefined,
                         transition: 'background-color 0.12s ease',
                       }}
                     >
+                      {/* Drag Handle Cell */}
+                      <td style={{ width: '44px', padding: '1rem 0.5rem 1rem 1rem', textAlign: 'center' }}>
+                        <div
+                          draggable={true}
+                          onDragStart={(e) => {
+                            e.stopPropagation()
+                            setDraggedEmpId(emp.id)
+                            e.dataTransfer.effectAllowed = 'move'
+                          }}
+                          onDragEnd={() => {
+                            setDraggedEmpId(null)
+                            setDragOverEmpId(null)
+                            setDropPosition(null)
+                          }}
+                          style={{
+                            cursor: 'grab',
+                            padding: '3px 6px',
+                            color: 'var(--text-muted)',
+                            fontSize: '1.05rem',
+                            borderRadius: '4px',
+                            backgroundColor: 'rgba(100, 116, 139, 0.1)',
+                            border: '1px solid rgba(100, 116, 139, 0.2)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            userSelect: 'none',
+                          }}
+                          title="Drag ⠿ up or down to reorder employee"
+                        >
+                          ⠿
+                        </div>
+                      </td>
+
                       {/* Employee Info & Avatar */}
                       <td style={{ padding: '1rem 1.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>

@@ -211,6 +211,11 @@ export default function ShiftsManager() {
     dayKey: number | string
   } | null>(null)
 
+  // Employee Drag-to-Sort State
+  const [draggedEmpId, setDraggedEmpId] = useState<string | null>(null)
+  const [dragOverEmpId, setDragOverEmpId] = useState<string | null>(null)
+  const [dropPosition, setDropPosition] = useState<'above' | 'below' | null>(null)
+
   // Shift Swap Modal State (Day ⇄ Night / Date Range)
   const [showSwapModal, setShowSwapModal] = useState(false)
   const [swapScope, setSwapScope] = useState<'ALL_VISIBLE' | 'SINGLE' | 'TWO'>('ALL_VISIBLE')
@@ -264,6 +269,25 @@ export default function ShiftsManager() {
             dept: e.department?.name || e.department || e.dept || 'Front Office',
             offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
           }))
+
+        // Restore custom employee sort order from localStorage if present
+        if (typeof window !== 'undefined') {
+          const savedOrder = localStorage.getItem('GODWIN_ROSTER_EMPLOYEE_SORT_ORDER')
+          if (savedOrder) {
+            try {
+              const orderIds: string[] = JSON.parse(savedOrder)
+              mapped.sort((a, b) => {
+                const idxA = orderIds.indexOf(a.id)
+                const idxB = orderIds.indexOf(b.id)
+                if (idxA === -1 && idxB === -1) return 0
+                if (idxA === -1) return 1
+                if (idxB === -1) return -1
+                return idxA - idxB
+              })
+            } catch {}
+          }
+        }
+
         setEmployeesList(mapped)
 
         if (mapped.length > 0) {
@@ -658,6 +682,44 @@ export default function ShiftsManager() {
 
     setMessage(`🔄 Shift swap applied (${actionText}) for ${targetEmps.length} staff from Day ${minDay} to Day ${maxDay} (${MONTH_NAMES[selectedMonth]} ${selectedYear}).`)
     setShowSwapModal(false)
+  }
+
+  // Drag & Drop Employee Sorting Handler
+  const handleReorderEmployee = (sourceId: string, targetId: string, position: 'above' | 'below') => {
+    setEmployeesList(prev => {
+      const sourceIdx = prev.findIndex(x => x.id === sourceId)
+      if (sourceIdx === -1) return prev
+      const targetIdx = prev.findIndex(x => x.id === targetId)
+      if (targetIdx === -1) return prev
+
+      const nextList = [...prev]
+      const [movedItem] = nextList.splice(sourceIdx, 1)
+      const newTargetIdx = nextList.findIndex(x => x.id === targetId)
+      const insertIdx = position === 'above' ? newTargetIdx : newTargetIdx + 1
+      nextList.splice(insertIdx, 0, movedItem)
+
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('GODWIN_ROSTER_EMPLOYEE_SORT_ORDER', JSON.stringify(nextList.map(x => x.id)))
+        } catch {}
+      }
+      setMessage(`↕️ Reordered ${movedItem.name} in staff duty roster.`)
+      return nextList
+    })
+  }
+
+  // Reset staff ordering to alphabetical
+  const handleResetEmployeeSort = () => {
+    setEmployeesList(prev => {
+      const nextList = [...prev].sort((a, b) => a.name.localeCompare(b.name))
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('GODWIN_ROSTER_EMPLOYEE_SORT_ORDER', JSON.stringify(nextList.map(x => x.id)))
+        } catch {}
+      }
+      setMessage('🔤 Staff sorted alphabetically (A-Z).')
+      return nextList
+    })
   }
 
   // Days in selected month
@@ -1588,6 +1650,23 @@ export default function ShiftsManager() {
                 >
                   <span>🔄 Swap Shifts (Date Range)</span>
                 </button>
+
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={handleResetEmployeeSort}
+                  style={{
+                    padding: '0.35rem 0.65rem',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-muted)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem'
+                  }}
+                  title="Reset staff order alphabetically (A-Z)"
+                >
+                  <span>🔤 Sort A–Z</span>
+                </button>
               </div>
             </div>
 
@@ -1614,6 +1693,7 @@ export default function ShiftsManager() {
                         borderBottom: '2px solid var(--border)',
                       }}
                     >
+                      <span style={{ marginRight: '6px', opacity: 0.7 }} title="Drag ⠿ handles to reorder staff">↕</span>
                       Employee ({filteredEmployees.length})
                     </th>
 
@@ -1696,30 +1776,109 @@ export default function ShiftsManager() {
 
                     const totalWorkDays = morningCount + breakCount + nightCount
 
+                    const isEmpDragged = draggedEmpId === emp.id
+                    const isEmpDragOver = dragOverEmpId === emp.id
+                    const borderTopHighlight = isEmpDragOver && dropPosition === 'above' ? '3px solid #6366f1' : undefined
+                    const borderBottomHighlight = isEmpDragOver && dropPosition === 'below' ? '3px solid #6366f1' : '1px solid var(--border)'
+
                     return (
-                      <tr key={emp.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                        {/* Sticky Employee Info Cell */}
+                      <tr
+                        key={emp.id}
+                        onDragOver={(e) => {
+                          if (!draggedEmpId) return
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = 'move'
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          const midY = rect.top + rect.height / 2
+                          const pos = e.clientY < midY ? 'above' : 'below'
+                          if (dragOverEmpId !== emp.id || dropPosition !== pos) {
+                            setDragOverEmpId(emp.id)
+                            setDropPosition(pos)
+                          }
+                        }}
+                        onDragLeave={() => {
+                          if (dragOverEmpId === emp.id) {
+                            setDragOverEmpId(null)
+                            setDropPosition(null)
+                          }
+                        }}
+                        onDrop={(e) => {
+                          if (!draggedEmpId) return
+                          e.preventDefault()
+                          e.stopPropagation()
+                          if (draggedEmpId !== emp.id) {
+                            handleReorderEmployee(draggedEmpId, emp.id, dropPosition || 'below')
+                          }
+                          setDraggedEmpId(null)
+                          setDragOverEmpId(null)
+                          setDropPosition(null)
+                        }}
+                        style={{
+                          borderBottom: borderBottomHighlight,
+                          borderTop: borderTopHighlight,
+                          opacity: isEmpDragged ? 0.35 : 1,
+                          backgroundColor: isEmpDragOver ? 'rgba(99, 102, 241, 0.08)' : undefined,
+                          transition: 'background-color 0.12s ease',
+                        }}
+                      >
+                        {/* Sticky Employee Info Cell with Drag Handle */}
                         <td
                           style={{
-                            padding: '0.65rem 1rem',
+                            padding: '0.65rem 0.85rem',
                             position: 'sticky',
                             left: 0,
-                            backgroundColor: 'var(--bg-card)',
+                            backgroundColor: isEmpDragOver ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-card)',
                             zIndex: 2,
                             borderRight: '2px solid var(--border)',
                           }}
                         >
-                          <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem' }}>{emp.name}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{emp.code}</span> • {emp.designation}
-                          </div>
-                          <div style={{ fontSize: '0.68rem', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)', fontWeight: 600 }}>
-                              {emp.branch}
-                            </span>
-                            <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(100, 116, 139, 0.1)', color: 'var(--text-muted)', fontWeight: 600 }}>
-                              {emp.dept}
-                            </span>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem' }}>
+                            <div
+                              draggable={true}
+                              onDragStart={(e) => {
+                                e.stopPropagation()
+                                setDraggedEmpId(emp.id)
+                                e.dataTransfer.effectAllowed = 'move'
+                                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'EMPLOYEE_SORT', empId: emp.id }))
+                              }}
+                              onDragEnd={() => {
+                                setDraggedEmpId(null)
+                                setDragOverEmpId(null)
+                                setDropPosition(null)
+                              }}
+                              style={{
+                                cursor: 'grab',
+                                padding: '2px 4px',
+                                color: 'var(--text-muted)',
+                                fontSize: '1rem',
+                                userSelect: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '4px',
+                                marginTop: '1px',
+                                backgroundColor: 'rgba(100, 116, 139, 0.1)',
+                                border: '1px solid rgba(100, 116, 139, 0.2)',
+                                transition: 'all 0.15s ease',
+                              }}
+                              title="Drag ⠿ up or down to reorder employee in staff roster"
+                            >
+                              ⠿
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem' }}>{emp.name}</div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{emp.code}</span> • {emp.designation}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)', fontWeight: 600 }}>
+                                  {emp.branch}
+                                </span>
+                                <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(100, 116, 139, 0.1)', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                  {emp.dept}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </td>
 
@@ -2024,8 +2183,18 @@ export default function ShiftsManager() {
                   </select>
                 </div>
 
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={handleResetEmployeeSort}
+                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}
+                  title="Reset staff order alphabetically (A-Z)"
+                >
+                  🔤 Sort A–Z
+                </button>
+
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  💡 Click cell to toggle shift.
+                  💡 Click cell to toggle shift • Drag ⠿ to sort staff.
                 </span>
               </div>
             </div>
@@ -2046,6 +2215,7 @@ export default function ShiftsManager() {
                         minWidth: '180px',
                       }}
                     >
+                      <span style={{ marginRight: '6px', opacity: 0.7 }} title="Drag ⠿ handles to reorder staff">↕</span>
                       Employee ({filteredEmployees.length})
                     </th>
                     {weekDays.map(d => {
@@ -2106,22 +2276,102 @@ export default function ShiftsManager() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEmployees.map(emp => (
-                    <tr key={emp.id} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ padding: '0.875rem 1.25rem' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>{emp.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{emp.code}</span> • {emp.designation}
-                        </div>
-                        <div style={{ fontSize: '0.68rem', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                          <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)', fontWeight: 600 }}>
-                            {emp.branch}
-                          </span>
-                          <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(100, 116, 139, 0.1)', color: 'var(--text-muted)', fontWeight: 600 }}>
-                            {emp.dept}
-                          </span>
-                        </div>
-                      </td>
+                  {filteredEmployees.map(emp => {
+                    const isEmpDragged = draggedEmpId === emp.id
+                    const isEmpDragOver = dragOverEmpId === emp.id
+                    const borderTopHighlight = isEmpDragOver && dropPosition === 'above' ? '3px solid #6366f1' : undefined
+                    const borderBottomHighlight = isEmpDragOver && dropPosition === 'below' ? '3px solid #6366f1' : '1px solid var(--border)'
+
+                    return (
+                      <tr
+                        key={emp.id}
+                        onDragOver={(e) => {
+                          if (!draggedEmpId) return
+                          e.preventDefault()
+                          e.dataTransfer.dropEffect = 'move'
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          const midY = rect.top + rect.height / 2
+                          const pos = e.clientY < midY ? 'above' : 'below'
+                          if (dragOverEmpId !== emp.id || dropPosition !== pos) {
+                            setDragOverEmpId(emp.id)
+                            setDropPosition(pos)
+                          }
+                        }}
+                        onDragLeave={() => {
+                          if (dragOverEmpId === emp.id) {
+                            setDragOverEmpId(null)
+                            setDropPosition(null)
+                          }
+                        }}
+                        onDrop={(e) => {
+                          if (!draggedEmpId) return
+                          e.preventDefault()
+                          e.stopPropagation()
+                          if (draggedEmpId !== emp.id) {
+                            handleReorderEmployee(draggedEmpId, emp.id, dropPosition || 'below')
+                          }
+                          setDraggedEmpId(null)
+                          setDragOverEmpId(null)
+                          setDropPosition(null)
+                        }}
+                        style={{
+                          borderTop: borderTopHighlight || '1px solid var(--border)',
+                          borderBottom: borderBottomHighlight,
+                          opacity: isEmpDragged ? 0.35 : 1,
+                          backgroundColor: isEmpDragOver ? 'rgba(99, 102, 241, 0.08)' : undefined,
+                          transition: 'background-color 0.12s ease',
+                        }}
+                      >
+                        <td style={{ padding: '0.875rem 1.25rem', backgroundColor: isEmpDragOver ? 'rgba(99, 102, 241, 0.12)' : undefined }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem' }}>
+                            <div
+                              draggable={true}
+                              onDragStart={(e) => {
+                                e.stopPropagation()
+                                setDraggedEmpId(emp.id)
+                                e.dataTransfer.effectAllowed = 'move'
+                                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'EMPLOYEE_SORT', empId: emp.id }))
+                              }}
+                              onDragEnd={() => {
+                                setDraggedEmpId(null)
+                                setDragOverEmpId(null)
+                                setDropPosition(null)
+                              }}
+                              style={{
+                                cursor: 'grab',
+                                padding: '2px 4px',
+                                color: 'var(--text-muted)',
+                                fontSize: '1rem',
+                                userSelect: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '4px',
+                                marginTop: '1px',
+                                backgroundColor: 'rgba(100, 116, 139, 0.1)',
+                                border: '1px solid rgba(100, 116, 139, 0.2)',
+                                transition: 'all 0.15s ease',
+                              }}
+                              title="Drag ⠿ up or down to reorder employee in staff roster"
+                            >
+                              ⠿
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>{emp.name}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{emp.code}</span> • {emp.designation}
+                              </div>
+                              <div style={{ fontSize: '0.68rem', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)', fontWeight: 600 }}>
+                                  {emp.branch}
+                                </span>
+                                <span style={{ padding: '1px 5px', borderRadius: '4px', background: 'rgba(100, 116, 139, 0.1)', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                  {emp.dept}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
                       {weekDays.map(d => {
                         const assignment = roster[emp.id]?.[d.dayKey] || 'Unassigned'
                         const isOff = assignment === 'OFF'
@@ -2269,7 +2519,8 @@ export default function ShiftsManager() {
                         )
                       })}
                     </tr>
-                  ))}
+                  )
+                })}
                 </tbody>
               </table>
             </div>
