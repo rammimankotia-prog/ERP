@@ -44,7 +44,7 @@ export const MASTER_ADMIN_PERMISSIONS: UserPermissions = {
 interface AuthContextType {
   user: User | null;
   login: (user: User, rememberMe?: boolean) => void;
-  logout: () => void;
+  logout: (redirectUrl?: string) => void;
   hasPermission: (module: string, action?: string) => boolean;
   isMasterAdmin: boolean;
 }
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   // Multi-window & multi-tab logout function
-  const logout = useCallback(() => {
+  const logout = useCallback((redirectUrl?: string) => {
     // 1. Immediately terminate user state in this window
     setUser(null);
 
@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('GODWIN_LOGOUT_EVENT', now);
       localStorage.removeItem('GODWIN_LOGGED_IN_USER');
       localStorage.removeItem('kiosk_employee');
+      localStorage.removeItem('GODWIN_REMEMBER_30DAYS');
       sessionStorage.clear();
 
       // Clear any session cookies across paths
@@ -98,13 +99,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
 
-    // 4. Force hard redirect to /admin/login to completely flush in-memory React tree and caches
+    // 4. Determine smart destination: staff/kiosk users go to /login, admin routes go to /admin/login
+    const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
+    const isStaffOrKiosk =
+      cleanPath.startsWith('/kiosk') ||
+      cleanPath.startsWith('/login');
+    const defaultDest = isStaffOrKiosk ? '/login?logout=true' : '/admin/login';
+    const destination = redirectUrl || defaultDest;
+
     if (typeof window !== 'undefined') {
-      window.location.href = '/admin/login';
+      window.location.href = destination;
     } else {
-      router.push('/admin/login');
+      router.push(destination);
     }
-  }, [router]);
+  }, [pathname, router]);
 
   // Login function
   const login = useCallback((newUser: User, rememberMe: boolean = true) => {

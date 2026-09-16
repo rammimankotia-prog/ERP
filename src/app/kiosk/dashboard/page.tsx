@@ -267,16 +267,26 @@ export default function KioskDashboard() {
     try {
       localStorage.removeItem('kiosk_employee')
       localStorage.removeItem('GODWIN_REMEMBER_30DAYS')
+      localStorage.removeItem('GODWIN_LOGGED_IN_USER')
       sessionStorage.removeItem('kiosk_employee')
-      document.cookie = 'kiosk_employee=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+      sessionStorage.removeItem('GODWIN_LOGGED_IN_USER')
+      sessionStorage.clear()
+      localStorage.setItem('GODWIN_LOGGED_OUT', 'true')
       localStorage.setItem('GODWIN_LOGOUT_EVENT', now)
+      document.cookie = 'kiosk_employee=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+      document.cookie = 'GODWIN_LOGGED_IN_USER=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
       if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
         const bc = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
         bc.postMessage({ type: 'KIOSK_LOGOUT', timestamp: now })
+        bc.postMessage({ type: 'LOGOUT', timestamp: now })
         bc.close()
       }
     } catch {}
-    router.push('/login?logout=true')
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login?logout=true'
+    } else {
+      router.push('/login?logout=true')
+    }
   }
 
   if (loading || !employee) {
@@ -522,6 +532,32 @@ export default function KioskDashboard() {
               {currentTime.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </div>
           </div>
+
+          {/* Explicit Log Out button */}
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Sign out of Self-Service Punch"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.5rem 0.95rem',
+              borderRadius: '10px',
+              border: '1.5px solid rgba(239, 68, 68, 0.35)',
+              background: isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)',
+              color: '#dc2626',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              boxShadow: isLight ? '0 1px 4px rgba(239, 68, 68, 0.12)' : '0 2px 5px rgba(0,0,0,0.3)',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span style={{ fontSize: '1.05rem' }}>🚪</span>
+            <span>Log Out</span>
+          </button>
         </div>
       </header>
 

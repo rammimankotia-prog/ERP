@@ -13,13 +13,69 @@ export default function KioskPage() {
   const { user, login, logout } = useAuth();
   const [kioskTab, setKioskTab] = useState<'punch' | 'sheet'>('punch');
 
+  const [kioskGuard, setKioskGuard] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('kiosk_employee') || sessionStorage.getItem('kiosk_employee');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.loginRole === 'security' || (parsed.department && parsed.department.toLowerCase().includes('security')))) {
+          setKioskGuard(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
   const isGuardAuthenticated = !!(
-    user &&
-    (user.role === 'Security Guard' ||
-      user.role === 'Master Admin' ||
-      user.role === 'ADMIN' ||
-      user.role === 'Manager')
+    (user &&
+      (user.role === 'Security Guard' ||
+        user.role === 'Master Admin' ||
+        user.role === 'ADMIN' ||
+        user.role === 'Manager')) ||
+    (kioskGuard &&
+      (kioskGuard.loginRole === 'security' ||
+        (kioskGuard.department && kioskGuard.department.toLowerCase().includes('security'))))
   );
+
+  const handleGuardLogout = () => {
+    try {
+      localStorage.removeItem('kiosk_employee');
+      localStorage.removeItem('GODWIN_REMEMBER_30DAYS');
+      localStorage.removeItem('GODWIN_LOGGED_IN_USER');
+      sessionStorage.removeItem('kiosk_employee');
+      sessionStorage.removeItem('GODWIN_LOGGED_IN_USER');
+      sessionStorage.clear();
+      document.cookie = 'kiosk_employee=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+      document.cookie = 'GODWIN_LOGGED_IN_USER=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+      localStorage.setItem('GODWIN_LOGGED_OUT', 'true');
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL');
+        bc.postMessage({ type: 'LOGOUT', timestamp: Date.now().toString() });
+        bc.close();
+      }
+    } catch {}
+    setKioskGuard(null);
+    logout('/login?mode=security&logout=true');
+  };
+
+  const handleLockTerminal = () => {
+    try {
+      localStorage.removeItem('kiosk_employee');
+      localStorage.removeItem('GODWIN_REMEMBER_30DAYS');
+      localStorage.removeItem('GODWIN_LOGGED_IN_USER');
+      sessionStorage.removeItem('kiosk_employee');
+      sessionStorage.removeItem('GODWIN_LOGGED_IN_USER');
+      sessionStorage.clear();
+      document.cookie = 'kiosk_employee=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+      document.cookie = 'GODWIN_LOGGED_IN_USER=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+      localStorage.setItem('GODWIN_LOGGED_OUT', 'true');
+    } catch {}
+    setKioskGuard(null);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/kiosk';
+    }
+  };
 
   const [guardLoginUser, setGuardLoginUser] = useState('');
   const [guardLoginPass, setGuardLoginPass] = useState('');
@@ -375,7 +431,7 @@ export default function KioskPage() {
           </button>
 
           {/* Guard badge — first name only, hidden on phone */}
-          {isGuardAuthenticated && user && (
+          {isGuardAuthenticated && (
             <div
               className="kiosk-hdr-badge"
               style={{
@@ -390,23 +446,23 @@ export default function KioskPage() {
             >
               <span style={{ fontSize: '0.8rem' }}>🛡️</span>
               <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>
-                {(user.name || '').split(' ')[0]}
+                {(user?.name || kioskGuard?.firstName || 'Guard').split(' ')[0]}
               </span>
             </div>
           )}
 
-          {/* Lock terminal — icon only on phone */}
+          {/* Lock terminal */}
           {isGuardAuthenticated && (
             <button
               type="button"
-              onClick={logout}
-              title="Lock terminal and sign out"
+              onClick={handleLockTerminal}
+              title="Lock terminal screen"
               style={{
                 padding: '0.32rem 0.55rem',
                 borderRadius: '7px',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                background: 'rgba(239, 68, 68, 0.1)',
-                color: '#ef4444',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                background: 'rgba(245, 158, 11, 0.1)',
+                color: '#f59e0b',
                 fontSize: '0.75rem',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -414,6 +470,32 @@ export default function KioskPage() {
               }}
             >
               🔒<span className="kiosk-hdr-locktext">&nbsp;Lock</span>
+            </button>
+          )}
+
+          {/* Explicit Log Out button */}
+          {isGuardAuthenticated && (
+            <button
+              type="button"
+              onClick={handleGuardLogout}
+              title="Log out and return to login portal"
+              style={{
+                padding: '0.32rem 0.6rem',
+                borderRadius: '7px',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                background: 'rgba(239, 68, 68, 0.12)',
+                color: '#ef4444',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+              }}
+            >
+              <span>🚪</span>
+              <span>Log Out</span>
             </button>
           )}
 
@@ -654,6 +736,22 @@ export default function KioskPage() {
                 >
                   {guardLoginLoading ? 'Unlocking Kiosk...' : '🔓 Unlock Gate Kiosk'}
                 </button>
+                <div style={{ marginTop: '0.85rem', textAlign: 'center' }}>
+                  <Link
+                    href="/login"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.82rem',
+                      textDecoration: 'none',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>←</span> <span>Return to Staff Login / Punch Portal</span>
+                  </Link>
+                </div>
               </form>
             </div>
           </div>

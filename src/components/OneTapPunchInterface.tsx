@@ -368,9 +368,15 @@ export default function OneTapPunchInterface({
           type="button"
           onClick={onBack}
           style={{
-            background: 'transparent',
-            border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
-            color: isLight ? '#334155' : '#cbd5e1',
+            background: showLeaveAndHistory
+              ? (isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)')
+              : 'transparent',
+            border: showLeaveAndHistory
+              ? '1.5px solid rgba(239, 68, 68, 0.35)'
+              : (isLight ? '1px solid #cbd5e1' : '1px solid #334155'),
+            color: showLeaveAndHistory
+              ? '#dc2626'
+              : (isLight ? '#334155' : '#cbd5e1'),
             padding: '0.45rem 0.95rem',
             borderRadius: '8px',
             cursor: 'pointer',
@@ -381,9 +387,10 @@ export default function OneTapPunchInterface({
             gap: '0.4rem',
             transition: 'all 0.15s ease',
           }}
+          title={showLeaveAndHistory ? 'Sign out of your account' : 'Return to employee list'}
         >
           <span>{showLeaveAndHistory ? '🚪' : '←'}</span>
-          <span>{showLeaveAndHistory ? 'Sign Out' : 'Switch Employee'}</span>
+          <span>{showLeaveAndHistory ? 'Log Out' : 'Switch Employee'}</span>
         </button>
 
         <div style={{ textAlign: 'right' }}>
@@ -894,7 +901,7 @@ export default function OneTapPunchInterface({
         </button>
       </div>
 
-      {/* Secondary Actions (Request Leave & My Attendance) - ONLY for self-service staff logged in with email & password */}
+      {/* Secondary Actions (Request Leave, My Attendance & Log Out) - ONLY for self-service staff logged in with email & password */}
       {showLeaveAndHistory && (
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
           <button
@@ -938,6 +945,28 @@ export default function OneTapPunchInterface({
             }}
           >
             <span>📅</span> <span>My Attendance</span>
+          </button>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              padding: '0.65rem 1.3rem',
+              borderRadius: '10px',
+              border: '1.5px solid rgba(239, 68, 68, 0.35)',
+              background: isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)',
+              color: '#dc2626',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              boxShadow: isLight ? '0 2px 6px rgba(239, 68, 68, 0.1)' : '0 2px 6px rgba(0,0,0,0.3)',
+              transition: 'all 0.15s'
+            }}
+            title="Sign out of your account"
+          >
+            <span>🚪</span> <span>Log Out</span>
           </button>
         </div>
       )}

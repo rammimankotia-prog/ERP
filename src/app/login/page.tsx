@@ -116,6 +116,7 @@ export default function LoginPage() {
   const [secError, setSecError] = useState('');
   const [secLoading, setSecLoading] = useState(false);
   const [deactivatedAlert, setDeactivatedAlert] = useState(false);
+  const [logoutAlert, setLogoutAlert] = useState(false);
 
   // Redirect ?mode=admin links to the proper admin portal; default to Staff Login
   useEffect(() => {
@@ -123,6 +124,9 @@ export default function LoginPage() {
       const params = new URLSearchParams(window.location.search);
       if (params.get('deactivated') === 'true') {
         setDeactivatedAlert(true);
+      }
+      if (params.get('logout') === 'true') {
+        setLogoutAlert(true);
       }
       const m = params.get('mode') || params.get('type') || params.get('role') || params.get('tab');
       if (m === 'admin' || m === 'manager') {
@@ -287,6 +291,17 @@ export default function LoginPage() {
           localStorage.removeItem('kiosk_employee');
           localStorage.removeItem('GODWIN_REMEMBER_30DAYS');
         }
+
+        const guardUser = {
+          id: data.employee.id || data.employee.employeeId,
+          username: data.employee.email || data.employee.employeeId,
+          name: `${data.employee.firstName} ${data.employee.lastName}`.trim(),
+          email: data.employee.email || '',
+          role: 'Security Guard',
+          status: 'Active',
+        };
+        login(guardUser, rememberMe);
+
         router.push('/kiosk');
       } else {
         setSecError(data.error || 'Invalid Guard ID or Password. Please try again.');
@@ -358,6 +373,27 @@ export default function LoginPage() {
                 Your account has been deactivated. You have been automatically logged out from all platforms, devices, and punch kiosks. Please contact hotel administration.
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Successful Logout Notice Banner */}
+        {logoutAlert && !deactivatedAlert && (
+          <div style={{
+            background: 'rgba(16, 185, 129, 0.12)',
+            border: '1.5px solid rgba(16, 185, 129, 0.4)',
+            borderRadius: 14,
+            padding: '0.85rem 1.15rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            color: '#10b981',
+            fontSize: '0.88rem',
+            fontWeight: 600,
+            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.12)'
+          }}>
+            <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>✅</span>
+            <span>You have been successfully signed out.</span>
           </div>
         )}
 
