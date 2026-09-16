@@ -48,8 +48,8 @@ export async function GET() {
       slabs: rawConfig.slabs || { silver: 5, gold: 10, platinum: 15 },
       geofence: rawConfig.geofence || {
         enabled: true,
-        lat: 28.64864864864865,
-        lng: 77.21923732550276,
+        lat: 28.6475,
+        lng: 77.21699,
         radius: 50
       }
     };
@@ -58,8 +58,8 @@ export async function GET() {
       config.geofence.radius = 50;
     }
     if (config.geofence && (!config.geofence.lat || !config.geofence.lng)) {
-      config.geofence.lat = 28.64864864864865;
-      config.geofence.lng = 77.21923732550276;
+      config.geofence.lat = 28.6475;
+      config.geofence.lng = 77.21699;
     }
     
     return NextResponse.json(config);

@@ -5,7 +5,7 @@ const prisma = new PrismaClient()
 
 // Geo-fence validation
 const HOTEL_LOCATIONS = {
-  'GG': { lat: 28.64864864864865, lng: 77.21923732550276, radiusMeters: 500 }, // Hotel Grand Godwin, Delhi
+  'GG': { lat: 28.6475, lng: 77.21699, radiusMeters: 500 }, // Hotel Grand Godwin, Delhi
   'GD': { lat: 28.6528, lng: 77.2195, radiusMeters: 500 }, // Hotel Godwin Deluxe
   'IG': { lat: 28.6512, lng: 77.2210, radiusMeters: 300 }, // Indian Grill
   'CB': { lat: 28.6498, lng: 77.2180, radiusMeters: 300 }, // Cafe Brownie

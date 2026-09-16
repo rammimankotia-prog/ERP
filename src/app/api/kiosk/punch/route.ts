@@ -18,12 +18,12 @@ function getGeofenceConfig() {
   const radius = typeof config?.geofence?.radius === 'number' ? config.geofence.radius : 50
   const enabled = config?.geofence?.enabled !== undefined ? config.geofence.enabled : true
   
-  const defaultLat = config?.geofence?.lat ? Number(config.geofence.lat) : 28.64864864864865
-  const defaultLng = config?.geofence?.lng ? Number(config.geofence.lng) : 77.21923732550276
+  const defaultLat = config?.geofence?.lat ? Number(config.geofence.lat) : 28.6475
+  const defaultLng = config?.geofence?.lng ? Number(config.geofence.lng) : 77.21699
 
   const locations = [
     { name: 'Hotel Grand Godwin & Godwin Deluxe Premises', lat: defaultLat, lng: defaultLng, radiusMeters: radius },
-    { name: 'Hotel Grand Godwin', lat: 28.64864864864865, lng: 77.21923732550276, radiusMeters: radius },
+    { name: 'Hotel Grand Godwin', lat: 28.6475, lng: 77.21699, radiusMeters: radius },
     { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: radius },
   ]
   if (config?.geofence?.lat && config?.geofence?.lng) {
