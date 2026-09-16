@@ -31,8 +31,8 @@ export default function SettingsPage() {
   const [isScanning, setIsScanning] = useState(false);
 
 
-  // Geofence Config (Default 50m in-premises, enabled for all users)
-  const [geofence, setGeofence] = useState({ enabled: true, lat: 28.6475, lng: 77.21699, radius: 50 });
+  // Geofence Config (Default 80m in-premises, enabled for all users)
+  const [geofence, setGeofence] = useState({ enabled: true, lat: 28.6475, lng: 77.21699, radius: 80 });
   const [geofenceStatus, setGeofenceStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function SettingsPage() {
             enabled: data.geofence.enabled !== undefined ? data.geofence.enabled : true,
             lat: data.geofence.lat || 28.6475,
             lng: data.geofence.lng || 77.21699,
-            radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 50
+            radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 80
           });
         }
       })
@@ -288,7 +288,7 @@ export default function SettingsPage() {
             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Quick Presets:</span>
             <button
               type="button"
-              onClick={() => setGeofence({ ...geofence, lat: 28.6475, lng: 77.21699, radius: 50 })}
+              onClick={() => setGeofence({ ...geofence, lat: 28.6475, lng: 77.21699, radius: 80 })}
               style={{
                 padding: '0.45rem 0.9rem',
                 borderRadius: '8px',
@@ -300,11 +300,11 @@ export default function SettingsPage() {
                 cursor: 'pointer'
               }}
             >
-              🏨 Hotel Grand Godwin (Marked - 50m)
+              🏨 Hotel Grand Godwin (Marked - 80m)
             </button>
             <button
               type="button"
-              onClick={() => setGeofence({ ...geofence, lat: 28.6445, lng: 77.2142, radius: 50 })}
+              onClick={() => setGeofence({ ...geofence, lat: 28.6445, lng: 77.2142, radius: 80 })}
               style={{
                 padding: '0.45rem 0.9rem',
                 borderRadius: '8px',
@@ -316,11 +316,11 @@ export default function SettingsPage() {
                 cursor: 'pointer'
               }}
             >
-              🏨 Hotel Godwin Deluxe (50m)
+              🏨 Hotel Godwin Deluxe (80m)
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: 'auto' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>Radius:</span>
-              {[20, 30, 50, 100].map((r) => (
+              {[30, 50, 80, 100, 150].map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -336,7 +336,7 @@ export default function SettingsPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  {r}m{r === 50 ? ' (Default)' : ''}
+                  {r}m{r === 80 ? ' (Default)' : ''}
                 </button>
               ))}
             </div>

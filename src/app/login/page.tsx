@@ -17,7 +17,7 @@ export default function LoginPage() {
     enabled: true,
     lat: 28.6475,
     lng: 77.21699,
-    radius: 50,
+    radius: 80,
   });
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export default function LoginPage() {
             enabled: data.geofence.enabled !== undefined ? data.geofence.enabled : true,
             lat: data.geofence.lat || 28.6475,
             lng: data.geofence.lng || 77.21699,
-            radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 50,
+            radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 80,
           });
         }
       })
@@ -64,7 +64,7 @@ export default function LoginPage() {
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const allowedRadius = typeof geofence.radius === 'number' ? geofence.radius : 50;
+          const allowedRadius = typeof geofence.radius === 'number' ? geofence.radius : 80;
           const premisesPoints = [
             { lat: geofence.lat, lng: geofence.lng },
             { lat: 28.6475, lng: 77.21699 },
@@ -85,9 +85,9 @@ export default function LoginPage() {
           }
         },
         (error) => {
-          let err = '📍 Device GPS is OFF or Location Permission Needed! Please turn ON GPS / Location on your device to log in within 50m of hotel premises.';
+          let err = '📍 Device GPS is OFF or Location Permission Needed! Please turn ON GPS / Location on your device to log in within 80m of hotel premises.';
           if (error.code === 1) { // PERMISSION_DENIED
-            err = '📍 Location Permission Denied: Please allow location access in your browser settings so we can verify you are within 50m of hotel premises.';
+            err = '📍 Location Permission Denied: Please allow location access in your browser settings so we can verify you are within 80m of hotel premises.';
           } else if (error.code === 2) { // POSITION_UNAVAILABLE
             err = '📍 Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
           } else if (error.code === 3) { // TIMEOUT

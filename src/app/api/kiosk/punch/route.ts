@@ -12,10 +12,10 @@ const LOCAL_AUDIT_FILE = path.join(process.cwd(), 'data', 'audit_trail.json')
 const CONFIG_FILE = path.join(DATA_DIR, 'global_config.json')
 const LOCAL_CONFIG_FILE = path.join(process.cwd(), 'data', 'global_config.json')
 
-// Hotel premises geo-coordinates for geofencing (Default 50m in-premises)
+// Hotel premises geo-coordinates for geofencing (Default 80m in-premises)
 function getGeofenceConfig() {
   const config = readJson<any>(CONFIG_FILE, LOCAL_CONFIG_FILE, {})
-  const radius = typeof config?.geofence?.radius === 'number' ? config.geofence.radius : 50
+  const radius = typeof config?.geofence?.radius === 'number' ? config.geofence.radius : 80
   const enabled = config?.geofence?.enabled !== undefined ? config.geofence.enabled : true
   
   const defaultLat = config?.geofence?.lat ? Number(config.geofence.lat) : 28.6475
@@ -238,7 +238,7 @@ export async function POST(req: NextRequest) {
       if (geofenceEnabled) {
         if (typeof lat !== 'number' || typeof lng !== 'number') {
           return NextResponse.json(
-            { error: `📍 GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within ${defaultRadius || 50}m of hotel premises.` },
+            { error: `📍 GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within ${defaultRadius || 80}m of hotel premises.` },
             { status: 400 }
           )
         }
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
         const distances = hotelLocations.map(loc => ({
           name: loc.name,
           distance: getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng),
-          radius: loc.radiusMeters || defaultRadius || 50,
+          radius: loc.radiusMeters || defaultRadius || 80,
         }))
 
         const withinPremises = distances.find(d => d.distance <= d.radius)
