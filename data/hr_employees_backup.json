@@ -23,76 +23,14 @@
     "branchId": "branch-gg",
     "morningTime": "09:00",
     "eveningTime": "18:00",
-    "offDays": ["Sunday"],
+    "offDays": [
+      "Sunday"
+    ],
     "status": "ACTIVE",
     "role": "Master Admin",
     "baseSalary": 50000,
     "doj": "2024-01-01T00:00:00.000Z",
     "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2026-09-16T11:30:00.000Z"
-  },
-  {
-    "id": "GG-1002",
-    "employeeId": "GG-1002",
-    "firstName": "Heena",
-    "lastName": "Tuli",
-    "email": "heena.tuli@godwinhotels.com",
-    "contactNo": "8448662044",
-    "gender": "Female",
-    "employmentType": "PERMANENT",
-    "designation": "Manager",
-    "department": {
-      "id": "dept-6",
-      "name": "Reservation",
-      "branchId": "branch-gg"
-    },
-    "departmentId": "dept-6",
-    "branch": {
-      "id": "branch-gg",
-      "name": "Hotel Grand Godwin",
-      "prefix": "GG"
-    },
-    "branchId": "branch-gg",
-    "morningTime": "08:30",
-    "eveningTime": "18:00",
-    "offDays": ["Sunday"],
-    "status": "ACTIVE",
-    "role": "Manager",
-    "baseSalary": 40000,
-    "doj": "2024-03-01T00:00:00.000Z",
-    "createdAt": "2024-03-01T00:00:00.000Z",
-    "updatedAt": "2026-09-16T11:30:00.000Z"
-  },
-  {
-    "id": "GG-1003",
-    "employeeId": "GG-1003",
-    "firstName": "Asha",
-    "lastName": "Singh",
-    "email": "asha.singh@godwinhotels.com",
-    "contactNo": "783493645",
-    "gender": "Female",
-    "employmentType": "PERMANENT",
-    "designation": "FOM Executive",
-    "department": {
-      "id": "dept-2",
-      "name": "Front Office",
-      "branchId": "branch-gg"
-    },
-    "departmentId": "dept-2",
-    "branch": {
-      "id": "branch-gg",
-      "name": "Hotel Grand Godwin",
-      "prefix": "GG"
-    },
-    "branchId": "branch-gg",
-    "morningTime": "08:00",
-    "eveningTime": "18:00",
-    "offDays": ["Sunday"],
-    "status": "ACTIVE",
-    "role": "Employee",
-    "baseSalary": 35000,
-    "doj": "2024-05-01T00:00:00.000Z",
-    "createdAt": "2024-05-01T00:00:00.000Z",
     "updatedAt": "2026-09-16T11:30:00.000Z"
   }
 ]

@@ -34,39 +34,5 @@
     "permissions": {
       "kiosk": { "access": true }
     }
-  },
-  {
-    "id": "GG-1002",
-    "username": "heena.tuli@godwinhotels.com",
-    "name": "Heena Tuli",
-    "email": "heena.tuli@godwinhotels.com",
-    "password": "Godwin@123",
-    "role": "Manager",
-    "status": "Active",
-    "createdAt": "2024-03-01",
-    "permissions": {
-      "hr": {
-        "employees": { "view": true, "edit": true, "delete": false },
-        "attendance": { "view": true, "edit": true },
-        "shifts": { "view": true, "edit": true },
-        "leave": { "view": true, "approve": true },
-        "payroll": { "view": true, "edit": false },
-        "reports": { "view": true }
-      },
-      "kiosk": { "access": true }
-    }
-  },
-  {
-    "id": "GG-1003",
-    "username": "asha.singh@godwinhotels.com",
-    "name": "Asha Singh",
-    "email": "asha.singh@godwinhotels.com",
-    "password": "Godwin@123",
-    "role": "Employee",
-    "status": "Active",
-    "createdAt": "2024-05-01",
-    "permissions": {
-      "kiosk": { "access": true }
-    }
   }
 ]
