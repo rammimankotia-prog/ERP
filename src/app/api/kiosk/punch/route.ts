@@ -22,8 +22,9 @@ function getGeofenceConfig() {
   const defaultLng = config?.geofence?.lng ? Number(config.geofence.lng) : 77.21699
 
   const locations = [
-    { name: 'Hotel Grand Godwin & Godwin Deluxe Premises', lat: defaultLat, lng: defaultLng, radiusMeters: radius },
-    { name: 'Hotel Grand Godwin', lat: 28.6475, lng: 77.21699, radiusMeters: radius },
+    { name: 'Hotel Grand Godwin (Google My Business)', lat: defaultLat, lng: defaultLng, radiusMeters: radius },
+    { name: 'Hotel Grand Godwin & Godwin Deluxe Campus', lat: 28.645870262027557, lng: 77.2153564554722, radiusMeters: radius },
+    { name: 'Hotel Godwin Premises', lat: 28.64864864864865, lng: 77.21923732550276, radiusMeters: radius },
     { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: radius },
   ]
   if (config?.geofence?.lat && config?.geofence?.lng) {
@@ -249,12 +250,15 @@ export async function POST(req: NextRequest) {
           radius: loc.radiusMeters || defaultRadius || 50,
         }))
 
+        const withinPremises = distances.find(d => d.distance <= d.radius)
         const closest = distances.reduce((prev, curr) => (curr.distance < prev.distance ? curr : prev))
-        minDistance = closest.distance
-        nearestHotel = closest.name
+        const matched = withinPremises || closest
+
+        minDistance = matched.distance
+        nearestHotel = matched.name
 
         // Check if within boundary
-        if (closest.distance > closest.radius) {
+        if (!withinPremises) {
           // Log rejected attempt in audit
           logAudit({
             id: `audit-${Date.now()}`,

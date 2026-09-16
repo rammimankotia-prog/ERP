@@ -70,12 +70,21 @@ export default function KioskPage() {
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const distance = getDistance(position.coords.latitude, position.coords.longitude, geofence.lat, geofence.lng);
           const allowedRadius = typeof geofence.radius === 'number' ? geofence.radius : 50;
-          if (distance <= allowedRadius) {
+          const premisesPoints = [
+            { lat: geofence.lat, lng: geofence.lng },
+            { lat: 28.6475, lng: 77.21699 },
+            { lat: 28.645870262027557, lng: 77.2153564554722 },
+            { lat: 28.64864864864865, lng: 77.21923732550276 },
+            { lat: 28.6445, lng: 77.2142 },
+          ];
+          const distances = premisesPoints.map(p => getDistance(position.coords.latitude, position.coords.longitude, p.lat, p.lng));
+          const minDistance = Math.min(...distances);
+
+          if (minDistance <= allowedRadius) {
             resolve(true);
           } else {
-            setGuardLoginError(`📍 Access Denied: You are ${Math.round(distance)}m away from hotel premises. Access is strictly restricted within ${allowedRadius}m in premises.`);
+            setGuardLoginError(`📍 Access Denied: You are ${Math.round(minDistance)}m away from hotel premises. Access is strictly restricted within ${allowedRadius}m in premises.`);
             resolve(false);
           }
         },

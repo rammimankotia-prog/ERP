@@ -39,8 +39,7 @@ export default function OneTapPunchInterface({
 }: Props) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
-
-  const [punchMode] = useState<'KIOSK' | 'MOBILE_GEOFENCE'>('MOBILE_GEOFENCE');
+  const punchMode = mode || 'KIOSK';
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedOut, setCheckedOut] = useState(false);
@@ -720,7 +719,15 @@ export default function OneTapPunchInterface({
           width: '100%',
         }}
       >
-        📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (50m in-premises boundary). Device GPS must be ON.
+        {punchMode === 'KIOSK' ? (
+          <>
+            🛡️ <strong>Guard Terminal Kiosk:</strong> Verified On-Premises Terminal (Hotel Grand Godwin &amp; Godwin Deluxe).
+          </>
+        ) : (
+          <>
+            📍 <strong>Geo-Fence Active:</strong> Verifies coordinates against Hotel Grand Godwin &amp; Hotel Godwin Deluxe premises (50m in-premises boundary). Device GPS must be ON.
+          </>
+        )}
       </div>
 
       {/* ========================================================================= */}
