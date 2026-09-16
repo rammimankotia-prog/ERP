@@ -141,6 +141,31 @@ function formatWeekRange(startMonday: Date): string {
   return `${startDay} ${startMonth} – ${endDay} ${endMonth} ${year}`
 }
 
+// LocalStorage Persistence Keys & Helpers
+const getMonthlyStorageKey = (year: number, month: number) => `GODWIN_ROSTER_MONTHLY_${year}_${month}`
+const getWeeklyStorageKey = (monday: Date) => {
+  const y = monday.getFullYear()
+  const m = String(monday.getMonth() + 1).padStart(2, '0')
+  const d = String(monday.getDate()).padStart(2, '0')
+  return `GODWIN_ROSTER_WEEKLY_${y}-${m}-${d}`
+}
+
+function saveMonthlyToStorage(year: number, month: number, data: Record<string, Record<number, string>>) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(getMonthlyStorageKey(year, month), JSON.stringify(data))
+    } catch {}
+  }
+}
+
+function saveWeeklyToStorage(monday: Date, data: Record<string, Record<string, string>>) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(getWeeklyStorageKey(monday), JSON.stringify(data))
+    } catch {}
+  }
+}
+
 export default function ShiftsManager() {
   const [employeesList, setEmployeesList] = useState<EmployeeItem[]>(DEFAULT_ROSTER_EMPLOYEES)
   const [shifts, setShifts] = useState<Shift[]>([])
@@ -174,6 +199,28 @@ export default function ShiftsManager() {
   // Calendar / Week State
   const [selectedMonday, setSelectedMonday] = useState<Date>(() => getMonday(new Date()))
 
+  // Drag & Drop Shift State
+  const [draggedCell, setDraggedCell] = useState<{
+    type: 'MONTHLY' | 'WEEKLY'
+    empId: string
+    dayKey: number | string
+    shift: string
+  } | null>(null)
+  const [dragOverCell, setDragOverCell] = useState<{
+    empId: string
+    dayKey: number | string
+  } | null>(null)
+
+  // Shift Swap Modal State (Day ⇄ Night / Date Range)
+  const [showSwapModal, setShowSwapModal] = useState(false)
+  const [swapScope, setSwapScope] = useState<'ALL_VISIBLE' | 'SINGLE' | 'TWO'>('ALL_VISIBLE')
+  const [swapAction, setSwapAction] = useState<'DAY_NIGHT_FLIP' | 'DAY_TO_NIGHT' | 'NIGHT_TO_DAY' | 'EXCHANGE_TWO' | 'SET_SHIFT'>('DAY_NIGHT_FLIP')
+  const [swapTargetShift, setSwapTargetShift] = useState<string>('Night Shift')
+  const [swapSelectedEmpId, setSwapSelectedEmpId] = useState<string>('')
+  const [swapSecondEmpId, setSwapSecondEmpId] = useState<string>('')
+  const [swapFromDay, setSwapFromDay] = useState<number>(1)
+  const [swapToDay, setSwapToDay] = useState<number>(15)
+
   useEffect(() => {
     const updateClock = () => {
       const now = new Date()
@@ -200,7 +247,7 @@ export default function ShiftsManager() {
     return () => clearInterval(timer)
   }, [])
 
-  // Load live employees from ERP API
+  // Load live employees from ERP API and synchronize with localStorage roster cache
   useEffect(() => {
     fetch('/api/hr/employees')
       .then(r => r.json())
@@ -218,22 +265,49 @@ export default function ShiftsManager() {
             offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
           }))
         setEmployeesList(mapped)
+
         if (mapped.length > 0) {
-          setMonthlyRoster(prev => ({
-            ...generateInitialMonthlyRoster(selectedYear, selectedMonth, mapped),
-            ...prev
-          }))
-          setRoster(prev => ({
-            ...generateInitialWeeklyRoster(mapped),
-            ...prev
-          }))
+          if (!swapSelectedEmpId) setSwapSelectedEmpId(mapped[0].id)
+          if (!swapSecondEmpId && mapped.length > 1) setSwapSecondEmpId(mapped[1].id)
+
+          // 1. Monthly Roster Sync
+          let mRoster = generateInitialMonthlyRoster(selectedYear, selectedMonth, mapped)
+          if (typeof window !== 'undefined') {
+            const savedMonthly = localStorage.getItem(getMonthlyStorageKey(selectedYear, selectedMonth))
+            if (savedMonthly) {
+              try {
+                const parsed = JSON.parse(savedMonthly)
+                if (parsed && Object.keys(parsed).length > 0) {
+                  mRoster = { ...mRoster, ...parsed }
+                }
+              } catch {}
+            }
+          }
+          setMonthlyRoster(mRoster)
+          saveMonthlyToStorage(selectedYear, selectedMonth, mRoster)
+
+          // 2. Weekly Roster Sync
+          let wRoster = generateInitialWeeklyRoster(mapped)
+          if (typeof window !== 'undefined') {
+            const savedWeekly = localStorage.getItem(getWeeklyStorageKey(selectedMonday))
+            if (savedWeekly) {
+              try {
+                const parsed = JSON.parse(savedWeekly)
+                if (parsed && Object.keys(parsed).length > 0) {
+                  wRoster = { ...wRoster, ...parsed }
+                }
+              } catch {}
+            }
+          }
+          setRoster(wRoster)
+          saveWeeklyToStorage(selectedMonday, wRoster)
         } else {
           setMonthlyRoster({})
           setRoster({})
         }
       })
       .catch(() => {})
-  }, [selectedYear, selectedMonth])
+  }, [selectedYear, selectedMonth, selectedMonday])
 
   // Form states
   const [form, setForm] = useState({
@@ -422,13 +496,17 @@ export default function ShiftsManager() {
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
     const nextShift = shiftOptions[nextIdx]
 
-    setRoster(prev => ({
-      ...prev,
-      [empId]: {
-        ...prev[empId],
-        [day]: nextShift,
-      },
-    }))
+    setRoster(prev => {
+      const updated = {
+        ...prev,
+        [empId]: {
+          ...prev[empId],
+          [day]: nextShift,
+        },
+      }
+      saveWeeklyToStorage(selectedMonday, updated)
+      return updated
+    })
   }
 
   // Monthly shift toggle
@@ -438,20 +516,38 @@ export default function ShiftsManager() {
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
     const nextShift = shiftOptions[nextIdx]
 
-    setMonthlyRoster(prev => ({
-      ...prev,
-      [empId]: {
-        ...prev[empId],
-        [dayNum]: nextShift,
+    setMonthlyRoster(prev => {
+      const updated = {
+        ...prev,
+        [empId]: {
+          ...prev[empId],
+          [dayNum]: nextShift,
+        }
       }
-    }))
+      saveMonthlyToStorage(selectedYear, selectedMonth, updated)
+      return updated
+    })
   }
 
   // Month navigation handlers
   const handleMonthChange = (newMonth: number, newYear: number) => {
     setSelectedMonth(newMonth)
     setSelectedYear(newYear)
-    setMonthlyRoster(generateInitialMonthlyRoster(newYear, newMonth, employeesList))
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(getMonthlyStorageKey(newYear, newMonth))
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          if (parsed && Object.keys(parsed).length > 0) {
+            setMonthlyRoster(parsed)
+            return
+          }
+        } catch {}
+      }
+    }
+    const generated = generateInitialMonthlyRoster(newYear, newMonth, employeesList)
+    setMonthlyRoster(generated)
+    saveMonthlyToStorage(newYear, newMonth, generated)
   }
 
   const handlePrevMonth = () => {
@@ -477,8 +573,91 @@ export default function ShiftsManager() {
 
   // Auto-populate monthly shifts pattern
   const handleAutoPopulateMonth = () => {
-    setMonthlyRoster(generateInitialMonthlyRoster(selectedYear, selectedMonth, employeesList))
+    const generated = generateInitialMonthlyRoster(selectedYear, selectedMonth, employeesList)
+    setMonthlyRoster(generated)
+    saveMonthlyToStorage(selectedYear, selectedMonth, generated)
     setMessage(`✨ Auto-populated standard hotel duty patterns for ${MONTH_NAMES[selectedMonth]} ${selectedYear}.`)
+  }
+
+  // Shift Swap Handler across Date Range
+  const handleApplyShiftSwap = () => {
+    const minDay = Math.min(Number(swapFromDay) || 1, Number(swapToDay) || 1)
+    const maxDay = Math.min(Math.max(Number(swapFromDay) || 1, Number(swapToDay) || 1), daysInMonth)
+
+    let targetEmps: EmployeeItem[] = []
+    if (swapScope === 'ALL_VISIBLE') {
+      targetEmps = filteredEmployees
+    } else if (swapScope === 'SINGLE') {
+      const found = employeesList.find(e => e.id === swapSelectedEmpId)
+      if (found) targetEmps = [found]
+    }
+
+    if (swapScope === 'TWO' || swapAction === 'EXCHANGE_TWO') {
+      if (!swapSelectedEmpId || !swapSecondEmpId || swapSelectedEmpId === swapSecondEmpId) {
+        alert('Please select two different employees to exchange duties.')
+        return
+      }
+      setMonthlyRoster(prev => {
+        const next = { ...prev }
+        const r1 = { ...(next[swapSelectedEmpId] || {}) }
+        const r2 = { ...(next[swapSecondEmpId] || {}) }
+        for (let d = minDay; d <= maxDay; d++) {
+          const s1 = r1[d] || 'Morning Shift'
+          const s2 = r2[d] || 'Morning Shift'
+          r1[d] = s2
+          r2[d] = s1
+        }
+        next[swapSelectedEmpId] = r1
+        next[swapSecondEmpId] = r2
+        saveMonthlyToStorage(selectedYear, selectedMonth, next)
+        return next
+      })
+      const emp1Name = employeesList.find(e => e.id === swapSelectedEmpId)?.name || 'Staff 1'
+      const emp2Name = employeesList.find(e => e.id === swapSecondEmpId)?.name || 'Staff 2'
+      setMessage(`🔄 Exchanged shifts between ${emp1Name} and ${emp2Name} from Day ${minDay} to ${maxDay} (${MONTH_NAMES[selectedMonth]} ${selectedYear}).`)
+      setShowSwapModal(false)
+      return
+    }
+
+    if (targetEmps.length === 0) {
+      alert('Please select at least one employee.')
+      return
+    }
+
+    setMonthlyRoster(prev => {
+      const next = { ...prev }
+      targetEmps.forEach(emp => {
+        const empR = { ...(next[emp.id] || {}) }
+        for (let d = minDay; d <= maxDay; d++) {
+          const cur = empR[d] || 'Morning Shift'
+          if (swapAction === 'DAY_NIGHT_FLIP') {
+            if (cur === 'Morning Shift') empR[d] = 'Night Shift'
+            else if (cur === 'Night Shift') empR[d] = 'Morning Shift'
+          } else if (swapAction === 'DAY_TO_NIGHT') {
+            if (cur === 'Morning Shift') empR[d] = 'Night Shift'
+          } else if (swapAction === 'NIGHT_TO_DAY') {
+            if (cur === 'Night Shift') empR[d] = 'Morning Shift'
+          } else if (swapAction === 'SET_SHIFT') {
+            empR[d] = swapTargetShift
+          }
+        }
+        next[emp.id] = empR
+      })
+      saveMonthlyToStorage(selectedYear, selectedMonth, next)
+      return next
+    })
+
+    const actionText =
+      swapAction === 'DAY_NIGHT_FLIP'
+        ? 'Day ⇄ Night (Bidirectional Swap)'
+        : swapAction === 'DAY_TO_NIGHT'
+        ? 'Day ➔ Night'
+        : swapAction === 'NIGHT_TO_DAY'
+        ? 'Night ➔ Day'
+        : `assigned to ${swapTargetShift}`
+
+    setMessage(`🔄 Shift swap applied (${actionText}) for ${targetEmps.length} staff from Day ${minDay} to Day ${maxDay} (${MONTH_NAMES[selectedMonth]} ${selectedYear}).`)
+    setShowSwapModal(false)
   }
 
   // Days in selected month
@@ -1219,6 +1398,29 @@ export default function ShiftsManager() {
               <span>🕒 <b>{currentTime || '--:--'}</b></span>
             </div>
 
+            {/* Swap Shifts (Date Range) Button */}
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowSwapModal(true)}
+              style={{
+                padding: '0.35rem 0.85rem',
+                fontSize: '0.8rem',
+                background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                border: 'none',
+                color: '#fff',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
+                cursor: 'pointer'
+              }}
+              title="Swap Day & Night duties across a date range or exchange staff schedules"
+            >
+              <span>🔄 Swap Shifts</span>
+            </button>
+
             {/* Fullscreen Button */}
             <button
               type="button"
@@ -1365,6 +1567,26 @@ export default function ShiftsManager() {
                   title="Auto-fill standard duty pattern across all days of the month"
                 >
                   ✨ Auto-Fill Pattern
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowSwapModal(true)}
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    fontSize: '0.8rem',
+                    borderColor: '#6366f1',
+                    color: '#818cf8',
+                    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem'
+                  }}
+                  title="Swap Day ⇄ Night across date range or exchange staff schedules"
+                >
+                  <span>🔄 Swap Shifts (Date Range)</span>
                 </button>
               </div>
             </div>
@@ -1534,18 +1756,96 @@ export default function ShiftsManager() {
                             title = 'Weekly Off'
                           }
 
+                          const isDragOver = dragOverCell?.empId === emp.id && dragOverCell?.dayKey === dayNum
+                          const isBeingDragged = draggedCell?.empId === emp.id && draggedCell?.dayKey === dayNum
+
                           return (
                             <td
                               key={dayNum}
+                              onDragOver={(e) => {
+                                e.preventDefault()
+                                e.dataTransfer.dropEffect = 'move'
+                                if (!dragOverCell || dragOverCell.empId !== emp.id || dragOverCell.dayKey !== dayNum) {
+                                  setDragOverCell({ empId: emp.id, dayKey: dayNum })
+                                }
+                              }}
+                              onDragLeave={() => {
+                                if (dragOverCell?.empId === emp.id && dragOverCell?.dayKey === dayNum) {
+                                  setDragOverCell(null)
+                                }
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault()
+                                if (!draggedCell || draggedCell.type !== 'MONTHLY') return
+                                const sourceEmpId = draggedCell.empId
+                                const sourceDay = Number(draggedCell.dayKey)
+                                const targetEmpId = emp.id
+                                const targetDay = dayNum
+
+                                if (sourceEmpId === targetEmpId && sourceDay === targetDay) {
+                                  setDraggedCell(null)
+                                  setDragOverCell(null)
+                                  return
+                                }
+
+                                setMonthlyRoster(prev => {
+                                  const sourceShift = prev[sourceEmpId]?.[sourceDay] || 'Morning Shift'
+                                  const targetShift = prev[targetEmpId]?.[targetDay] || 'Morning Shift'
+                                  const next = {
+                                    ...prev,
+                                    [sourceEmpId]: {
+                                      ...(prev[sourceEmpId] || {}),
+                                      [sourceDay]: targetShift,
+                                    },
+                                    [targetEmpId]: {
+                                      ...(prev[targetEmpId] || {}),
+                                      [targetDay]: sourceShift,
+                                    }
+                                  }
+                                  saveMonthlyToStorage(selectedYear, selectedMonth, next)
+                                  return next
+                                })
+
+                                const sourceEmpName = employeesList.find(x => x.id === sourceEmpId)?.name || 'Staff'
+                                const targetEmpName = emp.name
+                                if (sourceEmpId === targetEmpId) {
+                                  setMessage(`🔀 Swapped shifts for ${targetEmpName}: Day ${sourceDay} (${draggedCell.shift}) ⇄ Day ${targetDay} (${assignment})`)
+                                } else {
+                                  setMessage(`🔀 Swapped shifts: ${sourceEmpName} Day ${sourceDay} (${draggedCell.shift}) ⇄ ${targetEmpName} Day ${targetDay} (${assignment})`)
+                                }
+                                setDraggedCell(null)
+                                setDragOverCell(null)
+                              }}
                               style={{
                                 padding: '0.4rem 0.25rem',
                                 textAlign: 'center',
-                                backgroundColor: isToday ? 'rgba(14, 165, 233, 0.05)' : isSat ? 'rgba(245, 158, 11, 0.03)' : isSun ? 'rgba(244, 63, 94, 0.03)' : undefined,
+                                backgroundColor: isDragOver
+                                  ? 'rgba(99, 102, 241, 0.25)'
+                                  : isToday
+                                  ? 'rgba(14, 165, 233, 0.05)'
+                                  : isSat
+                                  ? 'rgba(245, 158, 11, 0.03)'
+                                  : isSun
+                                  ? 'rgba(244, 63, 94, 0.03)'
+                                  : undefined,
+                                outline: isDragOver ? '2px dashed #6366f1' : undefined,
+                                outlineOffset: isDragOver ? '-2px' : undefined,
                                 borderLeft: isSat ? '1px dashed rgba(245, 158, 11, 0.15)' : isSun ? '1px dashed rgba(244, 63, 94, 0.15)' : '1px solid var(--border)',
+                                transition: 'background-color 0.15s ease',
                               }}
                             >
                               <button
                                 type="button"
+                                draggable={true}
+                                onDragStart={(e) => {
+                                  setDraggedCell({ type: 'MONTHLY', empId: emp.id, dayKey: dayNum, shift: assignment })
+                                  e.dataTransfer.effectAllowed = 'move'
+                                  e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'MONTHLY', empId: emp.id, dayKey: dayNum, shift: assignment }))
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedCell(null)
+                                  setDragOverCell(null)
+                                }}
                                 onClick={() => cycleMonthlyRosterShift(emp.id, dayNum)}
                                 style={{
                                   width: '32px',
@@ -1556,14 +1856,17 @@ export default function ShiftsManager() {
                                   border: `1px solid ${badgeColor}40`,
                                   fontSize: badgeText === 'OFF' ? '0.65rem' : '0.75rem',
                                   fontWeight: 800,
-                                  cursor: 'pointer',
+                                  cursor: 'grab',
+                                  opacity: isBeingDragged ? 0.35 : 1,
+                                  transform: isBeingDragged ? 'scale(0.9)' : 'none',
                                   transition: 'all 0.12s ease',
                                   padding: 0,
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  justifyContent: 'center'
+                                  justifyContent: 'center',
+                                  boxShadow: isDragOver ? '0 0 8px rgba(99, 102, 241, 0.5)' : undefined,
                                 }}
-                                title={`${emp.name} — ${dayNum} ${MONTH_NAMES[selectedMonth]}: ${title} (Click to change)`}
+                                title={`${emp.name} — ${dayNum} ${MONTH_NAMES[selectedMonth]}: ${title} (Click to cycle • Drag & Drop to swap)`}
                               >
                                 {badgeText}
                               </button>
@@ -1610,7 +1913,7 @@ export default function ShiftsManager() {
               }}
             >
               <div>
-                💡 <b>Quick Edit:</b> Click any cell to cycle shifts: <b>M (Morning)</b> ➔ <b>B (Break)</b> ➔ <b>N (Night)</b> ➔ <b>OFF (Weekly Off)</b>.
+                💡 <b>Quick Edit:</b> Click any cell to cycle shifts (<b>M</b> ➔ <b>B</b> ➔ <b>N</b> ➔ <b>OFF</b>) • <b>Drag & Drop</b> any shift badge to swap duties • Use <b>🔄 Swap Shifts</b> to bulk swap Day ⇄ Night across date ranges.
               </div>
               <div>
                 Showing <b>{daysInMonth} Days</b> in {MONTH_NAMES[selectedMonth]} {selectedYear}. All duties synchronize with biometric logs.
@@ -1852,18 +2155,96 @@ export default function ShiftsManager() {
                           borderColor = 'rgba(14, 165, 233, 0.35)'
                         }
 
+                        const isDragOver = dragOverCell?.empId === emp.id && dragOverCell?.dayKey === d.dayKey
+                        const isBeingDragged = draggedCell?.empId === emp.id && draggedCell?.dayKey === d.dayKey
+
                         return (
                           <td
                             key={d.dayKey}
+                            onDragOver={(e) => {
+                              e.preventDefault()
+                              e.dataTransfer.dropEffect = 'move'
+                              if (!dragOverCell || dragOverCell.empId !== emp.id || dragOverCell.dayKey !== d.dayKey) {
+                                setDragOverCell({ empId: emp.id, dayKey: d.dayKey })
+                              }
+                            }}
+                            onDragLeave={() => {
+                              if (dragOverCell?.empId === emp.id && dragOverCell?.dayKey === d.dayKey) {
+                                setDragOverCell(null)
+                              }
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault()
+                              if (!draggedCell || draggedCell.type !== 'WEEKLY') return
+                              const sourceEmpId = draggedCell.empId
+                              const sourceDay = String(draggedCell.dayKey)
+                              const targetEmpId = emp.id
+                              const targetDay = d.dayKey
+
+                              if (sourceEmpId === targetEmpId && sourceDay === targetDay) {
+                                setDraggedCell(null)
+                                setDragOverCell(null)
+                                return
+                              }
+
+                              setRoster(prev => {
+                                const sourceShift = prev[sourceEmpId]?.[sourceDay] || 'Morning Shift'
+                                const targetShift = prev[targetEmpId]?.[targetDay] || 'Morning Shift'
+                                const next = {
+                                  ...prev,
+                                  [sourceEmpId]: {
+                                    ...(prev[sourceEmpId] || {}),
+                                    [sourceDay]: targetShift,
+                                  },
+                                  [targetEmpId]: {
+                                    ...(prev[targetEmpId] || {}),
+                                    [targetDay]: sourceShift,
+                                  }
+                                }
+                                saveWeeklyToStorage(selectedMonday, next)
+                                return next
+                              })
+
+                              const sourceEmpName = employeesList.find(x => x.id === sourceEmpId)?.name || 'Staff'
+                              const targetEmpName = emp.name
+                              if (sourceEmpId === targetEmpId) {
+                                setMessage(`🔀 Swapped shifts for ${targetEmpName}: ${sourceDay} (${draggedCell.shift}) ⇄ ${targetDay} (${assignment})`)
+                              } else {
+                                setMessage(`🔀 Swapped shifts: ${sourceEmpName} ${sourceDay} (${draggedCell.shift}) ⇄ ${targetEmpName} ${targetDay} (${assignment})`)
+                              }
+                              setDraggedCell(null)
+                              setDragOverCell(null)
+                            }}
                             style={{
                               padding: '0.75rem',
                               textAlign: 'center',
-                              backgroundColor: d.isToday ? 'rgba(14, 165, 233, 0.03)' : d.isSat ? 'rgba(245, 158, 11, 0.03)' : d.isSun ? 'rgba(244, 63, 94, 0.03)' : undefined,
+                              backgroundColor: isDragOver
+                                ? 'rgba(99, 102, 241, 0.25)'
+                                : d.isToday
+                                ? 'rgba(14, 165, 233, 0.03)'
+                                : d.isSat
+                                ? 'rgba(245, 158, 11, 0.03)'
+                                : d.isSun
+                                ? 'rgba(244, 63, 94, 0.03)'
+                                : undefined,
+                              outline: isDragOver ? '2px dashed #6366f1' : undefined,
+                              outlineOffset: isDragOver ? '-2px' : undefined,
                               borderLeft: d.isSat ? '1px dashed rgba(245, 158, 11, 0.15)' : d.isSun ? '1px dashed rgba(244, 63, 94, 0.15)' : undefined,
+                              transition: 'background-color 0.15s ease',
                             }}
                           >
                             <button
                               type="button"
+                              draggable={true}
+                              onDragStart={(e) => {
+                                setDraggedCell({ type: 'WEEKLY', empId: emp.id, dayKey: d.dayKey, shift: assignment })
+                                e.dataTransfer.effectAllowed = 'move'
+                                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'WEEKLY', empId: emp.id, dayKey: d.dayKey, shift: assignment }))
+                              }}
+                              onDragEnd={() => {
+                                setDraggedCell(null)
+                                setDragOverCell(null)
+                              }}
                               onClick={() => cycleRosterShift(emp.id, d.dayKey)}
                               style={{
                                 padding: '0.35rem 0.6rem',
@@ -1874,10 +2255,13 @@ export default function ShiftsManager() {
                                 fontSize: '0.75rem',
                                 fontWeight: 600,
                                 whiteSpace: 'nowrap',
-                                cursor: 'pointer',
+                                cursor: 'grab',
+                                opacity: isBeingDragged ? 0.35 : 1,
+                                transform: isBeingDragged ? 'scale(0.92)' : 'none',
                                 transition: 'all 0.15s ease-in-out',
+                                boxShadow: isDragOver ? '0 0 8px rgba(99, 102, 241, 0.5)' : undefined,
                               }}
-                              title={`Click to toggle shift (${d.dayKey}: ${assignment})`}
+                              title={`Click to cycle shift • Drag & Drop to swap (${d.dayKey}: ${assignment})`}
                             >
                               {isOff ? (d.isSun ? 'OFF' : d.isSat ? 'OFF' : '—') : assignment.replace(' Shift', '')}
                             </button>
@@ -1892,6 +2276,439 @@ export default function ShiftsManager() {
           </div>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* SHIFT SWAP MODAL (Day ⇄ Night / Date Range / 2-Staff Duty Exchange) */}
+      {/* ========================================================================= */}
+      {showSwapModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999999,
+            padding: '1rem',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSwapModal(false)
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: '560px',
+              width: '100%',
+              backgroundColor: 'var(--bg-card)',
+              borderRadius: '12px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+              border: '1px solid var(--border)',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              animation: 'fadeIn 0.2s ease-out',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: '0.85rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span>🔄</span> Swap Shifts (Date Range)
+                </h3>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Swap Day (Morning) and Night duties or exchange schedules across selected dates.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSwapModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: '1.4rem',
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                  padding: '0.2rem',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scope Selection */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                1. Target Staff Scope
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setSwapScope('ALL_VISIBLE')}
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    border: swapScope === 'ALL_VISIBLE' ? '2px solid #6366f1' : '1px solid var(--border)',
+                    backgroundColor: swapScope === 'ALL_VISIBLE' ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-main)',
+                    color: swapScope === 'ALL_VISIBLE' ? '#818cf8' : 'var(--text-main)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                >
+                  👥 All Filtered Staff ({filteredEmployees.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSwapScope('SINGLE')}
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    border: swapScope === 'SINGLE' ? '2px solid #6366f1' : '1px solid var(--border)',
+                    backgroundColor: swapScope === 'SINGLE' ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-main)',
+                    color: swapScope === 'SINGLE' ? '#818cf8' : 'var(--text-main)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                >
+                  👤 Single Employee
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSwapScope('TWO')
+                    setSwapAction('EXCHANGE_TWO')
+                  }}
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    border: swapScope === 'TWO' ? '2px solid #6366f1' : '1px solid var(--border)',
+                    backgroundColor: swapScope === 'TWO' ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-main)',
+                    color: swapScope === 'TWO' ? '#818cf8' : 'var(--text-main)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                >
+                  🔁 Exchange 2 Staff
+                </button>
+              </div>
+
+              {swapScope === 'SINGLE' && (
+                <div style={{ marginTop: '0.4rem' }}>
+                  <label style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Select Staff Member:</label>
+                  <select
+                    className="form-input"
+                    value={swapSelectedEmpId}
+                    onChange={e => setSwapSelectedEmpId(e.target.value)}
+                    style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.825rem' }}
+                  >
+                    {employeesList.map(e => (
+                      <option key={e.id} value={e.id}>{e.name} ({e.code} — {e.dept})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {swapScope === 'TWO' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.4rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Staff Member A:</label>
+                    <select
+                      className="form-input"
+                      value={swapSelectedEmpId}
+                      onChange={e => setSwapSelectedEmpId(e.target.value)}
+                      style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.825rem' }}
+                    >
+                      {employeesList.map(e => (
+                        <option key={e.id} value={e.id}>{e.name} ({e.code})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Staff Member B:</label>
+                    <select
+                      className="form-input"
+                      value={swapSecondEmpId}
+                      onChange={e => setSwapSecondEmpId(e.target.value)}
+                      style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.825rem' }}
+                    >
+                      {employeesList.map(e => (
+                        <option key={e.id} value={e.id}>{e.name} ({e.code})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Date Range Selection */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                  2. Date Range ({MONTH_NAMES[selectedMonth]} {selectedYear})
+                </label>
+                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => { setSwapFromDay(1); setSwapToDay(15); }}
+                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
+                  >
+                    1–15
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => { setSwapFromDay(16); setSwapToDay(daysInMonth); }}
+                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
+                  >
+                    16–{daysInMonth}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => { setSwapFromDay(1); setSwapToDay(daysInMonth); }}
+                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
+                  >
+                    Full Month
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>From Day:</label>
+                  <select
+                    className="form-input"
+                    value={swapFromDay}
+                    onChange={e => setSwapFromDay(Number(e.target.value))}
+                    style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.825rem' }}
+                  >
+                    {daysArray.map(d => (
+                      <option key={d} value={d}>
+                        {d.toString().padStart(2, '0')} {MONTH_NAMES[selectedMonth].slice(0, 3)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>To Day:</label>
+                  <select
+                    className="form-input"
+                    value={swapToDay}
+                    onChange={e => setSwapToDay(Number(e.target.value))}
+                    style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.825rem' }}
+                  >
+                    {daysArray.map(d => (
+                      <option key={d} value={d}>
+                        {d.toString().padStart(2, '0')} {MONTH_NAMES[selectedMonth].slice(0, 3)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Swap Action Mode */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                3. Swap Action
+              </label>
+
+              {swapScope !== 'TWO' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '8px',
+                      backgroundColor: swapAction === 'DAY_NIGHT_FLIP' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                      border: swapAction === 'DAY_NIGHT_FLIP' ? '1px solid #6366f1' : '1px solid var(--border)',
+                      cursor: 'pointer',
+                      fontSize: '0.82rem'
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="swapAction"
+                      checked={swapAction === 'DAY_NIGHT_FLIP'}
+                      onChange={() => setSwapAction('DAY_NIGHT_FLIP')}
+                    />
+                    <span>
+                      <b>🔁 Day ⇄ Night Flip (Bidirectional)</b>: Day becomes Night, Night becomes Day
+                    </span>
+                  </label>
+
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '8px',
+                      backgroundColor: swapAction === 'DAY_TO_NIGHT' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                      border: swapAction === 'DAY_TO_NIGHT' ? '1px solid #6366f1' : '1px solid var(--border)',
+                      cursor: 'pointer',
+                      fontSize: '0.82rem'
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="swapAction"
+                      checked={swapAction === 'DAY_TO_NIGHT'}
+                      onChange={() => setSwapAction('DAY_TO_NIGHT')}
+                    />
+                    <span>
+                      <b>☀️ ➔ 🌙 Day to Night</b>: Change all Day shifts to Night Shift
+                    </span>
+                  </label>
+
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '8px',
+                      backgroundColor: swapAction === 'NIGHT_TO_DAY' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                      border: swapAction === 'NIGHT_TO_DAY' ? '1px solid #6366f1' : '1px solid var(--border)',
+                      cursor: 'pointer',
+                      fontSize: '0.82rem'
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="swapAction"
+                      checked={swapAction === 'NIGHT_TO_DAY'}
+                      onChange={() => setSwapAction('NIGHT_TO_DAY')}
+                    />
+                    <span>
+                      <b>🌙 ➔ ☀️ Night to Day</b>: Change all Night shifts to Day Shift
+                    </span>
+                  </label>
+
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '8px',
+                      backgroundColor: swapAction === 'SET_SHIFT' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                      border: swapAction === 'SET_SHIFT' ? '1px solid #6366f1' : '1px solid var(--border)',
+                      cursor: 'pointer',
+                      fontSize: '0.82rem'
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="swapAction"
+                      checked={swapAction === 'SET_SHIFT'}
+                      onChange={() => setSwapAction('SET_SHIFT')}
+                    />
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <b>🎯 Assign Specific Shift:</b>
+                      <select
+                        className="form-input"
+                        value={swapTargetShift}
+                        onChange={e => {
+                          setSwapTargetShift(e.target.value)
+                          setSwapAction('SET_SHIFT')
+                        }}
+                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', width: '130px' }}
+                      >
+                        <option value="Morning Shift">Morning (Day)</option>
+                        <option value="Night Shift">Night Shift</option>
+                        <option value="Break Shift">Break Shift</option>
+                        <option value="OFF">Weekly Off</option>
+                      </select>
+                    </span>
+                  </label>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    fontSize: '0.82rem',
+                    color: 'var(--text-main)'
+                  }}
+                >
+                  🔄 <b>Exchange duties between Staff A and Staff B</b>: For each day in the selected range, Staff A takes Staff B's shift and Staff B takes Staff A's shift.
+                </div>
+              )}
+            </div>
+
+            {/* Action Summary Pill */}
+            <div
+              style={{
+                padding: '0.65rem 0.85rem',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                fontSize: '0.78rem',
+                color: 'var(--primary)',
+                lineHeight: 1.4
+              }}
+            >
+              ℹ️ <b>Summary:</b> From Day <b>{Math.min(swapFromDay, swapToDay)}</b> to <b>{Math.max(swapFromDay, swapToDay)} {MONTH_NAMES[selectedMonth]} {selectedYear}</b>,{' '}
+              {swapScope === 'TWO'
+                ? `swap schedules between selected two staff members.`
+                : swapAction === 'DAY_NIGHT_FLIP'
+                ? `swap Day (Morning) ⇄ Night shifts for ${swapScope === 'ALL_VISIBLE' ? `${filteredEmployees.length} staff` : 'selected staff'}.`
+                : swapAction === 'DAY_TO_NIGHT'
+                ? `set all Day shifts to Night Shift.`
+                : swapAction === 'NIGHT_TO_DAY'
+                ? `set all Night shifts to Day Shift.`
+                : `set all shifts to ${swapTargetShift}.`}
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowSwapModal(false)}
+                style={{ padding: '0.45rem 1rem', fontSize: '0.825rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleApplyShiftSwap}
+                style={{
+                  padding: '0.45rem 1.25rem',
+                  fontSize: '0.825rem',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                  border: 'none',
+                  color: '#fff',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
+                  cursor: 'pointer'
+                }}
+              >
+                ✓ Apply Shift Swap
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Printable Sheet Styles for Staff Bulletin Board */}
       <style jsx global>{`
