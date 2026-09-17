@@ -37,12 +37,12 @@ export default function LoginPage() {
       .catch(console.error);
   }, []);
 
-  const verifyLocation = async (): Promise<boolean> => {
+  const verifyLocation = async (identifier?: string): Promise<boolean> => {
     if (geofence && !geofence.enabled) {
       return true;
     }
     try {
-      await verifyStaffLocation();
+      await verifyStaffLocation(identifier);
       return true;
     } catch (err: any) {
       const msg = typeof err === 'string' ? err : err?.message || 'Location verification failed';
@@ -140,7 +140,7 @@ export default function LoginPage() {
     setStaffError('');
     setStaffLoading(true);
     
-    const isLocationValid = await verifyLocation();
+    const isLocationValid = await verifyLocation(staffId.trim());
     if (!isLocationValid) {
       setStaffLoading(false);
       return;
@@ -194,7 +194,7 @@ export default function LoginPage() {
     setSecError('');
     setSecLoading(true);
 
-    const isLocationValid = await verifyLocation();
+    const isLocationValid = await verifyLocation(secId.trim());
     if (!isLocationValid) {
       setSecLoading(false);
       return;

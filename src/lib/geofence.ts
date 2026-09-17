@@ -1,7 +1,26 @@
-// ===== CONFIG: Hotel's actual coordinates =====
+// ===== CONFIG: Godwin Hotels actual coordinates =====
 export const HOTEL_LAT = 28.64574210;
 export const HOTEL_LNG = 77.21535140;
 export const ALLOWED_RADIUS_METERS = 80;
+
+export const HOTEL_CAMPUS_LOCATIONS = [
+  { name: 'Hotel Grand Godwin', lat: 28.64574210, lng: 77.21535140, radiusMeters: 80 },
+  { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: 80 },
+];
+
+// Test user accounts that are allowed for remote QA / testing
+export const TEST_STAFF_IDENTIFIERS = [
+  'test-001',
+  'test.staff',
+  'test.staff@godwinhotels.com',
+  'demo@godwinhotels.com',
+];
+
+export function isTestStaffAccount(identifier?: string | null): boolean {
+  if (!identifier) return false;
+  const clean = identifier.trim().toLowerCase();
+  return TEST_STAFF_IDENTIFIERS.includes(clean);
+}
 
 // ===== Correct Haversine distance formula =====
 export function getDistanceMeters(
@@ -30,13 +49,28 @@ export interface StaffLocationSuccess {
   latitude: number;
   longitude: number;
   accuracy: number;
+  nearestHotel?: string;
 }
 
-// ===== Robust location fetch (fixes the "random error on refresh" issue) =====
-export function verifyStaffLocation(): Promise<StaffLocationSuccess> {
+// ===== Robust location fetch supporting both properties and desktop detection =====
+export function verifyStaffLocation(identifier?: string): Promise<StaffLocationSuccess> {
   return new Promise((resolve, reject) => {
+    // 1. If this is a designated test user, bypass location requirement for remote testing
+    if (identifier && isTestStaffAccount(identifier)) {
+      console.log('🧪 Test Staff account detected: Bypassing geofence for QA testing.');
+      resolve({
+        allowed: true,
+        distance: '0',
+        latitude: HOTEL_LAT,
+        longitude: HOTEL_LNG,
+        accuracy: 5,
+        nearestHotel: 'Hotel Grand Godwin (Test Simulation)',
+      });
+      return;
+    }
+
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      reject("Geolocation not supported on this device");
+      reject('Geolocation not supported on this device');
       return;
     }
 
@@ -44,52 +78,80 @@ export function verifyStaffLocation(): Promise<StaffLocationSuccess> {
       (position) => {
         const { latitude, longitude, accuracy } = position.coords;
 
-        const distance = getDistanceMeters(
-          latitude,
-          longitude,
-          HOTEL_LAT,
-          HOTEL_LNG
+        // Check distance to both properties in the Godwin campus
+        const distances = HOTEL_CAMPUS_LOCATIONS.map((loc) => {
+          const rawDist = getDistanceMeters(latitude, longitude, loc.lat, loc.lng);
+          const effectiveDist = Math.max(0, rawDist - (accuracy || 0));
+          return {
+            name: loc.name,
+            rawDistance: rawDist,
+            effectiveDistance: effectiveDist,
+            radius: loc.radiusMeters || ALLOWED_RADIUS_METERS,
+          };
+        });
+
+        // Pick closest property
+        const closest = distances.reduce((prev, curr) =>
+          curr.effectiveDistance < prev.effectiveDistance ? curr : prev
         );
 
-        // IMPORTANT: GPS accuracy ko buffer ke tor pe add karo
-        // Agar phone ki GPS accuracy hi 50m hai, to usko galti se fail mat karo
-        const effectiveDistance = Math.max(0, distance - accuracy);
+        console.log(`📍 GPS Check:`, {
+          latitude,
+          longitude,
+          accuracy: `±${accuracy?.toFixed(1)}m`,
+          closestHotel: closest.name,
+          rawDistance: `${closest.rawDistance.toFixed(1)}m`,
+          effectiveDistance: `${closest.effectiveDistance.toFixed(1)}m`,
+        });
 
-        console.log(`Raw distance: ${distance.toFixed(1)}m, GPS accuracy: ±${accuracy.toFixed(1)}m`);
-
+        // If accuracy is worse than 100m (common with desktop Wi-Fi / IP geolocation)
         if (accuracy > 100) {
-          // GPS signal weak hai, staff ko bolo dobara try kare
-          reject(`Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Please move to open area or enable GPS and retry.`);
+          const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+          if (!isMobile) {
+            reject(
+              `Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Desktop PCs use Wi-Fi/IP location (${closest.rawDistance.toFixed(0)}m away). For live punches, please use your mobile phone with GPS turned ON, or log in with test credentials.`
+            );
+          } else {
+            reject(
+              `Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Please move to an open area or enable high-accuracy GPS and retry.`
+            );
+          }
           return;
         }
 
-        if (effectiveDistance <= ALLOWED_RADIUS_METERS) {
+        if (closest.effectiveDistance <= closest.radius) {
           resolve({
             allowed: true,
-            distance: distance.toFixed(0),
+            distance: closest.rawDistance.toFixed(0),
             latitude,
             longitude,
             accuracy,
+            nearestHotel: closest.name,
           });
         } else {
-          reject(`Access Denied: You are ${distance.toFixed(0)}m away from hotel premises.`);
+          reject(
+            `Access Denied: You are ${closest.rawDistance.toFixed(0)}m away from ${closest.name}. (Accuracy ±${accuracy.toFixed(0)}m)`
+          );
         }
       },
       (error) => {
         let msg = `Location error: ${error.message}`;
-        if (error.code === 1) { // PERMISSION_DENIED
-          msg = 'Location Permission Denied: Please allow location access in your browser settings so we can verify you are within 80m of hotel premises.';
-        } else if (error.code === 2) { // POSITION_UNAVAILABLE
-          msg = 'Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
-        } else if (error.code === 3) { // TIMEOUT
-          msg = 'GPS Signal Timeout: Could not detect your location. Please ensure device GPS is turned ON and retry.';
+        if (error.code === 1) {
+          msg =
+            'Location Permission Denied: Please allow location access in your browser settings so we can verify you are within 80m of hotel premises.';
+        } else if (error.code === 2) {
+          msg =
+            'Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
+        } else if (error.code === 3) {
+          msg =
+            'GPS Signal Timeout: Could not detect your location in 15s. Please ensure device GPS is turned ON and retry.';
         }
         reject(msg);
       },
       {
-        enableHighAccuracy: true,  // ⚠️ ye critical hai — false hone par WiFi-based location use hoti hai jo 1-2km tak off ho sakti hai
+        enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 0              // ⚠️ cached location kabhi use mat karo
+        maximumAge: 0,
       }
     );
   });

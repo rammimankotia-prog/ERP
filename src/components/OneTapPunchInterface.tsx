@@ -145,7 +145,7 @@ export default function OneTapPunchInterface({
     if (punchMode === 'MOBILE_GEOFENCE') {
       setGeoLocating(true);
       try {
-        const loc = await verifyStaffLocation();
+        const loc = await verifyStaffLocation(employee.employeeId || employee.id);
         lat = loc.latitude;
         lng = loc.longitude;
         accuracy = loc.accuracy;

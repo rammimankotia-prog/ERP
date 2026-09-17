@@ -66,5 +66,39 @@
     "doj": "2026-09-17T00:00:00.000Z",
     "createdAt": "2026-09-17T00:00:00.000Z",
     "updatedAt": "2026-09-16T11:30:00.000Z"
+  },
+  {
+    "id": "TEST-001",
+    "employeeId": "TEST-001",
+    "firstName": "Test",
+    "lastName": "Staff",
+    "email": "test.staff@godwinhotels.com",
+    "contactNo": "06005159499",
+    "gender": "Male",
+    "employmentType": "PERMANENT",
+    "designation": "Front Desk Executive",
+    "department": {
+      "id": "dept-2",
+      "name": "Front Office",
+      "branchId": "branch-gg"
+    },
+    "departmentId": "dept-2",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "branchId": "branch-gg",
+    "morningTime": "09:00",
+    "eveningTime": "18:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "status": "ACTIVE",
+    "role": "Staff",
+    "baseSalary": 25000,
+    "doj": "2026-09-17T00:00:00.000Z",
+    "createdAt": "2026-09-17T00:00:00.000Z",
+    "updatedAt": "2026-09-17T00:00:00.000Z"
   }
 ]
