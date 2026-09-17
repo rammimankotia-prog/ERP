@@ -1,30 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { PrismaClient } from '@prisma/client'
 
 import { parseTimeToISTMinutes } from '@/app/api/hr/reports/route'
 import { getMergedAttendance } from '@/lib/attendanceStorage'
+
+const prisma = new PrismaClient()
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const LOCAL_DATA_DIR = path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
 const LOCAL_EMPLOYEES_FILE = path.join(LOCAL_DATA_DIR, 'hr_employees.json')
 const BACKUP_EMPLOYEES_FILE = path.join(LOCAL_DATA_DIR, 'hr_employees_backup.json')
-
-function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
-  for (const f of [file, fallbackFile]) {
-    try {
-      if (fs.existsSync(f)) {
-        const raw = fs.readFileSync(f, 'utf-8')
-        const parsed = JSON.parse(raw)
-        if (parsed !== undefined && parsed !== null) return parsed as unknown as T
-      }
-    } catch {}
-  }
-  return fallback
-}
-
-const DELETED_EMP_FILE = path.join(process.cwd(), 'data', 'deleted_employees.json')
+const DELETED_EMP_FILE = path.join(LOCAL_DATA_DIR, 'deleted_employees.json')
 
 function getDeletedEmpKeys(): string[] {
   try {
@@ -37,8 +26,56 @@ function getDeletedEmpKeys(): string[] {
   return []
 }
 
-function getMergedEmployees(): any[] {
+/**
+ * Get employees: Prisma DB first (same source as /hr/employees page),
+ * fall back to JSON files if Prisma unavailable.
+ * Deleted employees are always excluded.
+ */
+async function getActiveEmployees(): Promise<any[]> {
   const deletedKeys = getDeletedEmpKeys()
+
+  const isDeleted = (emp: any): boolean => {
+    const id = (emp.id || '').toLowerCase().trim()
+    const empId = (emp.employeeId || '').toLowerCase().trim()
+    const email = (emp.email || '').toLowerCase().trim()
+    return (
+      (id && deletedKeys.includes(id)) ||
+      (empId && deletedKeys.includes(empId)) ||
+      (email && deletedKeys.includes(email))
+    )
+  }
+
+  // 1. Try Prisma first (same source as Employee Directory page)
+  try {
+    const dbEmployees = await prisma.employee.findMany({
+      include: { branch: true, department: true },
+      orderBy: { firstName: 'asc' },
+    })
+    if (dbEmployees && dbEmployees.length > 0) {
+      return dbEmployees
+        .filter((e: any) => !isDeleted(e))
+        .map((e: any) => ({
+          id: e.id,
+          employeeId: e.employeeId || e.id,
+          firstName: e.firstName,
+          lastName: e.lastName,
+          email: e.email,
+          designation: e.designation,
+          department: e.department,
+          departmentId: e.departmentId,
+          branch: e.branch,
+          branchId: e.branchId,
+          morningTime: e.morningTime || '09:00',
+          eveningTime: e.eveningTime || '18:00',
+          status: e.status,
+          offDays: e.offDays || [],
+        }))
+    }
+  } catch {
+    // Prisma unavailable → fall back to JSON
+  }
+
+  // 2. Fallback: read from JSON files (merged, deduplicated)
   const map = new Map<string, any>()
   for (const f of [BACKUP_EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, EMPLOYEES_FILE]) {
     try {
@@ -47,19 +84,8 @@ function getMergedEmployees(): any[] {
         if (Array.isArray(list)) {
           for (const emp of list) {
             const key = emp.employeeId || emp.id
-            if (!key) continue
-            // Skip deleted employees
-            const id = (emp.id || '').toLowerCase().trim()
-            const empId = (emp.employeeId || '').toLowerCase().trim()
-            const email = (emp.email || '').toLowerCase().trim()
-            if (
-              (id && deletedKeys.includes(id)) ||
-              (empId && deletedKeys.includes(empId)) ||
-              (email && deletedKeys.includes(email))
-            ) continue
-            if (key) {
-              map.set(key, { ...(map.get(key) || {}), ...emp })
-            }
+            if (!key || isDeleted(emp)) continue
+            if (!map.has(key)) map.set(key, emp)
           }
         }
       }
@@ -74,7 +100,7 @@ export async function GET(req: NextRequest) {
   const dateStr = searchParams.get('date') || new Date().toISOString().split('T')[0]
 
   try {
-    const employees = getMergedEmployees()
+    const employees = await getActiveEmployees()
     const allAttendance = getMergedAttendance()
 
     const todayAttendance = allAttendance.filter(a => a.date === dateStr)
@@ -86,9 +112,9 @@ export async function GET(req: NextRequest) {
         const aIdNorm = (a.employeeId || '').trim().toUpperCase()
         return aIdNorm === empIdNorm || (emp.id && aIdNorm === emp.id.trim().toUpperCase())
       })
-      let status = record ? record.status : 'ABSENT' // Default absent if no punch in
+      let status = record ? record.status : 'ABSENT'
 
-      // Determine late arrival against employee morningTime (with 15 min grace)
+      // Late arrival check
       let isLate = false
       let lateMinutes = 0
       if (record && record.punchIn) {
@@ -101,12 +127,14 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Half-day check: if punched out and worked <= 5 hours (300 minutes), ensure HALF_DAY status
+      // Half-day check: worked <= 5 hours
       if (record && record.punchIn && record.punchOut) {
         let totalMins = record.totalMinutes
         if (totalMins === undefined || totalMins === null) {
           try {
-            totalMins = Math.floor((new Date(record.punchOut).getTime() - new Date(record.punchIn).getTime()) / 60000)
+            totalMins = Math.floor(
+              (new Date(record.punchOut).getTime() - new Date(record.punchIn).getTime()) / 60000
+            )
           } catch {}
         }
         if (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300) {
@@ -125,7 +153,7 @@ export async function GET(req: NextRequest) {
         punchIn: record ? record.punchIn : null,
         punchOut: record ? record.punchOut : null,
         totalMinutes: record ? record.totalMinutes : null,
-        punchInMode: record ? record.punchInMode : null
+        punchInMode: record ? record.punchInMode : null,
       }
     })
 

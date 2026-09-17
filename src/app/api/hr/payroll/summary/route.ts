@@ -1,50 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
 import { getMergedAttendance } from '@/lib/attendanceStorage'
+import { getAllEmployees } from '@/lib/employeeData'
 
-const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
-const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
-const LOCAL_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees.json')
-const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
-const LOCAL_ATTENDANCE_FILE = path.join(process.cwd(), 'data', 'hr_attendance.json')
+export const dynamic = 'force-dynamic'
 
-const BACKUP_EMPLOYEES_FILE = path.join(process.cwd(), 'data', 'hr_employees_backup.json')
-
-function readJson<T>(file: string, fallbackFile: string = '', fallback: T = [] as unknown as T): T {
-  for (const f of [file, fallbackFile]) {
-    if (f) {
-      try {
-        if (fs.existsSync(f)) {
-          const content = fs.readFileSync(f, 'utf-8')
-          const parsed = JSON.parse(content)
-          if (parsed !== undefined && parsed !== null) return parsed as unknown as T
-        }
-      } catch {}
-    }
-  }
-  return fallback
-}
-
-function getMergedEmployees(): any[] {
-  const map = new Map<string, any>()
-  for (const f of [BACKUP_EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, EMPLOYEES_FILE]) {
-    try {
-      if (fs.existsSync(f)) {
-        const list = JSON.parse(fs.readFileSync(f, 'utf-8'))
-        if (Array.isArray(list)) {
-          for (const emp of list) {
-            const key = emp.employeeId || emp.id
-            if (key) {
-              map.set(key, { ...(map.get(key) || {}), ...emp })
-            }
-          }
-        }
-      }
-    } catch {}
-  }
-  return Array.from(map.values())
-}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -54,7 +13,7 @@ export async function GET(req: NextRequest) {
   const department = searchParams.get('department')
 
   try {
-    const employees = getMergedEmployees()
+    const employees = await getAllEmployees()
     const allAttendance = getMergedAttendance()
 
     const monthStr = String(month).padStart(2, '0')
