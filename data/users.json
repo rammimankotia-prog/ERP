@@ -74,7 +74,6 @@
   },
   {
     "id": "admin-002",
-    "employeeId": "GG-1003",
     "username": "ksareen@godwinhotels.com",
     "name": "K Sareen",
     "email": "ksareen@godwinhotels.com",
@@ -98,7 +97,6 @@
   },
   {
     "id": "admin-003",
-    "employeeId": "GG-1004",
     "username": "vsareen@godwinhotels.com",
     "name": "V Sareen",
     "email": "vsareen@godwinhotels.com",
