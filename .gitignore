@@ -41,3 +41,10 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# persistent operational data vaults (protected from git overwrites)
+/data/attendance_vault/
+/data/attendance_store/
+/data/*_backup.json
+/data/*.jsonl
+/data/deploy.log

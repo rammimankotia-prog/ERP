@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { getMergedAttendance } from '@/lib/attendanceStorage'
 
 export const dynamic = 'force-dynamic'
 
@@ -160,7 +161,7 @@ export async function GET(req: NextRequest) {
 
   // Load real records
   const rawEmployees = getMergedEmployees()
-  const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
+  const allAttendance = getMergedAttendance()
   const allLeaves = readJson<any[]>(LEAVES_FILE, LOCAL_LEAVES_FILE, [])
 
   // Filter employees

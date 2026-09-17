@@ -3,13 +3,12 @@ import fs from 'fs'
 import path from 'path'
 
 import { parseTimeToISTMinutes } from '@/app/api/hr/reports/route'
+import { getMergedAttendance } from '@/lib/attendanceStorage'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const LOCAL_DATA_DIR = path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
 const LOCAL_EMPLOYEES_FILE = path.join(LOCAL_DATA_DIR, 'hr_employees.json')
-const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
-const LOCAL_ATTENDANCE_FILE = path.join(LOCAL_DATA_DIR, 'hr_attendance.json')
 const BACKUP_EMPLOYEES_FILE = path.join(LOCAL_DATA_DIR, 'hr_employees_backup.json')
 
 function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
@@ -52,13 +51,17 @@ export async function GET(req: NextRequest) {
 
   try {
     const employees = getMergedEmployees()
-    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
+    const allAttendance = getMergedAttendance()
 
     const todayAttendance = allAttendance.filter(a => a.date === dateStr)
 
     // Combine employees with their attendance
     const teamAttendance = employees.map(emp => {
-      const record = todayAttendance.find(a => a.employeeId === emp.employeeId || a.employeeId === emp.id)
+      const empIdNorm = (emp.employeeId || emp.id || '').trim().toUpperCase()
+      const record = todayAttendance.find(a => {
+        const aIdNorm = (a.employeeId || '').trim().toUpperCase()
+        return aIdNorm === empIdNorm || (emp.id && aIdNorm === emp.id.trim().toUpperCase())
+      })
       let status = record ? record.status : 'ABSENT' // Default absent if no punch in
 
       // Determine late arrival against employee morningTime (with 15 min grace)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { PrismaClient } from '@prisma/client'
+import { getMergedAttendance } from '@/lib/attendanceStorage'
 
 const prisma = new PrismaClient()
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // Try fetching from DB first
-    let logs = []
+    let logs: any[] = []
     try {
       const dbLogs = await prisma.attendanceLog.findMany({
         where: {
@@ -52,8 +53,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (logs.length === 0) {
-      const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
-      logs = allAttendance.filter(a => a.employeeId === employeeId || a.employeeId === employeeId)
+      const allAttendance = getMergedAttendance()
+      const targetId = employeeId.trim().toUpperCase()
+      logs = allAttendance.filter(a => (a.employeeId || '').trim().toUpperCase() === targetId)
       // Sort by date descending
       logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       // Take last 30

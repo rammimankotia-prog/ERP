@@ -4,6 +4,7 @@ import { PrismaClient, EmploymentType, EmployeeStatus } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import fs from 'fs'
 import path from 'path'
+import { removeAttendanceRecord } from '@/lib/attendanceStorage'
 
 const prisma = new PrismaClient()
 
@@ -487,10 +488,10 @@ export async function deleteEmployee(id: string): Promise<{ success: boolean; er
 
   // Relational Integrity: Remove punch attendance logs for this employee
   try {
-    const ATT_FILE = path.join(DATA_DIR, 'hr_attendance.json')
-    const atts = readJsonFile<any[]>(ATT_FILE, [])
-    const cleanAtts = atts.filter(a => a.employeeId !== id && (!targetEmp || a.employeeId !== targetEmp.employeeId))
-    writeJsonFile(ATT_FILE, cleanAtts)
+    removeAttendanceRecord(id)
+    if (targetEmp?.employeeId) {
+      removeAttendanceRecord(targetEmp.employeeId)
+    }
   } catch {}
 
   // Relational Integrity: Remove leave requests for this employee

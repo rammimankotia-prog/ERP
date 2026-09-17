@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { getMergedAttendance } from '@/lib/attendanceStorage'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const employees = getMergedEmployees()
-    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
+    const allAttendance = getMergedAttendance()
 
     const monthStr = String(month).padStart(2, '0')
     const yearMonth = `${year}-${monthStr}`

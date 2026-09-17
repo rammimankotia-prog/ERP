@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { PrismaClient } from '@prisma/client'
+import { getMergedAttendance } from '@/lib/attendanceStorage'
 
 import { parseTimeToISTMinutes } from '@/app/api/hr/reports/route'
 
@@ -186,7 +187,7 @@ export async function GET(req: NextRequest) {
     }
   } catch {}
 
-  const fileAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
+  const fileAttendance = getMergedAttendance()
   fileAttendance.forEach(fa => {
     const dStr = fa.date || (fa.punchIn ? fa.punchIn.slice(0, 10) : '')
     if (dStr && !allAttendance.some(a => a.employeeId === fa.employeeId && a.date === dStr)) {

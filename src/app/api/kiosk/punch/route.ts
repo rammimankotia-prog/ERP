@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { getMergedAttendance, saveAttendanceRecord } from '@/lib/attendanceStorage'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
@@ -337,10 +338,10 @@ export async function POST(req: NextRequest) {
 
     const dateStr = todayIST
 
-    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
+    const allAttendance = getMergedAttendance()
 
     let existingIndex = allAttendance.findIndex(a => 
-      (a.employeeId === employeeId || (emp && (a.employeeId === emp.id || a.employeeId === emp.employeeId))) && 
+      ((a.employeeId && a.employeeId.trim().toUpperCase() === normalizedEmpId.toUpperCase()) || (emp && (a.employeeId === emp.id || a.employeeId === emp.employeeId))) && 
       a.date === dateStr
     )
 
@@ -372,8 +373,7 @@ export async function POST(req: NextRequest) {
         remarks: isLate ? `Late arrival by ${formatDurationHoursMinutes(lateMinutes)} (+${lateMinutes}m)` : 'Present'
       }
 
-      allAttendance.push(newRecord)
-      writeJson(ATTENDANCE_FILE, allAttendance, LOCAL_ATTENDANCE_FILE)
+      saveAttendanceRecord(newRecord)
 
       // Record Audit Trail
       logAudit({
@@ -446,7 +446,7 @@ export async function POST(req: NextRequest) {
       allAttendance[existingIndex].isEarlyOut = isEarlyOut
       allAttendance[existingIndex].earlyOutMinutes = isEarlyOut ? earlyOutMinutes : 0
 
-      writeJson(ATTENDANCE_FILE, allAttendance, LOCAL_ATTENDANCE_FILE)
+      saveAttendanceRecord(allAttendance[existingIndex])
 
       // Record Audit Trail
       logAudit({
