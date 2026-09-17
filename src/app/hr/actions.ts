@@ -209,7 +209,10 @@ export async function getEmployees() {
       },
       orderBy: { firstName: 'asc' }
     })
-    if (employees && employees.length > 0) return employees
+    if (employees && employees.length > 0) {
+      const deletedKeys = getDeletedEmployeeKeys()
+      return employees.filter(emp => !isEmpDeleted(emp, deletedKeys))
+    }
   } catch (e) {
     // DB connection failed or offline, fallback to persistent JSON
   }

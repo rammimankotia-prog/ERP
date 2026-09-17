@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client'
 import { getMergedAttendance } from '@/lib/attendanceStorage'
 
 import { parseTimeToISTMinutes } from '@/app/api/hr/reports/route'
+import { getAllEmployees } from '@/lib/employeeData'
 
 export const dynamic = 'force-dynamic'
 
@@ -118,41 +119,15 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // 2. Fetch Employees (Prisma DB first, JSON fallback)
-  let employees: any[] = []
-  try {
-    const dbEmps = await prisma.employee.findMany({
-      where: {
-        status: 'ACTIVE',
-        ...(branchId && branchId !== 'ALL' ? { branchId } : {}),
-        ...(departmentId && departmentId !== 'ALL' ? { departmentId } : {}),
-      },
-      include: {
-        branch: true,
-        department: true,
-      },
-      orderBy: { firstName: 'asc' },
-    })
-    if (dbEmps && dbEmps.length > 0) {
-      employees = dbEmps.map(e => ({
-        ...e,
-        branch: e.branch?.name || 'Hotel Grand Godwin',
-        department: e.department?.name || 'Operations',
-      }))
-    }
-  } catch {}
-
-  const jsonEmployees = getMergedEmployees().filter((e: any) => e.status === 'ACTIVE' || !e.status)
-  const empMap = new Map<string, any>()
-  jsonEmployees.forEach(e => {
-    const k = e.employeeId || e.id
-    if (k) empMap.set(k, e)
-  })
-  employees.forEach(e => {
-    const k = e.employeeId || e.id
-    if (k) empMap.set(k, { ...(empMap.get(k) || {}), ...e })
-  })
-  employees = Array.from(empMap.values())
+  // 2. Fetch Employees (Unified via getAllEmployees)
+  const allEmps = await getAllEmployees()
+  let employees: any[] = allEmps
+    .filter((e: any) => e.status === 'ACTIVE' || !e.status)
+    .map((e: any) => ({
+      ...e,
+      branch: typeof e.branch === 'object' ? (e.branch?.name || 'Hotel Grand Godwin') : (e.branch || 'Hotel Grand Godwin'),
+      department: typeof e.department === 'object' ? (e.department?.name || 'Operations') : (e.department || 'Operations'),
+    }))
 
   if (branchId && branchId !== 'ALL') {
     employees = employees.filter(e => e.branchId === branchId || e.branch?.id === branchId || e.branch === branchId)

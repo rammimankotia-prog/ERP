@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { getAllEmployees } from '@/lib/employeeData'
 
 export const dynamic = 'force-dynamic'
 
@@ -133,7 +134,7 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status')
   const search = searchParams.get('search')
 
-  let employees = getMergedEmployees()
+  let employees = await getAllEmployees()
   const branches = readJson<any[]>(BRANCHES_FILE, LOCAL_BRANCHES_FILE, [])
   const departments = readJson<any[]>(DEPARTMENTS_FILE, LOCAL_DEPARTMENTS_FILE, [])
 

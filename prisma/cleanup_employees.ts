@@ -16,9 +16,9 @@ const EMP_FILE = path.join(DATA_DIR, 'hr_employees.json')
 const EMP_BACKUP = path.join(DATA_DIR, 'hr_employees_backup.json')
 const USERS_FILE = path.join(DATA_DIR, 'users.json')
 
-// Employees to permanently delete (by employeeId)
+// Employees to permanently delete (by email only to avoid harming Heena Tuli GG-1002)
 const TO_DELETE = [
-  { employeeId: 'GG-1002', email: 'ramansingh@godwinhotels.com', name: 'Raman Singh' },
+  { employeeId: '', email: 'ramansingh@godwinhotels.com', name: 'Raman Singh' },
 ]
 
 function readJson(file: string): any[] {

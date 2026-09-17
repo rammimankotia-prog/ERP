@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { getAllEmployees } from '@/lib/employeeData'
+
+export const dynamic = 'force-dynamic'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
@@ -82,7 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     // If not a system user, check HR Employees
-    const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+    const employees = await getAllEmployees()
     
     // Find employee by email, employee ID (e.g. GG-1002 or 1002), or ID
     const employee = employees.find(e => {

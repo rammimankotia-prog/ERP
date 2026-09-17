@@ -49,6 +49,10 @@ export async function POST(req: NextRequest) {
     const results: any[] = []
 
     for (const empId of employeeIds) {
+      if (empId.toUpperCase() === 'GG-1002' || empId.toUpperCase() === 'GG-1001') {
+        results.push({ employeeId: empId, skipped: true, reason: 'Protected active employee (Heena Tuli / Raman Mankotia). Cannot be deleted.' })
+        continue
+      }
       const result: any = { employeeId: empId, prisma: 'not_found', json: 0, users: 0 }
 
       // 1. Delete from Prisma

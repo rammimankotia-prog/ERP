@@ -1,6 +1,6 @@
 /**
  * Shared employee helper used by all HR API routes.
- * Single source of truth: Prisma DB first, JSON files as fallback.
+ * Single source of truth: Prisma DB first, JSON files merged/fallback.
  * Deleted employees are always excluded.
  */
 import fs from 'fs'
@@ -39,13 +39,14 @@ export function isEmployeeDeleted(emp: any, deletedKeys: string[]): boolean {
 }
 
 /**
- * Returns ALL active employees, normalized.
- * - Tries Prisma DB first (same source as /hr/employees page).
- * - Falls back to JSON files if Prisma is unavailable.
+ * Returns ALL active employees, normalized and unified across Prisma DB and JSON files.
+ * - Queries Prisma DB (production source of truth).
+ * - Merges with JSON files so no employee is missed.
  * - Always excludes employees in deleted_employees.json.
  */
 export async function getAllEmployees(): Promise<any[]> {
   const deletedKeys = getDeletedEmployeeKeys()
+  const map = new Map<string, any>()
 
   // 1. Prisma DB (production source of truth)
   try {
@@ -54,47 +55,69 @@ export async function getAllEmployees(): Promise<any[]> {
       orderBy: { firstName: 'asc' },
     })
     if (dbEmployees && dbEmployees.length > 0) {
-      return dbEmployees
-        .filter((e: any) => !isEmployeeDeleted(e, deletedKeys))
-        .map((e: any) => ({
-          id: e.id,
-          employeeId: e.employeeId || e.id,
-          firstName: e.firstName,
-          lastName: e.lastName,
-          email: e.email,
-          contactNo: e.contactNo,
-          designation: e.designation,
-          department: e.department,
-          departmentId: e.departmentId,
-          branch: e.branch,
-          branchId: e.branchId,
-          morningTime: e.morningTime || '09:00',
-          eveningTime: e.eveningTime || '18:00',
-          status: e.status,
-          role: e.role,
-          baseSalary: e.baseSalary,
-          offDays: (e as any).offDays || [],
-        }))
+      for (const e of dbEmployees) {
+        if (isEmployeeDeleted(e, deletedKeys)) continue
+        const key = (e.employeeId || e.id || '').toUpperCase().trim()
+        if (key) {
+          map.set(key, {
+            id: e.id,
+            employeeId: e.employeeId || e.id,
+            firstName: e.firstName,
+            lastName: e.lastName,
+            email: (e as any).email || '',
+            password: (e as any).password || '',
+            contactNo: e.contactNo || '',
+            gender: (e as any).gender || 'Other',
+            employmentType: (e as any).employmentType || 'PERMANENT',
+            designation: e.designation || 'Staff',
+            department: e.department || null,
+            departmentId: e.departmentId || null,
+            branch: e.branch || null,
+            branchId: e.branchId || null,
+            morningTime: e.morningTime || '09:00',
+            eveningTime: e.eveningTime || '18:00',
+            status: e.status || 'ACTIVE',
+            role: (e as any).role || 'Employee',
+            baseSalary: (e as any).baseSalary || 0,
+            doj: (e as any).doj || new Date(),
+            photo: (e as any).photo || null,
+            address: (e as any).address || '',
+            emergencyContact: (e as any).emergencyContact || '',
+            offDays: (e as any).offDays || [],
+          })
+        }
+      }
     }
   } catch {
     // Prisma unavailable — fall through to JSON
   }
 
-  // 2. JSON fallback (dev / offline)
-  const map = new Map<string, any>()
+  // 2. JSON fallback / merge (reads local and persistent files)
   for (const f of [BACKUP_EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, EMPLOYEES_FILE]) {
     try {
       if (fs.existsSync(f)) {
         const list = JSON.parse(fs.readFileSync(f, 'utf-8'))
         if (Array.isArray(list)) {
           for (const emp of list) {
-            const key = emp.employeeId || emp.id
+            const key = (emp.employeeId || emp.id || '').toUpperCase().trim()
             if (!key || isEmployeeDeleted(emp, deletedKeys)) continue
-            if (!map.has(key)) map.set(key, emp)
+            // Only add if not already populated by Prisma
+            if (!map.has(key)) {
+              map.set(key, {
+                ...emp,
+                id: emp.id || key,
+                employeeId: emp.employeeId || key,
+                morningTime: emp.morningTime || '09:00',
+                eveningTime: emp.eveningTime || '18:00',
+                status: emp.status || 'ACTIVE',
+                offDays: emp.offDays || [],
+              })
+            }
           }
         }
       }
     } catch {}
   }
+
   return Array.from(map.values())
 }
