@@ -494,14 +494,14 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
         body: JSON.stringify({
           employeeId: target.id,
           username: target.employeeId,
-          email: target.contactNo || (target as any).email,
+          email: (target as any).email || '',
           reason: 'Employee deleted',
         }),
       })
       const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
       channel.postMessage({
         type: 'FORCE_LOGOUT_USER',
-        payload: { employeeId: target.id, username: target.employeeId, email: target.contactNo || (target as any).email },
+        payload: { employeeId: target.id, username: target.employeeId, email: (target as any).email || '' },
       })
       channel.close()
     } catch {}

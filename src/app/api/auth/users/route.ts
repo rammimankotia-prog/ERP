@@ -112,10 +112,26 @@ function getUsers(): any[] {
 
   const deletedIds = getDeletedUserIds();
 
+  // Also read deleted_employees.json (from employee-side delete) to prevent resurrection
+  const DELETED_EMP_FILE = path.join(process.cwd(), 'data', 'deleted_employees.json');
+  try {
+    if (fs.existsSync(DELETED_EMP_FILE)) {
+      const raw = fs.readFileSync(DELETED_EMP_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const k of parsed) {
+          const normalized = String(k).toLowerCase().trim();
+          if (!deletedIds.includes(normalized)) deletedIds.push(normalized);
+        }
+      }
+    }
+  } catch {}
+
   // Auto-sync employees from hr_employees.json into users list
   try {
     let employees: any[] = [];
-    for (const empFile of [EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, BACKUP_EMPLOYEES_FILE]) {
+    // Only read from primary file (not backup) to avoid resurrecting deleted employees
+    for (const empFile of [EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE]) {
       if (fs.existsSync(empFile)) {
         try {
           const empData = JSON.parse(fs.readFileSync(empFile, "utf-8"));

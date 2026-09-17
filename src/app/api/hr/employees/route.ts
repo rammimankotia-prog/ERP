@@ -12,7 +12,40 @@ const BRANCHES_FILE = path.join(DATA_DIR, 'hr_branches.json')
 const LOCAL_BRANCHES_FILE = path.join(process.cwd(), 'data', 'hr_branches.json')
 const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')
 const LOCAL_DEPARTMENTS_FILE = path.join(process.cwd(), 'data', 'hr_departments.json')
+const DELETED_EMP_FILE = path.join(process.cwd(), 'data', 'deleted_employees.json')
 
+// ─── Deleted employees registry ────────────────────────────────────────────────
+function getDeletedEmployeeKeys(): string[] {
+  try {
+    if (fs.existsSync(DELETED_EMP_FILE)) {
+      const raw = fs.readFileSync(DELETED_EMP_FILE, 'utf-8')
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed.map((k: any) => String(k).toLowerCase().trim())
+    }
+  } catch {}
+  return []
+}
+
+function saveDeletedEmployeeKey(keys: string[]): void {
+  try {
+    const existing = getDeletedEmployeeKeys()
+    const merged = Array.from(new Set([...existing, ...keys.map(k => k.toLowerCase().trim())]))
+    fs.writeFileSync(DELETED_EMP_FILE, JSON.stringify(merged, null, 2), 'utf-8')
+  } catch {}
+}
+
+function isDeleted(emp: any, deletedKeys: string[]): boolean {
+  const id = (emp.id || '').toLowerCase().trim()
+  const empId = (emp.employeeId || '').toLowerCase().trim()
+  const email = (emp.email || '').toLowerCase().trim()
+  return (
+    (id && deletedKeys.includes(id)) ||
+    (empId && deletedKeys.includes(empId)) ||
+    (email && deletedKeys.includes(email))
+  )
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────────
 function readJson<T>(file: string, fallbackFile: string = '', fallback: T = [] as unknown as T): T {
   for (const f of [file, fallbackFile]) {
     if (f) {
@@ -28,8 +61,15 @@ function readJson<T>(file: string, fallbackFile: string = '', fallback: T = [] a
   return fallback
 }
 
+/**
+ * getMergedEmployees:
+ * Reads all employee files (persistent > local > backup), deduplicates by ID,
+ * and EXCLUDES any employee whose ID/email is in the deleted registry.
+ */
 function getMergedEmployees(): any[] {
+  const deletedKeys = getDeletedEmployeeKeys()
   const mergedMap = new Map<string, any>()
+
   for (const f of [EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, BACKUP_EMPLOYEES_FILE]) {
     if (fs.existsSync(f)) {
       try {
@@ -38,7 +78,9 @@ function getMergedEmployees(): any[] {
         if (Array.isArray(list)) {
           for (const item of list) {
             const key = item.id || item.employeeId
-            if (key && !mergedMap.has(key)) {
+            // Skip deleted employees
+            if (!key || isDeleted(item, deletedKeys)) continue
+            if (!mergedMap.has(key)) {
               mergedMap.set(key, item)
             }
           }
@@ -49,17 +91,17 @@ function getMergedEmployees(): any[] {
   return Array.from(mergedMap.values())
 }
 
-function writeJson(file: string, data: any): void {
-  const localDataDir = path.join(process.cwd(), 'data')
-  const fileName = path.basename(file)
-  const localFile = path.join(localDataDir, fileName)
-  const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
-  for (const target of [file, localFile, backupFile]) {
+/**
+ * writeEmployees:
+ * Writes the canonical employee list to ALL locations (persistent + local + backup)
+ * so all files are always in sync.
+ */
+function writeEmployees(data: any[]): void {
+  const targets = Array.from(new Set([EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, BACKUP_EMPLOYEES_FILE]))
+  for (const target of targets) {
     try {
       const dir = path.dirname(target)
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true })
-      }
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
       fs.writeFileSync(target, JSON.stringify(data, null, 2), 'utf-8')
     } catch (err) {
       console.error(`Error writing ${target}:`, err)
@@ -67,6 +109,23 @@ function writeJson(file: string, data: any): void {
   }
 }
 
+function writeJson(file: string, data: any): void {
+  const localDataDir = path.join(process.cwd(), 'data')
+  const fileName = path.basename(file)
+  const localFile = path.join(localDataDir, fileName)
+  // Note: For users.json, do NOT write to backup (users_backup is in gitignore but not managed the same)
+  for (const target of [file, localFile]) {
+    try {
+      const dir = path.dirname(target)
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(target, JSON.stringify(data, null, 2), 'utf-8')
+    } catch (err) {
+      console.error(`Error writing ${target}:`, err)
+    }
+  }
+}
+
+// ─── GET ────────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const branchId = searchParams.get('branchId')
@@ -108,6 +167,7 @@ export async function GET(req: NextRequest) {
   })
 }
 
+// ─── PUT (Update / Add) ─────────────────────────────────────────────────────────
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json()
@@ -140,9 +200,9 @@ export async function PUT(req: NextRequest) {
       employees.push(updatedRecord)
     }
 
-    writeJson(EMPLOYEES_FILE, employees)
+    writeEmployees(employees)
 
-    // Sync with users.json
+    // Sync status to users.json
     try {
       const USERS_FILE = path.join(DATA_DIR, 'users.json')
       const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
@@ -168,7 +228,7 @@ export async function PUT(req: NextRequest) {
       console.warn('Failed to sync updated user in users.json:', e)
     }
 
-    // When status is ACTIVE, remove any previous revocation blocks
+    // When reactivating, remove from revoked sessions
     if (updatedRecord.status === 'ACTIVE') {
       try {
         const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
@@ -188,6 +248,27 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    // When deactivating, update users.json status and add to revoked sessions
+    if (updatedRecord.status === 'INACTIVE') {
+      try {
+        const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+        const LOCAL_REVOKED_FILE = path.join(process.cwd(), 'data', 'revoked_sessions.json')
+        let revoked = readJson<any[]>(REVOKED_FILE, LOCAL_REVOKED_FILE, [])
+        const revokeEntry = {
+          userId: targetId,
+          employeeId: updatedRecord.employeeId || targetId,
+          email: updatedRecord.email || '',
+          username: updatedRecord.employeeId || targetId,
+          reason: 'Employee deactivated',
+          revokedAt: new Date().toISOString()
+        }
+        // Avoid duplicates
+        const alreadyRevoked = revoked.some(r => r.userId === targetId || r.employeeId === (updatedRecord.employeeId || targetId))
+        if (!alreadyRevoked) revoked.push(revokeEntry)
+        writeJson(REVOKED_FILE, revoked)
+      } catch {}
+    }
+
     return NextResponse.json({
       success: true,
       employee: updatedRecord,
@@ -204,6 +285,7 @@ export async function POST(req: NextRequest) {
   return PUT(req)
 }
 
+// ─── DELETE ─────────────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -212,10 +294,27 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 })
     }
 
+    // Get current list (uses getMergedEmployees which respects the deleted registry)
     let employees = getMergedEmployees()
     const toDelete = employees.find((e: any) => e.id === id || e.employeeId === id)
+
+    // Filter out the employee
     employees = employees.filter((e: any) => e.id !== id && e.employeeId !== id)
-    writeJson(EMPLOYEES_FILE, employees)
+
+    // Write cleaned list to ALL 3 files immediately
+    writeEmployees(employees)
+
+    // Register in deleted_employees.json so it never comes back from backup
+    if (toDelete) {
+      const keysToDelete: string[] = []
+      if (toDelete.id) keysToDelete.push(toDelete.id)
+      if (toDelete.employeeId && toDelete.employeeId !== toDelete.id) keysToDelete.push(toDelete.employeeId)
+      if (toDelete.email) keysToDelete.push(toDelete.email)
+      saveDeletedEmployeeKey(keysToDelete)
+    } else {
+      // Employee was already missing from main files (was in backup only), still register the ID
+      saveDeletedEmployeeKey([id])
+    }
 
     // Remove from users.json as well
     if (toDelete) {
@@ -223,12 +322,37 @@ export async function DELETE(req: NextRequest) {
         const USERS_FILE = path.join(DATA_DIR, 'users.json')
         const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
         let users = readJson<any[]>(USERS_FILE, LOCAL_USERS_FILE, [])
-        users = users.filter((u: any) => u.id !== id && (!toDelete.email || u.email?.toLowerCase() !== toDelete.email.toLowerCase()))
+        users = users.filter((u: any) =>
+          u.id !== id &&
+          u.id !== toDelete.id &&
+          (!toDelete.email || u.email?.toLowerCase() !== toDelete.email.toLowerCase())
+        )
         writeJson(USERS_FILE, users)
       } catch {}
     }
 
-    return NextResponse.json({ success: true, message: 'Employee deleted successfully' })
+    // Also register in the global deleted_users.json (used by auth/users route)
+    try {
+      const DELETED_USERS_FILE = path.join(DATA_DIR, 'deleted_users.json')
+      const LOCAL_DELETED_USERS_FILE = path.join(process.cwd(), 'data', 'deleted_users.json')
+      for (const delUsersFile of [DELETED_USERS_FILE, LOCAL_DELETED_USERS_FILE]) {
+        let delList: string[] = []
+        try {
+          if (fs.existsSync(delUsersFile)) {
+            const raw = fs.readFileSync(delUsersFile, 'utf-8')
+            const parsed = JSON.parse(raw)
+            if (Array.isArray(parsed)) delList = parsed
+          }
+        } catch {}
+        const toAdd = [id, toDelete?.id, toDelete?.employeeId, toDelete?.email].filter(Boolean) as string[]
+        const merged = Array.from(new Set([...delList, ...toAdd.map(k => k.toLowerCase().trim())]))
+        const dir = path.dirname(delUsersFile)
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+        fs.writeFileSync(delUsersFile, JSON.stringify(merged, null, 2), 'utf-8')
+      }
+    } catch {}
+
+    return NextResponse.json({ success: true, message: 'Employee deleted successfully from all locations' })
   } catch (err: any) {
     console.error('Error in DELETE /api/hr/employees:', err)
     return NextResponse.json({ error: err.message || 'Failed to delete employee' }, { status: 500 })

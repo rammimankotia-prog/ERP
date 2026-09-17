@@ -35,6 +35,31 @@ const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')
   }
 })()
 
+// Deleted employees registry path
+const DELETED_EMP_FILE = path.join(process.cwd(), 'data', 'deleted_employees.json')
+
+function getDeletedEmployeeKeys(): string[] {
+  try {
+    if (fs.existsSync(DELETED_EMP_FILE)) {
+      const raw = fs.readFileSync(DELETED_EMP_FILE, 'utf-8')
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed.map((k: any) => String(k).toLowerCase().trim())
+    }
+  } catch {}
+  return []
+}
+
+function isEmpDeleted(emp: any, deletedKeys: string[]): boolean {
+  const id = (emp.id || '').toLowerCase().trim()
+  const empId = (emp.employeeId || '').toLowerCase().trim()
+  const email = (emp.email || '').toLowerCase().trim()
+  return (
+    (id && deletedKeys.includes(id)) ||
+    (empId && deletedKeys.includes(empId)) ||
+    (email && deletedKeys.includes(email))
+  )
+}
+
 function readJsonFile<T>(filePath: string, fallback: T): T {
   const localDataDir = path.join(process.cwd(), 'data')
   const fileName = path.basename(filePath)
@@ -42,6 +67,7 @@ function readJsonFile<T>(filePath: string, fallback: T): T {
   const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
 
   if (fileName === 'hr_employees.json') {
+    const deletedKeys = getDeletedEmployeeKeys()
     const map = new Map<string, any>()
     for (const f of [filePath, localFile, backupFile]) {
       try {
@@ -51,7 +77,9 @@ function readJsonFile<T>(filePath: string, fallback: T): T {
           if (Array.isArray(list)) {
             for (const item of list) {
               const k = item.id || item.employeeId
-              if (k && !map.has(k)) map.set(k, item)
+              // Skip deleted employees
+              if (!k || isEmpDeleted(item, deletedKeys)) continue
+              if (!map.has(k)) map.set(k, item)
             }
           }
         }

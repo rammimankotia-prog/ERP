@@ -297,14 +297,14 @@ export default function EditEmployeeForm({
           body: JSON.stringify({
             employeeId: employee.id,
             username: employee.employeeId,
-            email: employee.contactNo || (employee as any).email,
+            email: (employee as any).email || '',
             reason: 'Employee deleted',
           }),
         })
         const channel = new BroadcastChannel('GODWIN_AUTH_BROADCAST_CHANNEL')
         channel.postMessage({
           type: 'FORCE_LOGOUT_USER',
-          payload: { employeeId: employee.id, username: employee.employeeId, email: employee.contactNo || (employee as any).email },
+          payload: { employeeId: employee.id, username: employee.employeeId, email: (employee as any).email || '' },
         })
         channel.close()
       } catch {}

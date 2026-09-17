@@ -11,16 +11,42 @@
     "createdAt": "2026-09-17",
     "permissions": {
       "hr": {
-        "employees": { "view": true, "edit": true, "delete": true },
-        "attendance": { "view": true, "edit": true },
-        "shifts": { "view": true, "edit": true },
-        "leave": { "view": true, "approve": true },
-        "payroll": { "view": true, "edit": true },
-        "reports": { "view": true }
+        "employees": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "attendance": {
+          "view": true,
+          "edit": true
+        },
+        "shifts": {
+          "view": true,
+          "edit": true
+        },
+        "leave": {
+          "view": true,
+          "approve": true
+        },
+        "payroll": {
+          "view": true,
+          "edit": true
+        },
+        "reports": {
+          "view": true
+        }
       },
-      "kiosk": { "access": true },
-      "userAccess": { "view": true, "edit": true },
-      "settings": { "view": true, "edit": true }
+      "kiosk": {
+        "access": true
+      },
+      "userAccess": {
+        "view": true,
+        "edit": true
+      },
+      "settings": {
+        "view": true,
+        "edit": true
+      }
     }
   },
   {
@@ -34,7 +60,9 @@
     "status": "Active",
     "createdAt": "2026-09-17",
     "permissions": {
-      "kiosk": { "access": true }
+      "kiosk": {
+        "access": true
+      }
     }
   },
   {
@@ -49,27 +77,29 @@
     "createdAt": "2026-09-17",
     "permissions": {
       "hr": {
-        "employees": { "view": true, "edit": true },
-        "attendance": { "view": true, "edit": true },
-        "shifts": { "view": true, "edit": true },
-        "leave": { "view": true, "approve": true },
-        "reports": { "view": true }
+        "employees": {
+          "view": true,
+          "edit": true
+        },
+        "attendance": {
+          "view": true,
+          "edit": true
+        },
+        "shifts": {
+          "view": true,
+          "edit": true
+        },
+        "leave": {
+          "view": true,
+          "approve": true
+        },
+        "reports": {
+          "view": true
+        }
       },
-      "kiosk": { "access": true }
-    }
-  },
-  {
-    "id": "TEST-001",
-    "employeeId": "TEST-001",
-    "username": "test.staff",
-    "name": "Test Staff",
-    "email": "test.staff@godwinhotels.com",
-    "password": "TestStaff@123",
-    "role": "Staff",
-    "status": "Active",
-    "createdAt": "2026-09-17",
-    "permissions": {
-      "kiosk": { "access": true }
+      "kiosk": {
+        "access": true
+      }
     }
   },
   {
@@ -83,16 +113,42 @@
     "createdAt": "2026-09-17",
     "permissions": {
       "hr": {
-        "employees": { "view": true, "edit": true, "delete": true },
-        "attendance": { "view": true, "edit": true },
-        "shifts": { "view": true, "edit": true },
-        "leave": { "view": true, "approve": true },
-        "payroll": { "view": true, "edit": true },
-        "reports": { "view": true }
+        "employees": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "attendance": {
+          "view": true,
+          "edit": true
+        },
+        "shifts": {
+          "view": true,
+          "edit": true
+        },
+        "leave": {
+          "view": true,
+          "approve": true
+        },
+        "payroll": {
+          "view": true,
+          "edit": true
+        },
+        "reports": {
+          "view": true
+        }
       },
-      "kiosk": { "access": true },
-      "userAccess": { "view": true, "edit": true },
-      "settings": { "view": true, "edit": true }
+      "kiosk": {
+        "access": true
+      },
+      "userAccess": {
+        "view": true,
+        "edit": true
+      },
+      "settings": {
+        "view": true,
+        "edit": true
+      }
     }
   },
   {
@@ -106,16 +162,42 @@
     "createdAt": "2026-09-17",
     "permissions": {
       "hr": {
-        "employees": { "view": true, "edit": true, "delete": true },
-        "attendance": { "view": true, "edit": true },
-        "shifts": { "view": true, "edit": true },
-        "leave": { "view": true, "approve": true },
-        "payroll": { "view": true, "edit": true },
-        "reports": { "view": true }
+        "employees": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "attendance": {
+          "view": true,
+          "edit": true
+        },
+        "shifts": {
+          "view": true,
+          "edit": true
+        },
+        "leave": {
+          "view": true,
+          "approve": true
+        },
+        "payroll": {
+          "view": true,
+          "edit": true
+        },
+        "reports": {
+          "view": true
+        }
       },
-      "kiosk": { "access": true },
-      "userAccess": { "view": true, "edit": true },
-      "settings": { "view": true, "edit": true }
+      "kiosk": {
+        "access": true
+      },
+      "userAccess": {
+        "view": true,
+        "edit": true
+      },
+      "settings": {
+        "view": true,
+        "edit": true
+      }
     }
   }
 ]

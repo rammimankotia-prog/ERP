@@ -24,7 +24,21 @@ function readJson<T>(file: string, fallbackFile: string, fallback: T): T {
   return fallback
 }
 
+const DELETED_EMP_FILE = path.join(process.cwd(), 'data', 'deleted_employees.json')
+
+function getDeletedEmpKeys(): string[] {
+  try {
+    if (fs.existsSync(DELETED_EMP_FILE)) {
+      const raw = fs.readFileSync(DELETED_EMP_FILE, 'utf-8')
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed.map((k: any) => String(k).toLowerCase().trim())
+    }
+  } catch {}
+  return []
+}
+
 function getMergedEmployees(): any[] {
+  const deletedKeys = getDeletedEmpKeys()
   const map = new Map<string, any>()
   for (const f of [BACKUP_EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, EMPLOYEES_FILE]) {
     try {
@@ -33,6 +47,16 @@ function getMergedEmployees(): any[] {
         if (Array.isArray(list)) {
           for (const emp of list) {
             const key = emp.employeeId || emp.id
+            if (!key) continue
+            // Skip deleted employees
+            const id = (emp.id || '').toLowerCase().trim()
+            const empId = (emp.employeeId || '').toLowerCase().trim()
+            const email = (emp.email || '').toLowerCase().trim()
+            if (
+              (id && deletedKeys.includes(id)) ||
+              (empId && deletedKeys.includes(empId)) ||
+              (email && deletedKeys.includes(email))
+            ) continue
             if (key) {
               map.set(key, { ...(map.get(key) || {}), ...emp })
             }
