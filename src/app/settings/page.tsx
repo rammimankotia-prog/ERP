@@ -35,6 +35,41 @@ export default function SettingsPage() {
   const [geofence, setGeofence] = useState({ enabled: true, lat: 28.64574210, lng: 77.21535140, radius: 80 });
   const [geofenceStatus, setGeofenceStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
+  // Auto-Deploy states
+  const [deployLoading, setDeployLoading] = useState(false);
+  const [deployMsg, setDeployMsg] = useState('');
+  const [deployLog, setDeployLog] = useState('');
+  const [showDeployLog, setShowDeployLog] = useState(false);
+
+  const handleManualDeploy = async () => {
+    setDeployLoading(true);
+    setDeployMsg('Initiating deployment...');
+    try {
+      const res = await fetch('/api/webhook/deploy?manual=true', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setDeployMsg('🚀 ' + data.message);
+      } else {
+        setDeployMsg('⚠️ ' + (data.message || data.error));
+      }
+    } catch {
+      setDeployMsg('⚠️ Failed to reach deploy endpoint.');
+    } finally {
+      setDeployLoading(false);
+    }
+  };
+
+  const fetchDeployLog = async () => {
+    try {
+      const res = await fetch('/api/webhook/deploy');
+      const data = await res.json();
+      if (data.log) {
+        setDeployLog(data.log);
+        setShowDeployLog(!showDeployLog);
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     // Load Global Config (Keys, Slabs)
     fetch('/api/settings/global')
@@ -464,6 +499,105 @@ export default function SettingsPage() {
           >
             <span>🚀</span> Launch User Management Portal ➔
           </Link>
+        </section>
+
+        {/* Live Server Auto-Deploy & Webhook Sync */}
+        <section className="card" style={{ background: theme === 'light' ? 'white' : '#0f172a', padding: '2.5rem', borderRadius: '2rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05)', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ width: '48px', height: '48px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🔄</div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: theme === 'light' ? '#1e293b' : '#f1f5f9' }}>Server Auto-Deploy & Sync</h3>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.88rem', color: theme === 'light' ? '#64748b' : '#94a3b8' }}>
+                  Auto-deploy latest GitHub code to grandgodwin.com without touching SSH
+                </p>
+              </div>
+            </div>
+            <div style={{
+              padding: '0.4rem 0.8rem',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              background: '#f0fdf4',
+              color: '#16a34a',
+              border: '1px solid #bcf0da'
+            }}>
+              ● WEBHOOK READY
+            </div>
+          </div>
+
+          <div style={{ background: theme === 'light' ? '#f8fafc' : '#1e293b', padding: '1.25rem', borderRadius: '14px', marginBottom: '1.5rem', border: theme === 'light' ? '1px solid #e2e8f0' : '1px solid #334155' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>GitHub Webhook URL:</span>
+                <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: '#2563eb', fontWeight: 700, wordBreak: 'break-all', marginTop: '0.25rem' }}>
+                  https://grandgodwin.com/api/webhook/deploy
+                </div>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Deploy Secret:</span>
+                <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: '#10b981', fontWeight: 700, marginTop: '0.25rem' }}>
+                  godwin_deploy_2026
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={handleManualDeploy}
+              disabled={deployLoading}
+              style={{
+                padding: '0.9rem 1.75rem',
+                borderRadius: '12px',
+                border: 'none',
+                cursor: 'pointer',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: 'white',
+                fontWeight: 800,
+                fontSize: '0.92rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                boxShadow: '0 4px 14px rgba(16,185,129,0.3)',
+                opacity: deployLoading ? 0.7 : 1
+              }}
+            >
+              {deployLoading ? '⏳ Rebuilding Server...' : '⚡ Sync & Rebuild Server Now'}
+            </button>
+            <button
+              type="button"
+              onClick={fetchDeployLog}
+              style={{
+                padding: '0.9rem 1.25rem',
+                borderRadius: '12px',
+                border: `1.5px solid ${theme === 'light' ? '#cbd5e1' : '#475569'}`,
+                background: 'transparent',
+                color: theme === 'light' ? '#475569' : '#cbd5e1',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                cursor: 'pointer'
+              }}
+            >
+              📋 {showDeployLog ? 'Hide Deploy Logs' : 'View Deploy Logs'}
+            </button>
+          </div>
+
+          {deployMsg && (
+            <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', borderRadius: '10px', background: deployMsg.includes('⚠️') ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: deployMsg.includes('⚠️') ? '#dc2626' : '#16a34a', fontWeight: 700, fontSize: '0.88rem' }}>
+              {deployMsg}
+            </div>
+          )}
+
+          {showDeployLog && deployLog && (
+            <div style={{ marginTop: '1.25rem', background: '#090d16', border: '1px solid #1e293b', borderRadius: '12px', padding: '1rem', maxHeight: '250px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Recent Deploy Output:</div>
+              <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.78rem', color: '#10b981', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                {deployLog}
+              </pre>
+            </div>
+          )}
         </section>
 
         {/* AI Assistant Config */}
