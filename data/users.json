@@ -66,43 +66,6 @@
     }
   },
   {
-    "id": "GG-1002",
-    "employeeId": "GG-1002",
-    "username": "ramansingh@godwinhotels.com",
-    "name": "Raman Singh",
-    "email": "ramansingh@godwinhotels.com",
-    "password": "Godwin@123",
-    "role": "Manager",
-    "status": "Active",
-    "createdAt": "2026-09-17",
-    "permissions": {
-      "hr": {
-        "employees": {
-          "view": true,
-          "edit": true
-        },
-        "attendance": {
-          "view": true,
-          "edit": true
-        },
-        "shifts": {
-          "view": true,
-          "edit": true
-        },
-        "leave": {
-          "view": true,
-          "approve": true
-        },
-        "reports": {
-          "view": true
-        }
-      },
-      "kiosk": {
-        "access": true
-      }
-    }
-  },
-  {
     "id": "admin-002",
     "username": "ksareen@godwinhotels.com",
     "name": "K Sareen",
