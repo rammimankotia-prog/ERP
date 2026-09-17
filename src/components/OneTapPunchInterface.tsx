@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
+import { verifyStaffLocation } from '@/lib/geofence';
 
 export interface EmployeeInfo {
   id: string;
@@ -138,39 +139,21 @@ export default function OneTapPunchInterface({
 
     let lat: number | undefined;
     let lng: number | undefined;
+    let accuracy: number | undefined;
 
     // Mobile GPS boundary acquisition
     if (punchMode === 'MOBILE_GEOFENCE') {
       setGeoLocating(true);
       try {
-        if (typeof window === 'undefined' || !navigator.geolocation) {
-          throw new Error('Geolocation is not supported by your browser.');
-        }
-
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0,
-          });
-        });
-
-        lat = position.coords.latitude;
-        lng = position.coords.longitude;
+        const loc = await verifyStaffLocation();
+        lat = loc.latitude;
+        lng = loc.longitude;
+        accuracy = loc.accuracy;
       } catch (geoErr: any) {
         setProcessing(false);
         setGeoLocating(false);
-        let msg = '📍 Please turn ON GPS / Location on your device to punch within 80m of hotel premises.';
-        if (geoErr?.code === 1) { // PERMISSION_DENIED
-          msg = '📍 Location Permission Denied: Please allow Location Access in your browser settings so we can verify you are within 80m of hotel premises.';
-        } else if (geoErr?.code === 2) { // POSITION_UNAVAILABLE
-          msg = '📍 Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
-        } else if (geoErr?.code === 3) { // TIMEOUT
-          msg = '📍 GPS Signal Timeout: Could not detect your location. Please ensure device GPS is turned ON and retry.';
-        } else if (geoErr?.message) {
-          msg = `📍 GPS Error: ${geoErr.message}. Please make sure device GPS / Location is turned ON.`;
-        }
-        setErrorMsg(msg);
+        const msg = typeof geoErr === 'string' ? geoErr : geoErr?.message || 'Location verification failed';
+        setErrorMsg(`📍 ${msg}`);
         return;
       } finally {
         setGeoLocating(false);
@@ -187,6 +170,7 @@ export default function OneTapPunchInterface({
           punchMode,
           lat,
           lng,
+          accuracy,
         }),
       });
 

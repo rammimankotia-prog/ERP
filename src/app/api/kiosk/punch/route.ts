@@ -13,16 +13,20 @@ const CONFIG_FILE = path.join(DATA_DIR, 'global_config.json')
 const LOCAL_CONFIG_FILE = path.join(process.cwd(), 'data', 'global_config.json')
 
 // Hotel premises geo-coordinates for geofencing
-// PRIMARY: Hotel Grand Godwin — Google My Business pin: 28.6457421, 77.2153514 (Chelmsford Rd, New Delhi)
+// PRIMARY: Hotel Grand Godwin — Google My Business verified pin: 28.64574210, 77.21535140
 // SECONDARY: Hotel Godwin Deluxe — 28.6445, 77.2142
+const HOTEL_LAT = 28.64574210;
+const HOTEL_LNG = 77.21535140;
+const ALLOWED_RADIUS_METERS = 80;
+
 function getGeofenceConfig() {
   const config = readJson<any>(CONFIG_FILE, LOCAL_CONFIG_FILE, {})
-  const radius = typeof config?.geofence?.radius === 'number' ? config.geofence.radius : 80
+  const radius = typeof config?.geofence?.radius === 'number' ? config.geofence.radius : ALLOWED_RADIUS_METERS
   const enabled = config?.geofence?.enabled !== undefined ? config.geofence.enabled : true
 
   // Use config override if present, else fall back to verified GMB pin
-  const primaryLat = config?.geofence?.lat ? Number(config.geofence.lat) : 28.6457421
-  const primaryLng = config?.geofence?.lng ? Number(config.geofence.lng) : 77.2153514
+  const primaryLat = config?.geofence?.lat ? Number(config.geofence.lat) : HOTEL_LAT
+  const primaryLng = config?.geofence?.lng ? Number(config.geofence.lng) : HOTEL_LNG
 
   const locations = [
     // PRIMARY — Hotel Grand Godwin (Google My Business verified pin)
@@ -35,16 +39,15 @@ function getGeofenceConfig() {
 }
 
 function getHaversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3 // Earth's radius in meters
+  const R = 6371000 // Earth radius in meters
   const toRad = (deg: number) => (deg * Math.PI) / 180
   const dLat = toRad(lat2 - lat1)
   const dLon = toRad(lon2 - lon1)
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return Math.round(R * c)
+  return R * c
 }
 
 function parseTimeToISTMinutes(timeOrIso: string | null | undefined): number {
@@ -188,6 +191,7 @@ export async function POST(req: NextRequest) {
       punchMode = 'KIOSK', // 'KIOSK' | 'MOBILE_GEOFENCE'
       lat,
       lng,
+      accuracy,
     } = body
 
     if (!employeeId || !action) {
@@ -227,7 +231,7 @@ export async function POST(req: NextRequest) {
     let minDistance = 0
     let nearestHotel = 'Hotel Grand Godwin'
 
-    // GEOFENCE VALIDATION for Mobile Punch (Default 20m in-premises, applicable to all users)
+    // GEOFENCE VALIDATION for Mobile Punch (Default 80m in-premises, applicable to all users)
     if (punchMode === 'MOBILE_GEOFENCE') {
       const { enabled: geofenceEnabled, locations: hotelLocations, radius: defaultRadius } = getGeofenceConfig()
 
@@ -239,15 +243,30 @@ export async function POST(req: NextRequest) {
           )
         }
 
-        // Calculate distance to both properties
-        const distances = hotelLocations.map(loc => ({
-          name: loc.name,
-          distance: getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng),
-          radius: loc.radiusMeters || defaultRadius || 80,
-        }))
+        // GPS signal weak (>100m accuracy)
+        if (typeof accuracy === 'number' && accuracy > 100) {
+          return NextResponse.json(
+            { error: `Location signal weak (accuracy ±${Math.round(accuracy)}m). Please move to open area or enable GPS and retry.` },
+            { status: 400 }
+          )
+        }
 
-        const withinPremises = distances.find(d => d.distance <= d.radius)
-        const closest = distances.reduce((prev, curr) => (curr.distance < prev.distance ? curr : prev))
+        // Calculate distance to properties with GPS accuracy buffer
+        const distances = hotelLocations.map(loc => {
+          const rawDist = getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng)
+          const effectiveDist = typeof accuracy === 'number' && accuracy > 0
+            ? Math.max(0, rawDist - accuracy)
+            : rawDist
+          return {
+            name: loc.name,
+            distance: Math.round(rawDist),
+            effectiveDistance: Math.round(effectiveDist),
+            radius: loc.radiusMeters || defaultRadius || 80,
+          }
+        })
+
+        const withinPremises = distances.find(d => d.effectiveDistance <= d.radius)
+        const closest = distances.reduce((prev, curr) => (curr.effectiveDistance < prev.effectiveDistance ? curr : prev))
         const matched = withinPremises || closest
 
         minDistance = matched.distance
@@ -266,18 +285,22 @@ export async function POST(req: NextRequest) {
             status: 'REJECTED_GEOFENCE',
             lat,
             lng,
+            accuracy,
             distanceMeters: closest.distance,
+            effectiveDistance: closest.effectiveDistance,
             nearestHotel: closest.name,
             allowedRadius: closest.radius,
             ip: clientIp,
             userAgent,
-            note: `Rejected: ${closest.distance}m away (${closest.radius}m premises limit)`
+            note: `Rejected: ${closest.distance}m away (effective ${closest.effectiveDistance}m, ±${accuracy ? Math.round(accuracy) : 0}m, ${closest.radius}m premises limit)`
           })
 
           return NextResponse.json(
             {
               error: `📍 Outside hotel premises! You are currently ${closest.distance}m away from ${closest.name}. Punch-in is strictly restricted within ${closest.radius}m in premises. Please ensure you are physically inside the hotel premises.`,
               distanceMeters: closest.distance,
+              effectiveDistance: closest.effectiveDistance,
+              accuracy: typeof accuracy === 'number' ? Math.round(accuracy) : undefined,
               allowedRadius: closest.radius,
               nearestHotel: closest.name
             },

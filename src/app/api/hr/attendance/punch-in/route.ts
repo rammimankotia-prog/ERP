@@ -11,26 +11,35 @@ const HOTEL_GEOFENCE_LOCATIONS = [
 ]
 
 function getHaversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3
+  const R = 6371000
   const toRad = (deg: number) => (deg * Math.PI) / 180
   const dLat = toRad(lat2 - lat1)
   const dLon = toRad(lon2 - lon1)
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    Math.sin(dLon / 2) ** 2
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return Math.round(R * c)
+  return R * c
 }
 
-function isWithinAnyHotelFence(lat: number, lng: number): { allowed: boolean; distance: number; name: string; radius: number } {
-  let minDist = Infinity, nearestName = '', nearestRadius = 80
+function isWithinAnyHotelFence(lat: number, lng: number, accuracy?: number): { allowed: boolean; distance: number; effectiveDistance: number; name: string; radius: number } {
+  let minDist = Infinity, minEffectiveDist = Infinity, nearestName = '', nearestRadius = 80
+  const acc = typeof accuracy === 'number' && accuracy > 0 ? accuracy : 0
   for (const loc of HOTEL_GEOFENCE_LOCATIONS) {
     const d = getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng)
-    if (d < minDist) { minDist = d; nearestName = loc.name; nearestRadius = loc.radiusMeters }
-    if (d <= loc.radiusMeters) return { allowed: true, distance: d, name: loc.name, radius: loc.radiusMeters }
+    const effectiveDist = Math.max(0, d - acc)
+    if (effectiveDist < minEffectiveDist) { 
+      minDist = Math.round(d)
+      minEffectiveDist = Math.round(effectiveDist)
+      nearestName = loc.name
+      nearestRadius = loc.radiusMeters 
+    }
+    if (effectiveDist <= loc.radiusMeters) {
+      return { allowed: true, distance: Math.round(d), effectiveDistance: Math.round(effectiveDist), name: loc.name, radius: loc.radiusMeters }
+    }
   }
-  return { allowed: false, distance: minDist, name: nearestName, radius: nearestRadius }
+  return { allowed: false, distance: minDist, effectiveDistance: minEffectiveDist, name: nearestName, radius: nearestRadius }
 }
 
 function getAttendanceStatus(punchInTime: Date, shiftStartTime: string, graceMinutes: number): string {
@@ -45,7 +54,7 @@ function getAttendanceStatus(punchInTime: Date, shiftStartTime: string, graceMin
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { employeeId, mode = 'WEB', lat, lng } = body
+    const { employeeId, mode = 'WEB', lat, lng, accuracy } = body
 
     if (!employeeId) {
       return NextResponse.json({ error: 'employeeId is required' }, { status: 400 })
@@ -86,12 +95,20 @@ export async function POST(req: NextRequest) {
 
     // Geo-fence validation: enforce 80m boundary if lat/lng are provided
     if (lat !== undefined && lng !== undefined) {
-      const fenceResult = isWithinAnyHotelFence(lat, lng)
+      if (typeof accuracy === 'number' && accuracy > 100) {
+        return NextResponse.json({
+          error: 'GEO_SIGNAL_WEAK',
+          message: `Location signal weak (accuracy ±${Math.round(accuracy)}m). Please move to open area or enable GPS and retry.`
+        }, { status: 400 })
+      }
+
+      const fenceResult = isWithinAnyHotelFence(lat, lng, accuracy)
       if (!fenceResult.allowed) {
         return NextResponse.json({
           error: 'GEO_FENCE_VIOLATION',
           message: `📍 Outside hotel premises! You are ${fenceResult.distance}m from ${fenceResult.name}. Punch-in is restricted within ${fenceResult.radius}m.`,
           distanceMeters: fenceResult.distance,
+          effectiveDistance: fenceResult.effectiveDistance,
           allowedRadius: fenceResult.radius
         }, { status: 403 })
       }

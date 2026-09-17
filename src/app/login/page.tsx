@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
+import { verifyStaffLocation } from '@/lib/geofence';
 import './login.css';
 
 type LoginMode = 'staff' | 'security';
@@ -15,8 +16,8 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [geofence, setGeofence] = useState<{enabled: boolean, lat: number, lng: number, radius: number} | null>({
     enabled: true,
-    lat: 28.6475,
-    lng: 77.21699,
+    lat: 28.64574210,
+    lng: 77.21535140,
     radius: 80,
   });
 
@@ -27,8 +28,8 @@ export default function LoginPage() {
         if (data.geofence) {
           setGeofence({
             enabled: data.geofence.enabled !== undefined ? data.geofence.enabled : true,
-            lat: data.geofence.lat || 28.6475,
-            lng: data.geofence.lng || 77.21699,
+            lat: data.geofence.lat || 28.64574210,
+            lng: data.geofence.lng || 77.21535140,
             radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 80,
           });
         }
@@ -36,70 +37,19 @@ export default function LoginPage() {
       .catch(console.error);
   }, []);
 
-  const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371e3; // metres
-    const φ1 = lat1 * Math.PI/180;
-    const φ2 = lat2 * Math.PI/180;
-    const Δφ = (lat2-lat1) * Math.PI/180;
-    const Δλ = (lon2-lon1) * Math.PI/180;
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  const verifyLocation = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (!geofence || !geofence.enabled) {
-        return resolve(true);
-      }
-      
-      if (!navigator.geolocation) {
-        const err = '📍 Geolocation is not supported by your browser. Please use a device with GPS support.';
-        setStaffError(err);
-        setSecError(err);
-        return resolve(false);
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const allowedRadius = typeof geofence.radius === 'number' ? geofence.radius : 80;
-          const premisesPoints = [
-            { lat: geofence.lat, lng: geofence.lng },
-            { lat: 28.6475, lng: 77.21699 },
-            { lat: 28.645870262027557, lng: 77.2153564554722 },
-            { lat: 28.64864864864865, lng: 77.21923732550276 },
-            { lat: 28.6445, lng: 77.2142 },
-          ];
-          const distances = premisesPoints.map(p => getDistance(position.coords.latitude, position.coords.longitude, p.lat, p.lng));
-          const minDistance = Math.min(...distances);
-
-          if (minDistance <= allowedRadius) {
-            resolve(true);
-          } else {
-            const err = `📍 Access Denied: You are ${Math.round(minDistance)}m away from hotel premises. Access is strictly restricted within ${allowedRadius}m in premises.`;
-            setStaffError(err);
-            setSecError(err);
-            resolve(false);
-          }
-        },
-        (error) => {
-          let err = '📍 Device GPS is OFF or Location Permission Needed! Please turn ON GPS / Location on your device to log in within 80m of hotel premises.';
-          if (error.code === 1) { // PERMISSION_DENIED
-            err = '📍 Location Permission Denied: Please allow location access in your browser settings so we can verify you are within 80m of hotel premises.';
-          } else if (error.code === 2) { // POSITION_UNAVAILABLE
-            err = '📍 Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
-          } else if (error.code === 3) { // TIMEOUT
-            err = '📍 GPS Signal Timeout: Could not detect your location. Please ensure device GPS is turned ON and retry.';
-          }
-          setStaffError(err);
-          setSecError(err);
-          resolve(false);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    });
+  const verifyLocation = async (): Promise<boolean> => {
+    if (geofence && !geofence.enabled) {
+      return true;
+    }
+    try {
+      await verifyStaffLocation();
+      return true;
+    } catch (err: any) {
+      const msg = typeof err === 'string' ? err : err?.message || 'Location verification failed';
+      setStaffError(`📍 ${msg}`);
+      setSecError(`📍 ${msg}`);
+      return false;
+    }
   };
 
   // Staff Login

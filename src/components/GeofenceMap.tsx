@@ -41,7 +41,7 @@ export default function GeofenceMap({ lat, lng, radius, onChange }: GeofenceMapP
 
   return (
     <div style={{ height: '300px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #cbd5e1' }}>
-      <MapContainer center={[lat || 28.6475, lng || 77.21699]} zoom={16} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={[lat || 28.64574210, lng || 77.21535140]} zoom={16} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

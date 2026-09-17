@@ -32,7 +32,7 @@ export default function SettingsPage() {
 
 
   // Geofence Config (Default 80m in-premises, enabled for all users)
-  const [geofence, setGeofence] = useState({ enabled: true, lat: 28.6475, lng: 77.21699, radius: 80 });
+  const [geofence, setGeofence] = useState({ enabled: true, lat: 28.64574210, lng: 77.21535140, radius: 80 });
   const [geofenceStatus, setGeofenceStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   useEffect(() => {
@@ -54,8 +54,8 @@ export default function SettingsPage() {
         if (data.geofence) {
           setGeofence({
             enabled: data.geofence.enabled !== undefined ? data.geofence.enabled : true,
-            lat: data.geofence.lat || 28.6475,
-            lng: data.geofence.lng || 77.21699,
+            lat: data.geofence.lat || 28.64574210,
+            lng: data.geofence.lng || 77.21535140,
             radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 80
           });
         }
@@ -288,13 +288,13 @@ export default function SettingsPage() {
             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Quick Presets:</span>
             <button
               type="button"
-              onClick={() => setGeofence({ ...geofence, lat: 28.6475, lng: 77.21699, radius: 80 })}
+              onClick={() => setGeofence({ ...geofence, lat: 28.64574210, lng: 77.21535140, radius: 80 })}
               style={{
                 padding: '0.45rem 0.9rem',
                 borderRadius: '8px',
                 border: '1px solid #cbd5e1',
-                background: geofence.lat === 28.6475 && geofence.lng === 77.21699 ? '#10b981' : theme === 'light' ? '#f8fafc' : '#1e293b',
-                color: geofence.lat === 28.6475 && geofence.lng === 77.21699 ? 'white' : theme === 'light' ? '#1e293b' : '#f1f5f9',
+                background: Math.abs(geofence.lat - 28.64574210) < 0.0001 && Math.abs(geofence.lng - 77.21535140) < 0.0001 ? '#10b981' : theme === 'light' ? '#f8fafc' : '#1e293b',
+                color: Math.abs(geofence.lat - 28.64574210) < 0.0001 && Math.abs(geofence.lng - 77.21535140) < 0.0001 ? 'white' : theme === 'light' ? '#1e293b' : '#f1f5f9',
                 fontWeight: 700,
                 fontSize: '0.82rem',
                 cursor: 'pointer'
