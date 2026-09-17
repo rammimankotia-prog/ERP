@@ -96,57 +96,11 @@ export default function TopNavbar() {
           <span>{isCollapsed ? 'Show Menu' : 'Full Page'}</span>
         </button>
 
-        {/* Brand Icon */}
-        <div style={{
-          width: '34px',
-          height: '34px',
-          minWidth: '34px',
-          borderRadius: '9px',
-          background: 'rgba(245, 158, 11, 0.15)',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '1.15rem',
-          flexShrink: 0
-        }}>
-          👑
-        </div>
-
-        {/* Brand Text */}
-        <div style={{ minWidth: 0, overflow: 'hidden' }}>
-          <h3 className="brand-title" style={{
-            margin: 0,
-            fontSize: '0.95rem',
-            fontWeight: 900,
-            color: isLight ? '#0f172a' : '#f8fafc',
-            letterSpacing: '-0.01em',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }}>
-            <span className="brand-full">Hotel Grand Godwin &amp; Godwin Deluxe</span>
-            <span className="brand-compact">Godwin ERP</span>
-          </h3>
-          <p className="brand-subtitle" style={{
-            margin: 0,
-            fontSize: '0.68rem',
-            fontWeight: 700,
-            color: '#64748b',
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }}>
-            Executive Enterprise Portal • New Delhi
-          </p>
-        </div>
       </div>
 
       {/* Right side: Controls (Theme Toggle, Fullscreen, User, Logout) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
-        
+
         {/* Dark Mode / Light Mode Button */}
         <button
           type="button"
@@ -203,40 +157,6 @@ export default function TopNavbar() {
           <span style={{ fontSize: '0.9rem' }}>{isFullscreen ? '🗗' : '⛶'}</span>
           <span>{isFullscreen ? 'Exit' : 'Full'}</span>
         </button>
-
-        {/* Online status indicator (Desktop Full Badge) */}
-        <div
-          title="Server Status: Online"
-          className="hide-on-mobile"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            background: isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.15)',
-            padding: '0.35rem 0.65rem',
-            minHeight: '34px',
-            borderRadius: '20px',
-            border: '1px solid #10b981',
-            flexShrink: 0
-          }}
-        >
-          <span style={{
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            background: '#10b981',
-            display: 'inline-block',
-            boxShadow: '0 0 6px #10b981'
-          }} />
-          <span style={{
-            fontSize: '0.72rem',
-            fontWeight: 800,
-            color: '#10b981',
-            letterSpacing: '0.03em'
-          }}>
-            ONLINE
-          </span>
-        </div>
 
         {/* User profile + Online Indicator (Compact on Mobile) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
@@ -337,25 +257,12 @@ export default function TopNavbar() {
           gap: 0.75rem;
         }
 
-        .brand-compact {
-          display: none;
-        }
-
         @media (max-width: 1024px) {
           .desktop-sidebar-btn {
             display: none !important;
           }
           .mobile-hamburger-btn {
             display: flex !important;
-          }
-          .brand-full {
-            display: none !important;
-          }
-          .brand-compact {
-            display: inline !important;
-          }
-          .brand-subtitle {
-            display: none !important;
           }
         }
 
