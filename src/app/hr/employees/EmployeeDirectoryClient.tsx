@@ -54,6 +54,13 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
   const [selectedStatus, setSelectedStatus] = useState('ALL')
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
 
+  // Detect mobile viewport on mount and default to clean card view
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setViewMode('cards')
+    }
+  }, [])
+
   // Drag-to-sort employee state
   const [draggedEmpId, setDraggedEmpId] = useState<string | null>(null)
   const [dragOverEmpId, setDragOverEmpId] = useState<string | null>(null)
@@ -640,6 +647,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
 
       {/* KPI Stats Banner */}
       <div
+        className="kpi-banner-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
@@ -649,6 +657,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       >
         {/* Total Employees */}
         <div
+          className="kpi-card"
           onClick={() => setSelectedStatus('ALL')}
           style={{
             cursor: 'pointer',

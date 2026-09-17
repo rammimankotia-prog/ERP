@@ -10,17 +10,16 @@ import { useSidebar } from '@/components/SidebarContext';
 export default function Sidebar() {
   const pathname = usePathname();
   const { theme } = useTheme();
-  const { user, hasPermission, isMasterAdmin } = useAuth();
+  const { user, logout, hasPermission, isMasterAdmin } = useAuth();
   const { isCollapsed, isMobileOpen, closeMobileSidebar } = useSidebar();
 
   // Auto-close mobile sidebar whenever pathname changes
   useEffect(() => {
     closeMobileSidebar();
-  }, [pathname, closeMobileSidebar]);
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
   if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout') || cleanPath.startsWith('/admin/login')) return null;
-
 
   // Helper: show HR sublink only if user has view permission
   const canSee = (module: string) => isMasterAdmin || hasPermission(module, 'view');
@@ -44,7 +43,7 @@ export default function Sidebar() {
       <aside
         className={`sidebar no-print ${isCollapsed ? 'desktop-collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}
         style={{
-          background: isLight ? '#f8fafc' : '#0f172a',
+          background: isLight ? '#ffffff' : '#0f172a',
           borderRight: isLight ? '1px solid #e2e8f0' : '1px solid #1e293b',
         }}
       >
@@ -52,27 +51,32 @@ export default function Sidebar() {
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: '2rem',
-          padding: '0 0.5rem'
+          alignItems: 'center',
+          marginBottom: '1.5rem',
+          padding: '0 0.25rem',
+          minWidth: 0
         }}>
-          <div>
-            <h2 style={{
-              color: isLight ? '#1e293b' : 'white',
-              letterSpacing: '-0.02em',
-              fontSize: '1.25rem',
-              fontWeight: 900,
-              margin: 0
-            }}>
-              GODWIN ERP
-            </h2>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.25rem' }}>👑</span>
+              <h2 style={{
+                color: isLight ? '#1e293b' : 'white',
+                letterSpacing: '-0.02em',
+                fontSize: '1.15rem',
+                fontWeight: 900,
+                margin: 0,
+                whiteSpace: 'nowrap'
+              }}>
+                GODWIN ERP
+              </h2>
+            </div>
             <p style={{
               color: isLight ? '#64748b' : '#94a3b8',
-              fontSize: '0.7rem',
-              marginTop: '0.25rem',
+              fontSize: '0.68rem',
+              marginTop: '0.2rem',
               fontWeight: 600,
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: '0.04em',
               margin: 0
             }}>
               Hospitality &amp; Tour Mgmt
@@ -86,14 +90,19 @@ export default function Sidebar() {
             className="mobile-close-btn"
             aria-label="Close Navigation Menu"
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: isLight ? '#64748b' : '#94a3b8',
-              fontSize: '1.4rem',
+              background: isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.1)',
+              border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255, 255, 255, 0.1)',
+              color: isLight ? '#475569' : '#cbd5e1',
+              fontSize: '1.2rem',
               lineHeight: 1,
               cursor: 'pointer',
-              padding: '0.25rem',
-              borderRadius: '6px',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '8px',
+              flexShrink: 0
             }}
           >
             ✕
@@ -231,6 +240,74 @@ export default function Sidebar() {
             />
           )}
         </nav>
+
+        {/* Mobile Drawer User Card & Logout Button */}
+        <div
+          className="mobile-drawer-footer"
+          style={{
+            marginTop: 'auto',
+            paddingTop: '1rem',
+            borderTop: isLight ? '1px solid #e2e8f0' : '1px solid #1e293b',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                color: 'white',
+                flexShrink: 0
+              }}
+            >
+              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'GH'}
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.name || 'Godwin Admin'}
+              </p>
+              <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {user?.role || 'Root Admin'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              closeMobileSidebar();
+              logout();
+            }}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              padding: '0.65rem 1rem',
+              borderRadius: '9px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: 'white',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(239, 68, 68, 0.25)'
+            }}
+          >
+            <span>🚪</span>
+            <span>Log Out</span>
+          </button>
+        </div>
 
         <style jsx>{`
           .sidebar-backdrop {

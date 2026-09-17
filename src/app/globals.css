@@ -336,10 +336,10 @@ select {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  z-index: 200;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 1050;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   opacity: 0;
   transition: opacity 0.25s ease;
 }
@@ -348,34 +348,76 @@ select {
   opacity: 1;
 }
 
-/* ===== MOBILE RESPONSIVE BREAKPOINTS ===== */
-@media (max-width: 768px) {
-  /* Show backdrop only on mobile */
-  .sidebar-backdrop { display: block; pointer-events: none; }
-  .sidebar-backdrop.active { pointer-events: auto; }
+/* Helper utility for form columns */
+.col-span-2,
+.col-span-full {
+  grid-column: span 2;
+}
 
-  /* Hide desktop sidebar — becomes a drawer */
+/* Table container horizontal scroll */
+.table-scroll-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+@media (max-width: 1024px) {
+  /* Show backdrop only on mobile / tablet */
+  .sidebar-backdrop {
+    display: block !important;
+    pointer-events: none;
+    z-index: 1050 !important;
+  }
+  .sidebar-backdrop.active {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+  }
+
+  /* Sidebar becomes a sliding drawer */
   .sidebar {
     position: fixed !important;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 250;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 1100 !important;
     width: min(var(--sidebar-width), 85vw) !important;
-    transform: translateX(-110%);
-    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 4px 0 24px rgba(0,0,0,0.35);
+    max-width: 320px !important;
+    transform: translateX(-105%) !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: none !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   .sidebar.mobile-open {
     transform: translateX(0) !important;
+    box-shadow: 10px 0 35px rgba(0, 0, 0, 0.5) !important;
   }
 
-  /* Main content takes full width on mobile */
-  .main-content {
-    padding: 0.85rem 0.75rem !important;
-  }
+  /* Hide desktop-only toggle */
+  .desktop-sidebar-btn { display: none !important; }
 
+  /* Show mobile hamburger & close button */
+  .mobile-hamburger-btn { display: flex !important; }
+  .mobile-close-btn { display: flex !important; }
+}
+
+@media (min-width: 1025px) {
+  /* Desktop defaults */
+  .mobile-hamburger-btn { display: none !important; }
+  .mobile-close-btn { display: none !important; }
+  .sidebar-backdrop { display: none !important; }
+  .mobile-drawer-footer { display: none !important; }
+  .desktop-sidebar-btn { display: flex !important; }
+  .sidebar.desktop-collapsed { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  /* Main content padding on mobile */
+  .main-content,
   .page-container {
     padding: 0.85rem 0.75rem !important;
   }
@@ -395,40 +437,97 @@ select {
     padding: 1rem 0.9rem !important;
   }
 
-  /* Grid collapse on mobile */
+  /* Form groups full width on mobile */
+  .form-group {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-bottom: 0.9rem;
+  }
+
+  .form-group label {
+    white-space: normal;
+  }
+
+  .form-input {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Grid collapse on mobile — prevents any child span from forcing implicit columns */
   .grid-responsive,
   .responsive-form-grid {
+    display: grid !important;
     grid-template-columns: 1fr !important;
-    gap: 0.85rem;
+    gap: 1rem !important;
   }
 
+  .grid-responsive > *,
+  .responsive-form-grid > *,
+  .col-span-2,
+  .col-span-full {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Shift selector on mobile */
   .shift-selector-grid {
-    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.65rem !important;
   }
 
+  .shift-card-btn {
+    flex-direction: row !important;
+    align-items: center !important;
+    text-align: left !important;
+    padding: 0.75rem 1rem !important;
+    gap: 0.85rem !important;
+  }
+
+  .shift-card-icon {
+    font-size: 1.5rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .shift-card-body {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  /* Weekly off grid on mobile (clean 2-column balanced cards) */
+  .weekly-off-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+  }
+
+  /* KPI Stats Banner on mobile (2x2 balanced grid) */
+  .kpi-banner-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.65rem !important;
+  }
+
+  .kpi-banner-grid > * {
+    padding: 0.85rem !important;
+  }
+
+  /* Action buttons full width stacked */
   .form-actions-bar {
-    flex-direction: column-reverse;
-    width: 100%;
+    flex-direction: column-reverse !important;
+    width: 100% !important;
+    gap: 0.75rem !important;
   }
 
   .form-actions-bar > * {
     width: 100% !important;
+    min-height: 48px !important;
     justify-content: center !important;
     text-align: center !important;
   }
-
-  /* Hide desktop-only sidebar toggle */
-  .desktop-sidebar-btn { display: none !important; }
-
-  /* Show mobile hamburger */
-  .mobile-hamburger-btn { display: flex !important; }
-}
-
-@media (min-width: 769px) {
-  /* Hide mobile-only elements on desktop */
-  .mobile-hamburger-btn { display: none !important; }
-  .mobile-close-btn { display: none !important; }
-  .sidebar-backdrop { display: none !important; }
 }
 
 /* ===== SMALL PHONE (iPhone SE, iPhone 12 Mini) ===== */

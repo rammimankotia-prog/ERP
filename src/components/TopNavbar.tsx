@@ -38,7 +38,7 @@ export default function TopNavbar() {
   return (
     <header className="top-navbar no-print">
       {/* Left side: Mobile Hamburger / Desktop Toggle & Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, flex: '1 1 auto' }}>
         {/* Mobile Hamburger Toggle */}
         <button
           type="button"
@@ -47,19 +47,22 @@ export default function TopNavbar() {
           title="Open Navigation Menu"
           aria-label="Toggle navigation drawer"
           style={{
-            display: 'none', // Overridden by media query
+            display: 'none', // Overridden by media query to flex
             alignItems: 'center',
             justifyContent: 'center',
-            width: '38px',
-            height: '38px',
+            width: '40px',
+            height: '40px',
+            minWidth: '40px',
+            minHeight: '40px',
             borderRadius: '9px',
             border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
             background: isLight ? '#f8fafc' : 'rgba(255, 255, 255, 0.08)',
             color: isLight ? '#1e293b' : '#f8fafc',
             cursor: 'pointer',
-            fontSize: '1.25rem',
+            fontSize: '1.35rem',
             padding: 0,
             flexShrink: 0,
+            touchAction: 'manipulation',
           }}
         >
           ☰
@@ -95,15 +98,16 @@ export default function TopNavbar() {
 
         {/* Brand Icon */}
         <div style={{
-          width: '36px',
-          height: '36px',
+          width: '34px',
+          height: '34px',
+          minWidth: '34px',
           borderRadius: '9px',
           background: 'rgba(245, 158, 11, 0.15)',
           border: '1px solid rgba(245, 158, 11, 0.3)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '1.2rem',
+          fontSize: '1.15rem',
           flexShrink: 0
         }}>
           👑
@@ -113,7 +117,7 @@ export default function TopNavbar() {
         <div style={{ minWidth: 0, overflow: 'hidden' }}>
           <h3 className="brand-title" style={{
             margin: 0,
-            fontSize: '0.92rem',
+            fontSize: '0.95rem',
             fontWeight: 900,
             color: isLight ? '#0f172a' : '#f8fafc',
             letterSpacing: '-0.01em',
@@ -141,10 +145,11 @@ export default function TopNavbar() {
       </div>
 
       {/* Right side: Controls (Theme Toggle, Fullscreen, User, Logout) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
         
         {/* Dark Mode / Light Mode Button */}
         <button
+          type="button"
           onClick={toggleTheme}
           title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
           aria-label={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
@@ -152,9 +157,10 @@ export default function TopNavbar() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '0.45rem',
-            padding: '0.45rem 0.75rem',
+            gap: '0.4rem',
+            padding: '0.4rem 0.65rem',
             minHeight: '36px',
+            minWidth: '36px',
             borderRadius: '9px',
             border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
             background: isLight ? '#f8fafc' : 'rgba(255, 255, 255, 0.08)',
@@ -173,6 +179,7 @@ export default function TopNavbar() {
 
         {/* Fullscreen Toggle Button (Desktop only) */}
         <button
+          type="button"
           onClick={handleToggleFullscreen}
           title={isFullscreen ? 'Exit Full Screen' : 'Toggle Full Screen'}
           className="hide-on-mobile"
@@ -197,9 +204,10 @@ export default function TopNavbar() {
           <span>{isFullscreen ? 'Exit' : 'Full'}</span>
         </button>
 
-        {/* Online status indicator */}
+        {/* Online status indicator (Desktop Full Badge) */}
         <div
           title="Server Status: Online"
+          className="hide-on-mobile"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -220,7 +228,7 @@ export default function TopNavbar() {
             display: 'inline-block',
             boxShadow: '0 0 6px #10b981'
           }} />
-          <span className="hide-on-mobile" style={{
+          <span style={{
             fontSize: '0.72rem',
             fontWeight: 800,
             color: '#10b981',
@@ -230,7 +238,7 @@ export default function TopNavbar() {
           </span>
         </div>
 
-        {/* User profile */}
+        {/* User profile + Online Indicator (Compact on Mobile) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
           <div className="hide-on-mobile" style={{ textAlign: 'right' }}>
             <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 800, color: isLight ? '#1e293b' : '#f8fafc' }}>
@@ -240,24 +248,41 @@ export default function TopNavbar() {
               {user?.role || 'Root Admin'}
             </p>
           </div>
-          <div
-            title={`${user?.name || 'Godwin Admin'} (${user?.role || 'Root Admin'})`}
-            style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '9px',
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.8rem',
-              fontWeight: 900,
-              color: 'white',
-              boxShadow: '0 3px 8px rgba(217, 119, 6, 0.25)',
-              flexShrink: 0
-            }}
-          >
-            {user?.name ? user.name.slice(0, 2).toUpperCase() : 'GH'}
+          
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div
+              title={`${user?.name || 'Godwin Admin'} (${user?.role || 'Root Admin'})`}
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '9px',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.8rem',
+                fontWeight: 900,
+                color: 'white',
+                boxShadow: '0 2px 6px rgba(217, 119, 6, 0.25)',
+              }}
+            >
+              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'GH'}
+            </div>
+            {/* Integrated Online Pulse Dot */}
+            <span
+              title="System Online"
+              style={{
+                position: 'absolute',
+                bottom: '-2px',
+                right: '-2px',
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                background: '#10b981',
+                border: isLight ? '2px solid #ffffff' : '2px solid #0f172a',
+                boxShadow: '0 0 5px rgba(16, 185, 129, 0.9)'
+              }}
+            />
           </div>
         </div>
 
@@ -278,20 +303,22 @@ export default function TopNavbar() {
             color: 'white',
             border: 'none',
             borderRadius: '9px',
-            padding: '0.45rem 0.85rem',
+            padding: '0.45rem 0.75rem',
             minHeight: '36px',
+            minWidth: '36px',
             fontSize: '0.82rem',
             fontWeight: 800,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: '0.35rem',
-            boxShadow: '0 3px 10px rgba(239, 68, 68, 0.3)',
+            boxShadow: '0 2px 8px rgba(239, 68, 68, 0.25)',
             transition: 'all 0.15s ease',
             flexShrink: 0
           }}
         >
-          <span>🚪</span>
+          <span style={{ fontSize: '1rem' }}>🚪</span>
           <span className="hide-on-mobile">Log Out</span>
         </button>
       </div>
@@ -321,20 +348,20 @@ export default function TopNavbar() {
           .mobile-hamburger-btn {
             display: flex !important;
           }
+          .brand-full {
+            display: none !important;
+          }
+          .brand-compact {
+            display: inline !important;
+          }
+          .brand-subtitle {
+            display: none !important;
+          }
         }
 
         @media (max-width: 768px) {
           .top-navbar {
-            padding: 0.5rem 0.75rem;
-          }
-          .brand-full {
-            display: none;
-          }
-          .brand-compact {
-            display: inline;
-          }
-          .brand-subtitle {
-            display: none !important;
+            padding: 0.5rem 0.65rem !important;
           }
           .hide-on-mobile {
             display: none !important;

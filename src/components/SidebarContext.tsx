@@ -38,7 +38,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const toggleSidebar = () => {
+  const toggleSidebar = React.useCallback(() => {
     setIsCollapsed((prev) => {
       const next = !prev;
       try {
@@ -48,19 +48,19 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
-  };
+  }, []);
 
-  const toggleMobileSidebar = () => {
+  const toggleMobileSidebar = React.useCallback(() => {
     setIsMobileOpen((prev) => !prev);
-  };
+  }, []);
 
-  const closeMobileSidebar = () => {
+  const closeMobileSidebar = React.useCallback(() => {
     setIsMobileOpen(false);
-  };
+  }, []);
 
-  const openMobileSidebar = () => {
+  const openMobileSidebar = React.useCallback(() => {
     setIsMobileOpen(true);
-  };
+  }, []);
 
   return (
     <SidebarContext.Provider

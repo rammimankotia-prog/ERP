@@ -526,19 +526,32 @@ export default function AddEmployeeForm({
           </div>
 
           {/* Password Section */}
-          <div className="form-group" style={{ gridColumn: 'span 2' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-              <label style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-main)', margin: 0 }}>
-                Portal & Kiosk Login Password <span style={{ color: 'var(--error)' }}>*</span>
+          <div className="form-group col-span-2">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-main)', margin: 0 }}>
+                <span>Portal &amp; Kiosk Login Password</span>
+                <span style={{ color: 'var(--error)' }}>*</span>
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>
+              <label style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.82rem',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                background: 'rgba(37, 99, 235, 0.08)',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(37, 99, 235, 0.2)'
+              }}>
                 <input
                   type="checkbox"
                   checked={autoGeneratePassword}
                   onChange={(e) => setAutoGeneratePassword(e.target.checked)}
                   style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
                 />
-                Auto-generate secure password
+                <span>Auto-generate secure password</span>
               </label>
             </div>
 
@@ -686,7 +699,7 @@ export default function AddEmployeeForm({
           </div>
 
           {/* Address */}
-          <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+          <div className="form-group col-span-full">
             <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
               Residential Address
             </label>
@@ -1000,6 +1013,7 @@ export default function AddEmployeeForm({
           {/* Morning Shift Toggle */}
           <button
             type="button"
+            className="shift-card-btn"
             onClick={() => {
               setSelectedShift('MORNING')
               setMorningTime('09:00')
@@ -1019,18 +1033,21 @@ export default function AddEmployeeForm({
               textAlign: 'center',
             }}
           >
-            <span style={{ fontSize: '1.4rem' }}>☀️</span>
-            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'MORNING' ? '#10b981' : 'var(--text-main)' }}>
-              Morning Shift
-            </span>
-            <span style={{ fontSize: '0.75rem', color: selectedShift === 'MORNING' ? '#10b981' : 'var(--text-muted)' }}>
-              09:00 AM – 06:00 PM
-            </span>
+            <span className="shift-card-icon" style={{ fontSize: '1.4rem' }}>☀️</span>
+            <div className="shift-card-body">
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'MORNING' ? '#10b981' : 'var(--text-main)' }}>
+                Morning Shift
+              </span>
+              <span style={{ fontSize: '0.75rem', color: selectedShift === 'MORNING' ? '#10b981' : 'var(--text-muted)' }}>
+                09:00 AM – 06:00 PM
+              </span>
+            </div>
           </button>
 
           {/* Break Shift Toggle */}
           <button
             type="button"
+            className="shift-card-btn"
             onClick={() => {
               setSelectedShift('BREAK')
               setMorningTime('10:00')
@@ -1052,18 +1069,21 @@ export default function AddEmployeeForm({
               textAlign: 'center',
             }}
           >
-            <span style={{ fontSize: '1.4rem' }}>☕</span>
-            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'BREAK' ? '#38bdf8' : 'var(--text-main)' }}>
-              Break Shift
-            </span>
-            <span style={{ fontSize: '0.75rem', color: selectedShift === 'BREAK' ? '#38bdf8' : 'var(--text-muted)' }}>
-              10:00–14:00 & 18:00–22:00
-            </span>
+            <span className="shift-card-icon" style={{ fontSize: '1.4rem' }}>☕</span>
+            <div className="shift-card-body">
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'BREAK' ? '#38bdf8' : 'var(--text-main)' }}>
+                Break Shift
+              </span>
+              <span style={{ fontSize: '0.75rem', color: selectedShift === 'BREAK' ? '#38bdf8' : 'var(--text-muted)' }}>
+                10:00–14:00 & 18:00–22:00
+              </span>
+            </div>
           </button>
 
           {/* Night Shift Toggle */}
           <button
             type="button"
+            className="shift-card-btn"
             onClick={() => {
               setSelectedShift('NIGHT')
               setMorningTime('22:00')
@@ -1083,13 +1103,15 @@ export default function AddEmployeeForm({
               textAlign: 'center',
             }}
           >
-            <span style={{ fontSize: '1.4rem' }}>🌙</span>
-            <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'NIGHT' ? '#8b5cf6' : 'var(--text-main)' }}>
-              Night Shift
-            </span>
-            <span style={{ fontSize: '0.75rem', color: selectedShift === 'NIGHT' ? '#8b5cf6' : 'var(--text-muted)' }}>
-              10:00 PM – 07:00 AM
-            </span>
+            <span className="shift-card-icon" style={{ fontSize: '1.4rem' }}>🌙</span>
+            <div className="shift-card-body">
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'NIGHT' ? '#8b5cf6' : 'var(--text-main)' }}>
+                Night Shift
+              </span>
+              <span style={{ fontSize: '0.75rem', color: selectedShift === 'NIGHT' ? '#8b5cf6' : 'var(--text-muted)' }}>
+                10:00 PM – 07:00 AM
+              </span>
+            </div>
           </button>
         </div>
 
@@ -1252,7 +1274,7 @@ export default function AddEmployeeForm({
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginTop: '0.75rem' }}>
+          <div className="weekly-off-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginTop: '0.75rem' }}>
             {DAYS_OF_WEEK.map(day => {
               const isChecked = offDays.includes(day)
               const isDefaultSunday = day === 'Sunday'
@@ -1263,7 +1285,8 @@ export default function AddEmployeeForm({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.6rem',
-                    padding: '0.65rem 0.85rem',
+                    padding: '0.6rem 0.75rem',
+                    minHeight: '52px',
                     borderRadius: '8px',
                     border: isChecked
                       ? (isDefaultSunday ? '2px solid #ef4444' : '2px solid var(--primary)')
@@ -1274,23 +1297,28 @@ export default function AddEmployeeForm({
                     cursor: 'pointer',
                     userSelect: 'none',
                     transition: 'all 0.15s ease',
+                    boxSizing: 'border-box'
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={isChecked}
                     onChange={() => toggleOffDay(day)}
-                    style={{ width: '16px', height: '16px', accentColor: isDefaultSunday ? '#ef4444' : 'var(--primary)', cursor: 'pointer' }}
+                    style={{ width: '16px', height: '16px', accentColor: isDefaultSunday ? '#ef4444' : 'var(--primary)', cursor: 'pointer', flexShrink: 0 }}
                   />
-                  <div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isChecked ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isChecked ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                       {day}
                     </div>
-                    {isDefaultSunday && (
-                      <div style={{ fontSize: '0.65rem', color: '#ef4444', fontWeight: 600 }}>
-                        Default Off
-                      </div>
-                    )}
+                    <div style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                      lineHeight: '14px',
+                      color: isDefaultSunday ? '#ef4444' : (isChecked ? 'var(--primary)' : 'transparent'),
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {isDefaultSunday ? 'Default Off' : (isChecked ? 'Scheduled Off' : '\u00A0')}
+                    </div>
                   </div>
                 </label>
               )
