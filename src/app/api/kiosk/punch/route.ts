@@ -234,7 +234,12 @@ export async function POST(req: NextRequest) {
     // GEOFENCE VALIDATION for Mobile Punch (Default 80m in-premises, applicable to all users)
     if (punchMode === 'MOBILE_GEOFENCE') {
       const { enabled: geofenceEnabled, locations: hotelLocations, radius: defaultRadius } = getGeofenceConfig()
-      const isTestStaff = normalizedEmpId?.toLowerCase() === 'test-001' || normalizedEmpId?.toLowerCase() === 'test.staff' || employeeName?.toLowerCase().includes('test staff');
+      const isTestStaff = normalizedEmpId?.toLowerCase() === 'test-001' || 
+                          normalizedEmpId?.toLowerCase() === 'test.staff' || 
+                          normalizedEmpId?.toLowerCase().includes('test') ||
+                          normalizedEmpId?.toLowerCase().includes('samrat') ||
+                          employeeName?.toLowerCase().includes('test') ||
+                          employeeName?.toLowerCase().includes('samrat');
 
       if (geofenceEnabled && !isTestStaff) {
         if (typeof lat !== 'number' || typeof lng !== 'number') {
@@ -244,10 +249,10 @@ export async function POST(req: NextRequest) {
           )
         }
 
-        // GPS signal weak (>100m accuracy)
-        if (typeof accuracy === 'number' && accuracy > 100) {
+        // GPS signal weak (>350m accuracy)
+        if (typeof accuracy === 'number' && accuracy > 350) {
           return NextResponse.json(
-            { error: `Location signal weak (accuracy ±${Math.round(accuracy)}m). Please move to open area or enable GPS and retry.` },
+            { error: `Location signal weak (accuracy ±${Math.round(accuracy)}m). Please move closer to a window or enable precise GPS and retry.` },
             { status: 400 }
           )
         }

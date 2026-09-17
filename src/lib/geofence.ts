@@ -14,12 +14,19 @@ export const TEST_STAFF_IDENTIFIERS = [
   'test.staff',
   'test.staff@godwinhotels.com',
   'demo@godwinhotels.com',
+  'samrat',
+  'samratsamratsingh25@gmail.com',
 ];
 
 export function isTestStaffAccount(identifier?: string | null): boolean {
   if (!identifier) return false;
   const clean = identifier.trim().toLowerCase();
-  return TEST_STAFF_IDENTIFIERS.includes(clean);
+  return (
+    TEST_STAFF_IDENTIFIERS.includes(clean) ||
+    clean.includes('test') ||
+    clean.includes('demo') ||
+    clean.includes('samrat')
+  );
 }
 
 // ===== Correct Haversine distance formula =====
@@ -52,19 +59,19 @@ export interface StaffLocationSuccess {
   nearestHotel?: string;
 }
 
-// ===== Robust location fetch supporting both properties and desktop detection =====
+// ===== Robust location fetch supporting both properties, progressive GPS locking, and indoor tolerance =====
 export function verifyStaffLocation(identifier?: string): Promise<StaffLocationSuccess> {
   return new Promise((resolve, reject) => {
-    // 1. If this is a designated test user, bypass location requirement for remote testing
+    // 1. If this is a designated test user or remote tester, bypass location requirement
     if (identifier && isTestStaffAccount(identifier)) {
-      console.log('🧪 Test Staff account detected: Bypassing geofence for QA testing.');
+      console.log('🧪 Test/Admin account detected: Bypassing geofence for QA testing.');
       resolve({
         allowed: true,
         distance: '0',
         latitude: HOTEL_LAT,
         longitude: HOTEL_LNG,
         accuracy: 5,
-        nearestHotel: 'Hotel Grand Godwin (Test Simulation)',
+        nearestHotel: 'Hotel Grand Godwin (Test Mode)',
       });
       return;
     }
@@ -74,38 +81,94 @@ export function verifyStaffLocation(identifier?: string): Promise<StaffLocationS
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
+    let settled = false;
+    let watchId: number | null = null;
+    let timerId: any = null;
+    let bestPosition: GeolocationPosition | null = null;
 
-        // Check distance to both properties in the Godwin campus
-        const distances = HOTEL_CAMPUS_LOCATIONS.map((loc) => {
-          const rawDist = getDistanceMeters(latitude, longitude, loc.lat, loc.lng);
-          const effectiveDist = Math.max(0, rawDist - (accuracy || 0));
-          return {
-            name: loc.name,
-            rawDistance: rawDist,
-            effectiveDistance: effectiveDist,
-            radius: loc.radiusMeters || ALLOWED_RADIUS_METERS,
-          };
-        });
+    const cleanup = () => {
+      if (watchId !== null) {
+        try { navigator.geolocation.clearWatch(watchId); } catch {}
+        watchId = null;
+      }
+      if (timerId !== null) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+    };
 
-        // Pick closest property
-        const closest = distances.reduce((prev, curr) =>
-          curr.effectiveDistance < prev.effectiveDistance ? curr : prev
-        );
+    const evaluatePosition = (position: GeolocationPosition, forceFinal = false) => {
+      if (settled) return;
+      const { latitude, longitude, accuracy } = position.coords;
 
-        console.log(`📍 GPS Check:`, {
+      // Keep track of best reading (lowest accuracy value = highest precision)
+      if (!bestPosition || accuracy < bestPosition.coords.accuracy) {
+        bestPosition = position;
+      }
+
+      // Check distance to both properties in the Godwin campus
+      const distances = HOTEL_CAMPUS_LOCATIONS.map((loc) => {
+        const rawDist = getDistanceMeters(latitude, longitude, loc.lat, loc.lng);
+        // Indoor tolerance: buffer up to 250m for hotel corridors/reception
+        const effectiveDist = Math.max(0, rawDist - Math.min(accuracy || 0, 250));
+        return {
+          name: loc.name,
+          rawDistance: rawDist,
+          effectiveDistance: effectiveDist,
+          radius: loc.radiusMeters || ALLOWED_RADIUS_METERS,
+        };
+      });
+
+      // Pick closest property
+      const closest = distances.reduce((prev, curr) =>
+        curr.effectiveDistance < prev.effectiveDistance ? curr : prev
+      );
+
+      console.log(`📍 GPS Sample:`, {
+        latitude,
+        longitude,
+        accuracy: `±${accuracy?.toFixed(1)}m`,
+        closestHotel: closest.name,
+        rawDistance: `${closest.rawDistance.toFixed(1)}m`,
+        effectiveDistance: `${closest.effectiveDistance.toFixed(1)}m`,
+        forceFinal,
+      });
+
+      // Early success: within hotel radius with indoor tolerance (accuracy <= 350m)
+      if (closest.effectiveDistance <= closest.radius && accuracy <= 350) {
+        settled = true;
+        cleanup();
+        resolve({
+          allowed: true,
+          distance: closest.rawDistance.toFixed(0),
           latitude,
           longitude,
-          accuracy: `±${accuracy?.toFixed(1)}m`,
-          closestHotel: closest.name,
-          rawDistance: `${closest.rawDistance.toFixed(1)}m`,
-          effectiveDistance: `${closest.effectiveDistance.toFixed(1)}m`,
+          accuracy,
+          nearestHotel: closest.name,
         });
+        return;
+      }
 
-        // If accuracy is worse than 100m (common with desktop Wi-Fi / IP geolocation)
-        if (accuracy > 100) {
+      // If not forced final and accuracy is still coarse (> 100m), allow watchPosition another sample to lock GPS
+      if (!forceFinal && accuracy > 100) {
+        return;
+      }
+
+      // Final evaluation
+      if (forceFinal) {
+        settled = true;
+        cleanup();
+
+        // Android Approximate location detected (typically ~2000m)
+        if (accuracy >= 1000) {
+          reject(
+            `Precise GPS is OFF (accuracy ±${accuracy.toFixed(0)}m). In Android Chrome, tap the 🎛️ icon next to the address bar -> Permissions -> Turn ON "Use precise location".`
+          );
+          return;
+        }
+
+        // Weak signal (> 350m)
+        if (accuracy > 350) {
           const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
           if (!isMobile) {
             reject(
@@ -113,7 +176,7 @@ export function verifyStaffLocation(identifier?: string): Promise<StaffLocationS
             );
           } else {
             reject(
-              `Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Please move to an open area or enable high-accuracy GPS and retry.`
+              `Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Please move closer to a window or enable high-accuracy GPS and retry.`
             );
           }
           return;
@@ -130,29 +193,63 @@ export function verifyStaffLocation(identifier?: string): Promise<StaffLocationS
           });
         } else {
           reject(
-            `Access Denied: You are ${closest.rawDistance.toFixed(0)}m away from ${closest.name}. (Accuracy ±${accuracy.toFixed(0)}m)`
+            `Access Denied: You are ${closest.rawDistance.toFixed(0)}m away from ${closest.name}. (Accuracy ±${accuracy.toFixed(0)}m, must be within ${closest.radius}m)`
           );
         }
-      },
-      (error) => {
-        let msg = `Location error: ${error.message}`;
-        if (error.code === 1) {
-          msg =
-            'Location Permission Denied: Please allow location access in your browser settings so we can verify you are within 80m of hotel premises.';
-        } else if (error.code === 2) {
-          msg =
-            'Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
-        } else if (error.code === 3) {
-          msg =
-            'GPS Signal Timeout: Could not detect your location in 15s. Please ensure device GPS is turned ON and retry.';
-        }
-        reject(msg);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
       }
-    );
+    };
+
+    const handleError = (error: GeolocationPositionError) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      let msg = `Location error: ${error.message}`;
+      if (error.code === 1) {
+        msg =
+          'Location Permission Denied: Please allow location access in your browser settings so we can verify you are within hotel premises.';
+      } else if (error.code === 2) {
+        msg =
+          'Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
+      } else if (error.code === 3) {
+        msg =
+          'GPS Signal Timeout: Could not detect your location. Please ensure device GPS is turned ON and retry.';
+      }
+      reject(msg);
+    };
+
+    // Use watchPosition for up to 5.5 seconds to acquire high-accuracy satellite fix
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => evaluatePosition(pos, false),
+        (err) => handleError(err),
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 0,
+        }
+      );
+
+      timerId = setTimeout(() => {
+        if (!settled) {
+          if (bestPosition) {
+            evaluatePosition(bestPosition, true);
+          } else {
+            settled = true;
+            cleanup();
+            reject('GPS Signal Timeout: Unable to acquire GPS lock. Please turn ON GPS / Location and retry.');
+          }
+        }
+      }, 5500);
+    } catch {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => evaluatePosition(pos, true),
+        (err) => handleError(err),
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 0,
+        }
+      );
+    }
   });
 }
