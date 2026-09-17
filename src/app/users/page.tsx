@@ -152,7 +152,7 @@ export default function UsersManagementPage() {
 
   // Form state
   const [formData, setFormData] = useState({
-    username: '', name: '', email: '', password: '', role: 'Staff', status: 'Active',
+    id: '', username: '', name: '', email: '', password: '', role: 'Staff', status: 'Active', createdAt: '',
   });
   const [formPermissions, setFormPermissions] = useState<PermissionSet>(EMPTY_PERMISSIONS);
   const [formError, setFormError] = useState('');
@@ -176,7 +176,16 @@ export default function UsersManagementPage() {
 
   const openAdd = () => {
     setEditingUser(null);
-    setFormData({ username: '', name: '', email: '', password: '', role: 'Staff', status: 'Active' });
+    setFormData({
+      id: '',
+      username: '',
+      name: '',
+      email: '',
+      password: '',
+      role: 'Staff',
+      status: 'Active',
+      createdAt: new Date().toISOString().split('T')[0],
+    });
     setFormPermissions(JSON.parse(JSON.stringify(EMPTY_PERMISSIONS)));
     setFormError(''); setFormSuccess('');
     setShowModal(true);
@@ -184,7 +193,20 @@ export default function UsersManagementPage() {
 
   const openEdit = (u: User) => {
     setEditingUser(u);
-    setFormData({ username: u.username, name: u.name, email: u.email, password: '', role: u.role, status: u.status });
+    const creationDate = u.createdAt
+      ? (u.createdAt.includes('T') ? u.createdAt.split('T')[0] : u.createdAt)
+      : new Date().toISOString().split('T')[0];
+
+    setFormData({
+      id: u.id,
+      username: u.username,
+      name: u.name,
+      email: u.email,
+      password: '',
+      role: u.role,
+      status: u.status,
+      createdAt: creationDate,
+    });
     
     // Ensure backwards compatibility by adding kiosk to old permissions
     const existingPerms = u.permissions ? JSON.parse(JSON.stringify(u.permissions)) : {};
@@ -227,7 +249,7 @@ export default function UsersManagementPage() {
     setIsSubmitting(true);
     try {
       const body = editingUser
-        ? { id: editingUser.id, ...formData, permissions: formPermissions }
+        ? { ...formData, id: editingUser.id, newId: formData.id, permissions: formPermissions }
         : { ...formData, permissions: formPermissions };
       const res = await fetch('/api/auth/users', {
         method: editingUser ? 'PUT' : 'POST',
@@ -513,8 +535,22 @@ export default function UsersManagementPage() {
                           </div>
                           <div>
                             <div style={{ fontWeight: 700, color: isLight ? '#1e293b' : '#f1f5f9', fontSize: '0.9rem' }}>{u.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: isLight ? '#64748b' : '#94a3b8' }}>@{u.username}</div>
-                            <div style={{ fontSize: '0.72rem', color: isLight ? '#94a3b8' : '#64748b' }}>{u.email}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                              <span style={{
+                                fontSize: '0.68rem', fontWeight: 800, padding: '1px 6px', borderRadius: 4,
+                                background: isLight ? 'rgba(37,99,235,0.08)' : 'rgba(37,99,235,0.2)',
+                                color: isLight ? '#2563eb' : '#93c5fd',
+                                letterSpacing: '0.02em',
+                              }}>
+                                ID: {u.id}
+                              </span>
+                              {u.username && u.username.toLowerCase() !== u.email.toLowerCase() && (
+                                <span style={{ fontSize: '0.75rem', color: isLight ? '#64748b' : '#94a3b8' }}>
+                                  @{u.username}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: isLight ? '#64748b' : '#94a3b8', marginTop: '0.15rem' }}>{u.email}</div>
                           </div>
                         </div>
                       </td>
@@ -532,7 +568,9 @@ export default function UsersManagementPage() {
                           {u.status}
                         </span>
                       </td>
-                      <td style={{ padding: '1rem', fontSize: '0.8rem', color: isLight ? '#64748b' : '#94a3b8' }}>{u.createdAt || '—'}</td>
+                      <td style={{ padding: '1rem', fontSize: '0.82rem', color: isLight ? '#334155' : '#cbd5e1', fontWeight: 600 }}>
+                        {u.createdAt ? (u.createdAt.includes('T') ? u.createdAt.split('T')[0] : u.createdAt) : '—'}
+                      </td>
                       <td style={{ padding: '1rem' }}>
                         {isMaster ? (
                           <span style={{ fontSize: '0.8rem', color: '#7c3aed', fontWeight: 700 }}>All Access ✓</span>
@@ -606,12 +644,29 @@ export default function UsersManagementPage() {
                 {/* Basic Info */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                   <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Full Name *</label>
-                    <input value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Priya Sharma" style={input} required />
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>User ID / Code</label>
+                    <input
+                      value={formData.id}
+                      onChange={e => setFormData(p => ({ ...p, id: e.target.value }))}
+                      placeholder="e.g. GG-1002, admin-001"
+                      style={input}
+                      disabled={editingUser?.id === 'admin-001'}
+                    />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Username *</label>
-                    <input value={formData.username} onChange={e => setFormData(p => ({ ...p, username: e.target.value }))} placeholder="e.g. priya.sharma" style={input} required disabled={editingUser?.id === 'admin-001'} />
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Username / Login ID *</label>
+                    <input
+                      value={formData.username}
+                      onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
+                      placeholder="e.g. priya.sharma"
+                      style={input}
+                      required
+                      disabled={editingUser?.id === 'admin-001'}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Full Name *</label>
+                    <input value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Priya Sharma" style={input} required />
                   </div>
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Email *</label>
@@ -620,6 +675,15 @@ export default function UsersManagementPage() {
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>{editingUser ? 'New Password (leave blank to keep)' : 'Password *'}</label>
                     <input type="password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} placeholder="••••••••" style={input} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Date of Creation / Joining</label>
+                    <input
+                      type="date"
+                      value={formData.createdAt}
+                      onChange={e => setFormData(p => ({ ...p, createdAt: e.target.value }))}
+                      style={input}
+                    />
                   </div>
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: 600, color: isLight ? '#374151' : '#94a3b8', display: 'block', marginBottom: 5 }}>Role</label>

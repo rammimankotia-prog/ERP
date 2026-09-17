@@ -29,8 +29,8 @@
     "status": "ACTIVE",
     "role": "Master Admin",
     "baseSalary": 50000,
-    "doj": "2024-01-01T00:00:00.000Z",
-    "createdAt": "2024-01-01T00:00:00.000Z",
+    "doj": "2026-09-17T00:00:00.000Z",
+    "createdAt": "2026-09-17T00:00:00.000Z",
     "updatedAt": "2026-09-16T11:30:00.000Z"
   },
   {
@@ -63,8 +63,8 @@
     "status": "ACTIVE",
     "role": "Manager",
     "baseSalary": 40000,
-    "doj": "2024-01-01T00:00:00.000Z",
-    "createdAt": "2024-01-01T00:00:00.000Z",
+    "doj": "2026-09-17T00:00:00.000Z",
+    "createdAt": "2026-09-17T00:00:00.000Z",
     "updatedAt": "2026-09-16T11:30:00.000Z"
   }
 ]
