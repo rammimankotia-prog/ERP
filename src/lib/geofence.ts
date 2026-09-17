@@ -16,6 +16,8 @@ export const TEST_STAFF_IDENTIFIERS = [
   'demo@godwinhotels.com',
   'samrat',
   'samratsamratsingh25@gmail.com',
+  'ksareen@godwinhotels.com',
+  'vsareen@godwinhotels.com',
 ];
 
 export function isTestStaffAccount(identifier?: string | null): boolean {

@@ -41,6 +41,28 @@ const DEFAULT_USERS = [
     status: "Active",
     createdAt: new Date().toISOString().split("T")[0],
     permissions: { kiosk: { access: true } },
+  },
+  {
+    id: "admin-002",
+    username: "ksareen@godwinhotels.com",
+    name: "K Sareen",
+    email: "ksareen@godwinhotels.com",
+    password: "Balaknath@99",
+    role: "Master Admin",
+    status: "Active",
+    createdAt: "2026-09-17",
+    permissions: MASTER_ADMIN_PERMISSIONS,
+  },
+  {
+    id: "admin-003",
+    username: "vsareen@godwinhotels.com",
+    name: "V Sareen",
+    email: "vsareen@godwinhotels.com",
+    password: "Balaknath@99",
+    role: "Master Admin",
+    status: "Active",
+    createdAt: "2026-09-17",
+    permissions: MASTER_ADMIN_PERMISSIONS,
   }
 ];
 
