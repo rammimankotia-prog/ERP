@@ -9,7 +9,7 @@ export const metadata = {
 export default function AttendancePage() {
   return (
     <div className="page-container" style={{ maxWidth: '1200px' }}>
-      <div className="header">
+      <div className="header no-print">
         <div>
           <h1 style={{ color: 'var(--text-main)', marginBottom: '0.25rem' }}>Attendance</h1>
           <p>Track daily punch-in/out across Web, GPS, and Biometric modes.</p>
