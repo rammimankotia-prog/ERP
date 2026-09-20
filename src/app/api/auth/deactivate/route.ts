@@ -53,7 +53,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Protect Master Admin from deactivation
-    if (userId === "admin-001" || username?.toLowerCase() === "mail@godwinhotels.com" || email?.toLowerCase() === "mail@godwinhotels.com") {
+    const isProtectedMaster =
+      userId === "admin-001" ||
+      userId === "admin-004" ||
+      username?.toLowerCase() === "mail@godwinhotels.com" ||
+      email?.toLowerCase() === "mail@godwinhotels.com" ||
+      username?.toLowerCase() === "generalmanager@godwinhotels.com" ||
+      email?.toLowerCase() === "generalmanager@godwinhotels.com";
+
+    if (isProtectedMaster) {
       return NextResponse.json({ error: "Cannot deactivate Master Admin account." }, { status: 403 });
     }
 

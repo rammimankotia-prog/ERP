@@ -49,8 +49,8 @@ export async function PUT(
 ) {
   const { id } = await context.params
 
-  const role = req.headers.get('x-user-role')
-  if (role && !['ADMIN', 'HR_MANAGER', 'HOD'].includes(role)) {
+  const role = req.headers.get('x-user-role')?.toUpperCase()
+  if (role && !['ADMIN', 'MASTER ADMIN', 'MANAGER', 'HR_MANAGER', 'HOD'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

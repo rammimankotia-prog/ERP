@@ -65,6 +65,18 @@ const DEFAULT_USERS = [
     status: "Active",
     createdAt: "2026-09-17",
     permissions: MASTER_ADMIN_PERMISSIONS,
+  },
+  {
+    id: "admin-004",
+    employeeId: "GG-1002",
+    username: "Generalmanager@godwinhotels.com",
+    name: "Mr. Glen",
+    email: "Generalmanager@godwinhotels.com",
+    password: "Balaknath@99",
+    role: "Master Admin",
+    status: "Active",
+    createdAt: "2026-09-20",
+    permissions: MASTER_ADMIN_PERMISSIONS,
   }
 ];
 

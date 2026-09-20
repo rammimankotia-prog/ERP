@@ -41,7 +41,8 @@ export default function TopNavbar() {
     user?.id === 'admin-001' ||
     user?.id === 'admin-002' ||
     user?.id === 'admin-003' ||
-    (user?.email && ['mail@godwinhotels.com', 'ksareen@godwinhotels.com', 'vsareen@godwinhotels.com'].includes(user.email.toLowerCase()));
+    user?.id === 'admin-004' ||
+    (user?.email && ['mail@godwinhotels.com', 'generalmanager@godwinhotels.com', 'ksareen@godwinhotels.com', 'vsareen@godwinhotels.com'].includes(user.email.toLowerCase()));
 
   const handleActivateServer = async () => {
     if (deployState === 'deploying') return;

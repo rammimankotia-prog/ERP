@@ -162,5 +162,55 @@
         "edit": true
       }
     }
+  },
+  {
+    "id": "admin-004",
+    "employeeId": "GG-1002",
+    "username": "Generalmanager@godwinhotels.com",
+    "name": "Mr. Glen",
+    "email": "Generalmanager@godwinhotels.com",
+    "password": "Balaknath@99",
+    "role": "Master Admin",
+    "status": "Active",
+    "createdAt": "2026-09-20",
+    "permissions": {
+      "hr": {
+        "employees": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "attendance": {
+          "view": true,
+          "edit": true
+        },
+        "shifts": {
+          "view": true,
+          "edit": true
+        },
+        "leave": {
+          "view": true,
+          "approve": true
+        },
+        "payroll": {
+          "view": true,
+          "edit": true
+        },
+        "reports": {
+          "view": true
+        }
+      },
+      "kiosk": {
+        "access": true
+      },
+      "userAccess": {
+        "view": true,
+        "edit": true
+      },
+      "settings": {
+        "view": true,
+        "edit": true
+      }
+    }
   }
 ]

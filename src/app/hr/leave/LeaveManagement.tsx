@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useAuth } from '@/components/AuthProvider'
 
 type LeaveType = {
   id: string
@@ -48,6 +49,7 @@ const MOCK_LEAVE_TYPES: LeaveType[] = [
 const DEFAULT_REQUESTS: LeaveRequest[] = []
 
 export default function LeaveManagement() {
+  const { user } = useAuth()
   const [employees, setEmployees] = useState<LeaveStaff[]>([])
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [tab, setTab] = useState<'calendar' | 'requests' | 'apply'>('calendar')
@@ -209,20 +211,22 @@ export default function LeaveManagement() {
   }
 
   const handleApprove = async (id: string) => {
+    const approverName = user?.name || user?.username || 'Mr. Glen'
     await fetch(`/api/hr/leave/${id}/approve`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'x-user-role': 'ADMIN' },
-      body: JSON.stringify({ approverId: 'admin', approverNote: 'Approved' })
+      headers: { 'Content-Type': 'application/json', 'x-user-role': user?.role || 'Master Admin' },
+      body: JSON.stringify({ approverId: approverName, approverNote: `Approved by ${approverName}` })
     }).catch(() => {})
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'APPROVED' } : r))
     setMessage({ text: '✅ Leave approved and live calendar updated.', type: 'success' })
   }
 
   const handleReject = async (id: string) => {
+    const approverName = user?.name || user?.username || 'Mr. Glen'
     await fetch(`/api/hr/leave/${id}/reject`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'x-user-role': 'ADMIN' },
-      body: JSON.stringify({ approverId: 'admin', approverNote: 'Rejected' })
+      headers: { 'Content-Type': 'application/json', 'x-user-role': user?.role || 'Master Admin' },
+      body: JSON.stringify({ approverId: approverName, approverNote: `Rejected by ${approverName}` })
     }).catch(() => {})
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED' } : r))
     setMessage({ text: 'Leave request marked as rejected.', type: 'error' })

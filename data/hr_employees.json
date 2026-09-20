@@ -32,5 +32,39 @@
     "doj": "2026-09-17T00:00:00.000Z",
     "createdAt": "2026-09-17T00:00:00.000Z",
     "updatedAt": "2026-09-16T11:30:00.000Z"
+  },
+  {
+    "id": "GG-1002",
+    "employeeId": "GG-1002",
+    "firstName": "Glen",
+    "lastName": "",
+    "email": "Generalmanager@godwinhotels.com",
+    "contactNo": "",
+    "gender": "Male",
+    "employmentType": "PERMANENT",
+    "designation": "General Manager",
+    "department": {
+      "id": "dept-1",
+      "name": "Management",
+      "branchId": "branch-gg"
+    },
+    "departmentId": "dept-1",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "branchId": "branch-gg",
+    "morningTime": "09:00",
+    "eveningTime": "18:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "status": "ACTIVE",
+    "role": "Master Admin",
+    "baseSalary": 60000,
+    "doj": "2026-09-20T00:00:00.000Z",
+    "createdAt": "2026-09-20T00:00:00.000Z",
+    "updatedAt": "2026-09-20T00:00:00.000Z"
   }
 ]
