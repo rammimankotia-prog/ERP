@@ -63,9 +63,10 @@ function triggerDeployment(triggerSource: string) {
   // Detect platform command and environment
   const isWindows = process.platform === "win32";
   const nodeBinDir = path.dirname(process.execPath);
+  const nodeModulesBin = path.join(workingDir, "node_modules", ".bin");
   const enhancedPath = isWindows
     ? process.env.PATH
-    : `${nodeBinDir}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
+    : `${nodeModulesBin}:${nodeBinDir}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
 
   const cmd = isWindows
     ? "git pull origin main && npm run build"
