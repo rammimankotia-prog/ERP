@@ -144,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
     const isPublic = 
+      cleanPath === '/' ||
       cleanPath === '/login' || 
       cleanPath.startsWith('/login/') ||
       cleanPath === '/admin/login' ||
@@ -171,7 +172,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const redirectToLogin = () => {
       const url = getLoginUrl();
       if (typeof window !== 'undefined') {
-        window.location.href = url;
+        try {
+          router.replace(url);
+        } catch {}
+        try {
+          window.location.replace(url);
+        } catch {
+          window.location.href = url;
+        }
       } else {
         router.push(url);
       }
@@ -198,9 +206,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(null);
           }
         } else {
-          // If no user is logged in, redirect if on protected route
-          setUser(null);
-          if (!isPublic) redirectToLogin();
+          // If no admin user, check for active staff kiosk session
+          const kioskSaved = localStorage.getItem('kiosk_employee') || sessionStorage.getItem('kiosk_employee');
+          if (kioskSaved) {
+            try {
+              const kEmp = JSON.parse(kioskSaved);
+              if (kEmp && kEmp.id && (!kEmp.expiresAt || kEmp.expiresAt >= Date.now())) {
+                const isMaster = kEmp.role === 'Master Admin' || kEmp.role === 'ADMIN';
+                setUser({
+                  id: kEmp.id,
+                  username: kEmp.employeeId || kEmp.email || kEmp.id,
+                  name: `${kEmp.firstName || ''} ${kEmp.lastName || ''}`.trim() || kEmp.name || 'Staff User',
+                  email: kEmp.email || '',
+                  role: kEmp.role || kEmp.designation || 'Staff',
+                  status: 'Active',
+                  permissions: isMaster ? MASTER_ADMIN_PERMISSIONS : (kEmp.permissions || { kiosk: { access: true } })
+                });
+              } else {
+                setUser(null);
+                if (!isPublic) redirectToLogin();
+              }
+            } catch {
+              setUser(null);
+              if (!isPublic) redirectToLogin();
+            }
+          } else {
+            // If no user is logged in, redirect if on protected route
+            setUser(null);
+            if (!isPublic) redirectToLogin();
+          }
         }
       }
     } catch (err) {
@@ -403,6 +437,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
   const cleanPath = (currentPath || '').split('?')[0].replace(/\/$/, '') || '/';
   const isPublicRoute = 
+    cleanPath === '/' ||
     cleanPath === '/login' || 
     cleanPath.startsWith('/login') || 
     cleanPath === '/admin/login' || 
@@ -412,9 +447,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     cleanPath === '/kiosk' || 
     cleanPath.startsWith('/kiosk');
 
+  const defaultRedirectUrl = 
+    cleanPath.startsWith('/admin') ||
+    cleanPath.startsWith('/hr') ||
+    cleanPath.startsWith('/users') ||
+    cleanPath.startsWith('/settings') ||
+    cleanPath.startsWith('/operations')
+      ? '/admin/login'
+      : '/login';
+
   return (
     <AuthContext.Provider value={{ user, login, logout, hasPermission, isMasterAdmin }}>
-      {/* Public routes (login, logout, kiosk) are always rendered instantly without blocking */}
+      {/* Public routes (/, login, logout, kiosk) are always rendered instantly without blocking */}
       {isPublicRoute ? (
         children
       ) : !authChecked ? (
@@ -452,14 +496,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '0.75rem',
+          gap: '1rem',
           background: '#0f172a',
           color: '#f8fafc',
-          fontFamily: 'system-ui, sans-serif'
+          fontFamily: 'system-ui, sans-serif',
+          padding: '1.5rem',
+          textAlign: 'center'
         }}>
-          <span style={{ fontSize: '2rem' }}>🔒</span>
-          <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>Authentication Required</h2>
-          <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>Redirecting to secure login portal...</p>
+          <span style={{ fontSize: '2.5rem' }}>🔒</span>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Authentication Required</h2>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', maxWidth: '340px' }}>
+            Please log in to your account to access this section.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.75rem', width: '100%', maxWidth: '280px' }}>
+            <a
+              href={defaultRedirectUrl}
+              style={{
+                display: 'block',
+                padding: '0.75rem 1.25rem',
+                background: '#d97706',
+                color: '#ffffff',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '0.95rem',
+                textDecoration: 'none',
+                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.4)'
+              }}
+            >
+              {defaultRedirectUrl === '/admin/login' ? 'Executive Login ➔' : 'Staff Portal Login ➔'}
+            </a>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.25rem' }}>
+              <a href="/login" style={{ color: '#38bdf8', fontSize: '0.8rem', textDecoration: 'underline' }}>Staff Portal</a>
+              <span style={{ color: '#475569' }}>•</span>
+              <a href="/admin/login" style={{ color: '#38bdf8', fontSize: '0.8rem', textDecoration: 'underline' }}>Executive Portal</a>
+            </div>
+          </div>
         </div>
       ) : (
         children

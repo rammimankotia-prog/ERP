@@ -144,11 +144,78 @@ export async function POST(req: Request) {
     const users = getUsers();
     const inputUser = username.trim().toLowerCase();
 
-    const user = users.find(
+    let user = users.find(
       (u: any) =>
-        (u.username.toLowerCase() === inputUser || u.email.toLowerCase() === inputUser) &&
+        (u.username?.toLowerCase() === inputUser ||
+         u.email?.toLowerCase() === inputUser ||
+         u.id?.toLowerCase() === inputUser ||
+         u.employeeId?.toLowerCase() === inputUser ||
+         (u.employeeId && u.employeeId.includes('-') && u.employeeId.split('-')[1]?.toLowerCase() === inputUser)) &&
         u.password === password
     );
+
+    // If not found in system users, also check HR Employees directory
+    if (!user) {
+      try {
+        const { getAllEmployees } = await import('@/lib/employeeData');
+        const employees = await getAllEmployees();
+        const emp = employees.find((e: any) => {
+          const eMail = (e.email || '').trim().toLowerCase();
+          const eId = (e.employeeId || '').trim().toLowerCase();
+          const rawId = (e.id || '').trim().toLowerCase();
+          return (
+            eMail === inputUser ||
+            eId === inputUser ||
+            rawId === inputUser ||
+            (eId.includes('-') && eId.split('-')[1]?.toLowerCase() === inputUser)
+          );
+        });
+
+        if (emp) {
+          const empPass = (emp.password || 'Godwin@123').trim();
+          if (empPass === password || emp.password === password) {
+            const isMaster = emp.role === 'Master Admin' || emp.role === 'ADMIN';
+            const isManagerOrSupervisor = 
+              emp.role === 'Manager' || 
+              (emp.designation && (emp.designation.toLowerCase().includes('manager') || emp.designation.toLowerCase().includes('supervisor')));
+
+            const permissions = isMaster
+              ? MASTER_ADMIN_PERMISSIONS
+              : isManagerOrSupervisor
+              ? {
+                  hr: {
+                    employees: { view: true, edit: true },
+                    attendance: { view: true, edit: true },
+                    shifts: { view: true, edit: true },
+                    leave: { view: true, approve: true },
+                    reports: { view: true },
+                  },
+                  kiosk: { access: true },
+                }
+              : {
+                  hr: {
+                    attendance: { view: true },
+                    leave: { view: true },
+                  },
+                  kiosk: { access: true },
+                };
+
+            user = {
+              id: emp.id,
+              employeeId: emp.employeeId,
+              username: emp.employeeId || emp.email,
+              name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Employee',
+              email: emp.email || '',
+              role: emp.role || emp.designation || 'Staff',
+              status: emp.status === 'INACTIVE' ? 'Inactive' : 'Active',
+              permissions,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Fallback employee lookup failed', err);
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: "Invalid username or password. Please verify your credentials." }, { status: 401 });
@@ -164,6 +231,7 @@ export async function POST(req: Request) {
 
     const safeUser = {
       id: user.id,
+      employeeId: user.employeeId,
       username: user.username,
       name: user.name,
       email: user.email,
