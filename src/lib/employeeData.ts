@@ -31,12 +31,15 @@ export function isEmployeeDeleted(emp: any, deletedKeys: string[]): boolean {
   const id = (emp.id || '').toLowerCase().trim()
   const empId = (emp.employeeId || '').toLowerCase().trim()
   const email = (emp.email || '').toLowerCase().trim()
+  const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase().trim()
   return (
     (id !== '' && deletedKeys.includes(id)) ||
     (empId !== '' && deletedKeys.includes(empId)) ||
-    (email !== '' && deletedKeys.includes(email))
+    (email !== '' && deletedKeys.includes(email)) ||
+    (fullName !== '' && deletedKeys.includes(fullName))
   )
 }
+
 
 /**
  * Returns ALL active employees, normalized and unified across Prisma DB and JSON files.

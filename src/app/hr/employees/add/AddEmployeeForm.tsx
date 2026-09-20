@@ -128,13 +128,20 @@ export default function AddEmployeeForm({
         if (cachedStr) {
           try { cache = JSON.parse(cachedStr) } catch {}
         }
-        if (!Array.isArray(cache)) cache = []
+        // Filter out any older record with the same employeeId or email (e.g. if ID was reassigned)
+        cache = cache.filter((c: any) =>
+          c &&
+          c.id !== createdEmployee.id &&
+          (!createdEmployee.employeeId || c.employeeId !== createdEmployee.employeeId) &&
+          (!createdEmployee.email || c.email?.toLowerCase() !== createdEmployee.email?.toLowerCase())
+        )
         cache.push(createdEmployee)
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache))
         window.dispatchEvent(new Event('godwin-employees-updated'))
       } catch (e) {
         // ignore
       }
+
 
     } catch (err: any) {
       setError(err.message || 'Failed to create employee record')

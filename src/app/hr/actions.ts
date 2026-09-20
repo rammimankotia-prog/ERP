@@ -5,8 +5,10 @@ import { revalidatePath } from 'next/cache'
 import fs from 'fs'
 import path from 'path'
 import { removeAttendanceRecord } from '@/lib/attendanceStorage'
+import { getAllEmployees } from '@/lib/employeeData'
 
 const prisma = new PrismaClient()
+
 
 // Use PERSISTENT_DATA_DIR env var if set (for production persistence outside repo),
 // otherwise fall back to the local data/ folder (works in development).
@@ -49,14 +51,26 @@ function getDeletedEmployeeKeys(): string[] {
   return []
 }
 
+function saveDeletedEmployeeKey(keys: string[]): void {
+  try {
+    const existing = getDeletedEmployeeKeys()
+    const merged = Array.from(new Set([...existing, ...keys.map(k => String(k).toLowerCase().trim()).filter(Boolean)]))
+    const localDir = path.join(process.cwd(), 'data')
+    if (!fs.existsSync(localDir)) fs.mkdirSync(localDir, { recursive: true })
+    fs.writeFileSync(DELETED_EMP_FILE, JSON.stringify(merged, null, 2), 'utf-8')
+  } catch {}
+}
+
 function isEmpDeleted(emp: any, deletedKeys: string[]): boolean {
   const id = (emp.id || '').toLowerCase().trim()
   const empId = (emp.employeeId || '').toLowerCase().trim()
   const email = (emp.email || '').toLowerCase().trim()
+  const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase().trim()
   return (
     (id && deletedKeys.includes(id)) ||
     (empId && deletedKeys.includes(empId)) ||
-    (email && deletedKeys.includes(email))
+    (email && deletedKeys.includes(email)) ||
+    (fullName && deletedKeys.includes(fullName))
   )
 }
 
@@ -200,46 +214,15 @@ export async function createDepartment(data: { name: string; branchId: string })
 
 // --- EMPLOYEE ACTIONS ---
 export async function getEmployees() {
-  try {
-    const employees = await prisma.employee.findMany({
-      include: {
-        branch: true,
-        department: true,
-        reportingTo: true,
-      },
-      orderBy: { firstName: 'asc' }
-    })
-    if (employees && employees.length > 0) {
-      const deletedKeys = getDeletedEmployeeKeys()
-      return employees.filter(emp => !isEmpDeleted(emp, deletedKeys))
-    }
-  } catch (e) {
-    // DB connection failed or offline, fallback to persistent JSON
-  }
-
-  const fileEmployees = readJsonFile<any[]>(EMPLOYEES_FILE, [])
-  return fileEmployees
+  return await getAllEmployees()
 }
 
 export async function getEmployeeById(id: string) {
-  try {
-    const employee = await prisma.employee.findUnique({
-      where: { id },
-      include: {
-        branch: true,
-        department: true,
-        documents: true,
-      }
-    })
-    if (employee) return employee
-  } catch (e) {
-    // fallback
-  }
-
-  const fileEmployees = readJsonFile<any[]>(EMPLOYEES_FILE, [])
-  const found = fileEmployees.find((e: any) => e.id === id || e.employeeId === id)
+  const employees = await getAllEmployees()
+  const found = employees.find((e: any) => e.id === id || e.employeeId === id)
   return found || null
 }
+
 
 export async function createEmployee(data: {
   firstName: string
@@ -508,6 +491,13 @@ export async function deleteEmployee(id: string): Promise<{ success: boolean; er
   const targetEmp = fileEmployees.find((e: any) => e.id === id || e.employeeId === id)
   const filtered = fileEmployees.filter((e: any) => e.id !== id && e.employeeId !== id)
   writeJsonFile(EMPLOYEES_FILE, filtered)
+
+  // Register in deleted_employees.json so they never resurrect from Prisma or backups
+  const keysToDel = [id]
+  if (targetEmp?.employeeId) keysToDel.push(targetEmp.employeeId)
+  if (targetEmp?.email) keysToDel.push(targetEmp.email)
+  if (targetEmp?.firstName) keysToDel.push(`${targetEmp.firstName} ${targetEmp.lastName || ''}`.trim())
+  saveDeletedEmployeeKey(keysToDel)
 
   // Relational Integrity: Remove associated user account from users.json
   try {

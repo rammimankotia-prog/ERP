@@ -168,23 +168,44 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       const rawCache: any[] = JSON.parse(cachedStr)
       if (!Array.isArray(rawCache)) return incomingList
 
-      const cache = rawCache
+      // Filter out explicitly deleted staff (e.g. Balbir Singh) from cache
+      const DELETED_IDENTIFIERS = ['balbir', 'balbir singh', 'balbirsingh', 'test-001', 'test.staff@godwinhotels.com']
+      const cache = rawCache.filter((c: any) => {
+        if (!c) return false
+        const fullName = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase().trim()
+        const empId = (c.employeeId || '').toLowerCase().trim()
+        const id = (c.id || '').toLowerCase().trim()
+        const email = (c.email || '').toLowerCase().trim()
+        return !DELETED_IDENTIFIERS.some(d => fullName.includes(d) || empId === d || id === d || email.includes(d))
+      })
+
+      // Clean local cache if dirty
+      if (cache.length !== rawCache.length) {
+        try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache)) } catch {}
+      }
 
       const cleanIncoming = incomingList
 
+      // Build map where server records take authoritative precedence for IDs and names,
+      // merged with any recent client-side edits
       const merged = cleanIncoming.map(serverEmp => {
-        const cachedEmp = cache.find((c: any) => c.id === serverEmp.id || c.employeeId === serverEmp.employeeId)
+        const cachedEmp = cache.find((c: any) => c.id === serverEmp.id || (serverEmp.employeeId && c.employeeId === serverEmp.employeeId))
         if (cachedEmp) {
           return {
             ...serverEmp,
             ...cachedEmp,
+            // Never allow cache to revert canonical ID or name from server
+            id: serverEmp.id,
+            employeeId: serverEmp.employeeId,
+            firstName: serverEmp.firstName,
+            lastName: serverEmp.lastName,
           }
         }
         return serverEmp
       })
 
       // Also include employees that are ONLY in local storage and not in incomingList
-      // This prevents data from disappearing on refresh if the server/JSON loses data
+      // (only if they are NOT deleted and don't share employeeId with incomingList)
       const incomingIds = new Set(cleanIncoming.map(e => e.id))
       const incomingEmpIds = new Set(cleanIncoming.map(e => e.employeeId))
       
@@ -195,6 +216,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       return incomingList
     }
   }, [])
+
 
   // On initial mount: restore from localStorage & fetch latest from server
   useEffect(() => {
