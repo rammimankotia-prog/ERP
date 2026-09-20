@@ -41,13 +41,16 @@ export default function LoginPage() {
     if (geofence && !geofence.enabled) {
       return true;
     }
+    const cleanId = (identifier || '').toLowerCase().trim();
+    if (cleanId.includes('sec') || cleanId.includes('guard') || cleanId.includes('security') || mode === 'security') {
+      return true;
+    }
     try {
       await verifyStaffLocation(identifier);
       return true;
     } catch (err: any) {
       const msg = typeof err === 'string' ? err : err?.message || 'Location verification failed';
       setStaffError(`📍 ${msg}`);
-      setSecError(`📍 ${msg}`);
       return false;
     }
   };
@@ -193,12 +196,6 @@ export default function LoginPage() {
     e.preventDefault();
     setSecError('');
     setSecLoading(true);
-
-    const isLocationValid = await verifyLocation(secId.trim());
-    if (!isLocationValid) {
-      setSecLoading(false);
-      return;
-    }
 
     try {
       const res = await fetch('/api/kiosk/auth', {

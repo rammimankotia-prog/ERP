@@ -31,6 +31,17 @@ export function isTestStaffAccount(identifier?: string | null): boolean {
   );
 }
 
+export function isExemptAccount(identifier?: string | null): boolean {
+  if (!identifier) return false;
+  const clean = identifier.trim().toLowerCase();
+  return (
+    isTestStaffAccount(clean) ||
+    clean.includes('sec') ||
+    clean.includes('guard') ||
+    clean.includes('security')
+  );
+}
+
 // ===== Correct Haversine distance formula =====
 export function getDistanceMeters(
   lat1: number,
@@ -64,16 +75,16 @@ export interface StaffLocationSuccess {
 // ===== Robust location fetch supporting both properties, progressive GPS locking, and indoor tolerance =====
 export function verifyStaffLocation(identifier?: string): Promise<StaffLocationSuccess> {
   return new Promise((resolve, reject) => {
-    // 1. If this is a designated test user or remote tester, bypass location requirement
-    if (identifier && isTestStaffAccount(identifier)) {
-      console.log('🧪 Test/Admin account detected: Bypassing geofence for QA testing.');
+    // 1. If this is a designated test user, remote tester, or Security Guard, bypass location requirement
+    if (identifier && isExemptAccount(identifier)) {
+      console.log('🛡️ Security Guard / Test account detected: Bypassing geofence.');
       resolve({
         allowed: true,
         distance: '0',
         latitude: HOTEL_LAT,
         longitude: HOTEL_LNG,
         accuracy: 5,
-        nearestHotel: 'Hotel Grand Godwin (Test Mode)',
+        nearestHotel: 'Hotel Grand Godwin (Exempt Mode)',
       });
       return;
     }
@@ -161,26 +172,37 @@ export function verifyStaffLocation(identifier?: string): Promise<StaffLocationS
         settled = true;
         cleanup();
 
+        const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+
+        // Desktop PCs use Wi-Fi/IP location with high inaccuracy (often ±5000m - 50000m)
+        if (!isMobile) {
+          reject(
+            `Desktop Location (accuracy ±${accuracy.toFixed(0)}m). Desktop PCs use IP/Wi-Fi positioning (${closest.rawDistance.toFixed(0)}m away). For staff punches, please use your mobile phone with GPS turned ON, or log in with authorized credentials.`
+          );
+          return;
+        }
+
         // Android Approximate location detected (typically ~2000m)
-        if (accuracy >= 1000) {
+        if (isAndroid && accuracy >= 1000) {
           reject(
             `Precise GPS is OFF (accuracy ±${accuracy.toFixed(0)}m). In Android Chrome, tap the 🎛️ icon next to the address bar -> Permissions -> Turn ON "Use precise location".`
           );
           return;
         }
 
+        if (accuracy >= 1000) {
+          reject(
+            `Precise GPS is OFF (accuracy ±${accuracy.toFixed(0)}m). Please enable High Accuracy / Precise Location in your device settings.`
+          );
+          return;
+        }
+
         // Weak signal (> 350m)
         if (accuracy > 350) {
-          const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-          if (!isMobile) {
-            reject(
-              `Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Desktop PCs use Wi-Fi/IP location (${closest.rawDistance.toFixed(0)}m away). For live punches, please use your mobile phone with GPS turned ON, or log in with test credentials.`
-            );
-          } else {
-            reject(
-              `Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Please move closer to a window or enable high-accuracy GPS and retry.`
-            );
-          }
+          reject(
+            `Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Please move closer to a window or enable high-accuracy GPS and retry.`
+          );
           return;
         }
 

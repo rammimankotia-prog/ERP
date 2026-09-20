@@ -141,8 +141,18 @@ export default function OneTapPunchInterface({
     let lng: number | undefined;
     let accuracy: number | undefined;
 
-    // Mobile GPS boundary acquisition
-    if (punchMode === 'MOBILE_GEOFENCE') {
+    const empAny = employee as any;
+    const isSecurityGuard =
+      (empAny.role && String(empAny.role).toLowerCase().includes('security')) ||
+      (employee.designation && (employee.designation.toLowerCase().includes('guard') || employee.designation.toLowerCase().includes('security'))) ||
+      (typeof employee.department === 'string' && employee.department.toLowerCase().includes('security')) ||
+      (empAny.department?.name && String(empAny.department.name).toLowerCase().includes('security')) ||
+      empAny.departmentId === 'dept-4' ||
+      empAny.departmentId === 'dept-11' ||
+      (employee.employeeId && (employee.employeeId.toLowerCase().includes('sec') || employee.employeeId.toLowerCase().includes('guard')));
+
+    // Mobile GPS boundary acquisition (Security Guards are exempt!)
+    if (punchMode === 'MOBILE_GEOFENCE' && !isSecurityGuard) {
       setGeoLocating(true);
       try {
         const loc = await verifyStaffLocation(employee.employeeId || employee.id);

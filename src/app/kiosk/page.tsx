@@ -219,12 +219,6 @@ export default function KioskPage() {
     setGuardLoginError('');
     setGuardLoginLoading(true);
 
-    const isLocationValid = await verifyLocation();
-    if (!isLocationValid) {
-      setGuardLoginLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
