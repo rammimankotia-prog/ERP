@@ -520,6 +520,7 @@ export default function KioskPage() {
       {/* ============================================================ */}
       {isGuardAuthenticated && (
         <div
+          className="kiosk-top-tab-bar"
           style={{
             width: '100%',
             background: isLight ? '#ffffff' : '#1e293b',
@@ -796,7 +797,7 @@ export default function KioskPage() {
           /* STAGE 1: EMPLOYEE IDENTIFICATION (INSTANT SEARCH & 1-TAP CARDS)          */
           /* ========================================================================= */
           <div
-            className="page-container"
+            className="page-container kiosk-main-content"
             style={{
               maxWidth: '1200px',
               paddingTop: '2rem',
@@ -807,6 +808,7 @@ export default function KioskPage() {
           >
             {/* Hero Welcome Banner */}
             <div
+              className="kiosk-hero-banner"
               style={{
                 background: isLight ? '#ffffff' : '#1e293b',
                 borderRadius: '14px',
@@ -822,6 +824,7 @@ export default function KioskPage() {
             >
               <div style={{ minWidth: 0 }}>
                 <h2
+                  className="kiosk-hero-title"
                   style={{
                     margin: '0 0 0.2rem 0',
                     fontSize: 'clamp(0.95rem, 3.5vw, 1.5rem)',
@@ -832,12 +835,13 @@ export default function KioskPage() {
                 >
                   👋 Tap Your Name to Clock In/Out
                 </h2>
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 'clamp(0.75rem, 2vw, 0.88rem)' }}>
+                <p className="kiosk-hero-subtitle" style={{ margin: 0, color: 'var(--text-muted)', fontSize: 'clamp(0.75rem, 2vw, 0.88rem)' }}>
                   One-Tap <strong>Check-In / Check-Out</strong>. System shows your next action.
                 </p>
               </div>
               <button
                 type="button"
+                className="kiosk-pwd-btn"
                 onClick={() => setShowPasswordLogin(!showPasswordLogin)}
                 style={{
                   padding: '0.5rem 0.9rem',
@@ -944,6 +948,7 @@ export default function KioskPage() {
             >
               <div style={{ flex: '1 1 280px', minWidth: 0, position: 'relative', width: '100%' }}>
                 <span
+                  className="kiosk-search-icon"
                   style={{
                     position: 'absolute',
                     left: '16px',
@@ -957,9 +962,10 @@ export default function KioskPage() {
                 </span>
                 <input
                   type="text"
+                  className="kiosk-search-input"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Type employee name, ID or hotel (e.g. GG-1001, Raman, Godwin)..."
+                  placeholder="Search name, ID or hotel (e.g. GG-1001, Raman)..."
                   style={{
                     width: '100%',
                     boxSizing: 'border-box',
@@ -1027,7 +1033,7 @@ export default function KioskPage() {
 
             {/* Hotel / Property Filter Pills */}
             <div
-              className="kiosk-horizontal-scroll"
+              className="kiosk-horizontal-scroll kiosk-filter-row"
               style={{
                 display: 'flex',
                 gap: '0.4rem',
@@ -1040,9 +1046,10 @@ export default function KioskPage() {
                 boxSizing: 'border-box',
               }}
             >
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginRight: '0.2rem', flexShrink: 0 }}>HOTEL:</span>
+              <span className="kiosk-filter-label" style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginRight: '0.2rem', flexShrink: 0 }}>HOTEL:</span>
               <button
                 type="button"
+                className="kiosk-filter-pill"
                 onClick={() => setSelectedHotel('ALL')}
                 style={{
                   flexShrink: 0,
@@ -1072,6 +1079,7 @@ export default function KioskPage() {
                   <button
                     key={h}
                     type="button"
+                    className="kiosk-filter-pill"
                     onClick={() => setSelectedHotel(h)}
                     style={{
                       flexShrink: 0,
@@ -1104,7 +1112,7 @@ export default function KioskPage() {
 
             {/* Department filter chips */}
             <div
-              className="kiosk-horizontal-scroll"
+              className="kiosk-horizontal-scroll kiosk-filter-row"
               style={{
                 display: 'flex',
                 gap: '0.35rem',
@@ -1117,9 +1125,10 @@ export default function KioskPage() {
                 boxSizing: 'border-box',
               }}
             >
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginRight: '0.2rem', flexShrink: 0 }}>DEPT:</span>
+              <span className="kiosk-filter-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginRight: '0.2rem', flexShrink: 0 }}>DEPT:</span>
               <button
                 type="button"
+                className="kiosk-filter-pill"
                 onClick={() => setSelectedDept('ALL')}
                 style={{
                   flexShrink: 0,
@@ -1143,6 +1152,7 @@ export default function KioskPage() {
                   <button
                     key={dept}
                     type="button"
+                    className="kiosk-filter-pill"
                     onClick={() => setSelectedDept(dept)}
                     style={{
                       flexShrink: 0,
@@ -1188,6 +1198,7 @@ export default function KioskPage() {
               </div>
             ) : (
               <div
+                className="kiosk-emp-grid"
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))',
@@ -1223,11 +1234,12 @@ export default function KioskPage() {
                       }}
                     >
                       {/* Avatar / Photo */}
-                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <div className="kiosk-emp-avatar-box" style={{ position: 'relative', flexShrink: 0 }}>
                         {emp.photo ? (
                           <img
                             src={emp.photo}
                             alt={`${emp.firstName} ${emp.lastName}`}
+                            className="kiosk-emp-avatar"
                             style={{
                               width: '52px',
                               height: '52px',
@@ -1238,6 +1250,7 @@ export default function KioskPage() {
                           />
                         ) : (
                           <div
+                            className="kiosk-emp-avatar"
                             style={{
                               width: '52px',
                               height: '52px',
@@ -1259,6 +1272,7 @@ export default function KioskPage() {
 
                         {/* Status dot */}
                         <div
+                          className="kiosk-emp-status-dot"
                           style={{
                             position: 'absolute',
                             bottom: 0,
@@ -1275,6 +1289,7 @@ export default function KioskPage() {
                       {/* Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
+                          className="kiosk-emp-name"
                           style={{
                             fontSize: '1rem',
                             fontWeight: 800,
@@ -1288,6 +1303,7 @@ export default function KioskPage() {
                         </div>
 
                         <div
+                          className="kiosk-emp-dept"
                           style={{
                             fontSize: '0.78rem',
                             color: 'var(--text-muted)',
@@ -1300,6 +1316,7 @@ export default function KioskPage() {
                         </div>
 
                         <div
+                          className="kiosk-emp-badges"
                           style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -1309,6 +1326,7 @@ export default function KioskPage() {
                           }}
                         >
                           <span
+                            className="kiosk-emp-badge"
                             style={{
                               fontSize: '0.68rem',
                               padding: '1px 6px',
@@ -1331,6 +1349,7 @@ export default function KioskPage() {
                           </span>
 
                           <span
+                            className="kiosk-emp-id"
                             style={{
                               fontFamily: 'monospace',
                               fontSize: '0.72rem',
@@ -1345,6 +1364,7 @@ export default function KioskPage() {
                           </span>
 
                           <span
+                            className="kiosk-emp-status"
                             style={{
                               fontSize: '0.7rem',
                               fontWeight: 800,
@@ -1357,7 +1377,7 @@ export default function KioskPage() {
                       </div>
 
                       {/* Tap Arrow */}
-                      <span style={{ fontSize: '1.1rem', color: 'var(--text-muted)', opacity: 0.6 }}>
+                      <span className="kiosk-emp-arrow" style={{ fontSize: '1.1rem', color: 'var(--text-muted)', opacity: 0.6 }}>
                         →
                       </span>
                     </div>
@@ -1380,27 +1400,114 @@ export default function KioskPage() {
         }
         .employee-kiosk-card:active { transform: scale(0.97); }
 
-        /* Tablet <= 768px */
+        /* Tablet & Mobile <= 768px */
         @media (max-width: 768px) {
           .kiosk-hdr-erplink { display: none !important; }
+          .kiosk-sort-container { display: none !important; }
         }
 
         /* Mobile <= 640px */
         @media (max-width: 640px) {
+          .kiosk-top-tab-bar {
+            padding: 0.25rem 0.5rem !important;
+          }
+          .kiosk-main-content {
+            padding-top: 0.4rem !important;
+            padding-bottom: 1.25rem !important;
+            padding-left: 0.45rem !important;
+            padding-right: 0.45rem !important;
+            gap: 0.45rem !important;
+          }
+          .kiosk-hero-banner {
+            padding: 0.4rem 0.65rem !important;
+            border-radius: 10px !important;
+            gap: 0.35rem !important;
+          }
+          .kiosk-hero-title {
+            font-size: 0.88rem !important;
+            margin: 0 !important;
+          }
+          .kiosk-hero-subtitle {
+            display: none !important;
+          }
+          .kiosk-pwd-btn {
+            padding: 0.28rem 0.55rem !important;
+            font-size: 0.72rem !important;
+            border-radius: 7px !important;
+          }
           .kiosk-search-sort-bar {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 0.5rem !important;
+            gap: 0.35rem !important;
           }
-          .kiosk-sort-container {
-            width: 100% !important;
-            display: flex !important;
+          .kiosk-search-input {
+            height: 38px !important;
+            padding-left: 36px !important;
+            padding-right: 32px !important;
+            font-size: 0.88rem !important;
+            border-radius: 9px !important;
           }
-          .kiosk-sort-container select {
-            width: 100% !important;
-            flex: 1 !important;
+          .kiosk-search-icon {
+            font-size: 0.95rem !important;
+            left: 12px !important;
+          }
+          .kiosk-filter-row {
+            gap: 0.25rem !important;
+            padding-bottom: 2px !important;
+          }
+          .kiosk-filter-label {
+            font-size: 0.65rem !important;
+            margin-right: 0.15rem !important;
+          }
+          .kiosk-filter-pill {
+            padding: 0.22rem 0.52rem !important;
+            font-size: 0.72rem !important;
           }
           .kiosk-tab-hint { display: none !important; }
+
+          /* Employee Directory Grid */
+          .kiosk-emp-grid {
+            grid-template-columns: 1fr !important;
+            gap: 0.35rem !important;
+          }
+          .employee-kiosk-card {
+            padding: 0.5rem 0.65rem !important;
+            gap: 0.55rem !important;
+            border-radius: 11px !important;
+          }
+          .kiosk-emp-avatar {
+            width: 38px !important;
+            height: 38px !important;
+            font-size: 0.9rem !important;
+          }
+          .kiosk-emp-status-dot {
+            width: 10px !important;
+            height: 10px !important;
+          }
+          .kiosk-emp-name {
+            font-size: 0.86rem !important;
+            line-height: 1.2 !important;
+          }
+          .kiosk-emp-dept {
+            font-size: 0.7rem !important;
+            line-height: 1.2 !important;
+          }
+          .kiosk-emp-badges {
+            gap: 0.25rem !important;
+            margin-top: 0.2rem !important;
+          }
+          .kiosk-emp-badge {
+            font-size: 0.62rem !important;
+            padding: 1px 4px !important;
+          }
+          .kiosk-emp-id {
+            font-size: 0.64rem !important;
+            padding: 1px 4px !important;
+          }
+          .kiosk-emp-status {
+            font-size: 0.64rem !important;
+          }
+          .kiosk-emp-arrow {
+            font-size: 0.85rem !important;
+          }
         }
 
         /* Phone portrait <= 480px */
@@ -1408,11 +1515,7 @@ export default function KioskPage() {
           .kiosk-hdr-date { display: none !important; }
           .kiosk-hdr-badge { display: none !important; }
           .kiosk-hdr-locktext { display: none !important; }
-          .employee-kiosk-card {
-            padding: 0.85rem 1rem !important;
-            gap: 0.75rem !important;
-            border-radius: 14px !important;
-          }
+          .kiosk-tab-text { font-size: 0.76rem !important; }
         }
       `}</style>
     </div>
