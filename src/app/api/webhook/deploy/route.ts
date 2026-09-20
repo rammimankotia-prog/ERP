@@ -60,13 +60,18 @@ function triggerDeployment(triggerSource: string) {
   const workingDir = findGitDirectory();
   appendDeployLog(`🚀 Deployment started by ${triggerSource} in ${workingDir}...`);
 
-  // Detect platform command
+  // Detect platform command and environment
   const isWindows = process.platform === "win32";
+  const nodeBinDir = path.dirname(process.execPath);
+  const enhancedPath = isWindows
+    ? process.env.PATH
+    : `${nodeBinDir}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
+
   const cmd = isWindows
     ? "git pull origin main && npm run build"
     : "git pull origin main && npm run build && (pm2 restart all || pm2 reload all || true)";
 
-  exec(cmd, { cwd: workingDir, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+  exec(cmd, { cwd: workingDir, maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PATH: enhancedPath } }, (error, stdout, stderr) => {
     isDeploying = false;
     if (error) {
       lastDeployStatus = `Failed: ${error.message}`;
