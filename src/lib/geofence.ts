@@ -229,14 +229,18 @@ export function verifyStaffLocation(identifier?: string): Promise<StaffLocationS
       cleanup();
       let msg = `Location error: ${error.message}`;
       if (error.code === 1) {
-        msg =
-          'Location Permission Denied: Please allow location access in your browser settings so we can verify you are within hotel premises.';
+        const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isIOS) {
+          msg = 'Location Access Denied: In iPhone Safari, tap the 🎛️ or "aA" icon in the address bar -> Website Settings -> Location -> choose "Allow". If using Chrome, go to iPhone Settings -> Chrome -> Location -> "While Using the App".';
+        } else {
+          msg = 'Location Access Denied: In your browser, tap the 🔒 or 🎛️ icon next to the address bar -> Permissions -> Turn ON Location.';
+        }
       } else if (error.code === 2) {
         msg =
-          'Device GPS is OFF: Please turn ON GPS / Location in your device settings to verify you are on hotel premises.';
+          'Device GPS is OFF: Please turn ON GPS / Location in your phone settings to verify you are on hotel premises.';
       } else if (error.code === 3) {
         msg =
-          'GPS Signal Timeout: Could not detect your location. Please ensure device GPS is turned ON and retry.';
+          'GPS Signal Timeout: Could not detect your location. Please move near a window or ensure device GPS is turned ON and retry.';
       }
       reject(msg);
     };

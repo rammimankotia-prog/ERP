@@ -142,12 +142,6 @@ export default function LoginPage() {
     e.preventDefault();
     setStaffError('');
     setStaffLoading(true);
-    
-    const isLocationValid = await verifyLocation(staffId.trim());
-    if (!isLocationValid) {
-      setStaffLoading(false);
-      return;
-    }
 
     try {
       const res = await fetch('/api/kiosk/auth', {
@@ -470,7 +464,7 @@ export default function LoginPage() {
               {/* Geo-fencing notice */}
               <div className="lp-geo-notice">
                 <span>📍</span>
-                <span>Location verification (geo-fencing) will activate upon login to confirm you are on-premises.</span>
+                <span>Location verification (geo-fencing) will confirm you are within hotel premises when punching attendance.</span>
               </div>
 
               <button
