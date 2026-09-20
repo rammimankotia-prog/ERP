@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
       morningTime: data.morningTime || '09:00',
       eveningTime: data.eveningTime || '18:00',
       offDays: configuredOffDays,
+      swapShiftEligible: data.swapShiftEligible === true,
       doj: data.doj || new Date().toISOString(),
       dob: data.dob || null,
       employmentType: data.employmentType || 'PERMANENT',

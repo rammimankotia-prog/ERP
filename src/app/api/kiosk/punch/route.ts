@@ -12,6 +12,8 @@ const AUDIT_FILE = path.join(DATA_DIR, 'audit_trail.json')
 const LOCAL_AUDIT_FILE = path.join(process.cwd(), 'data', 'audit_trail.json')
 const CONFIG_FILE = path.join(DATA_DIR, 'global_config.json')
 const LOCAL_CONFIG_FILE = path.join(process.cwd(), 'data', 'global_config.json')
+const SHIFTS_FILE = path.join(DATA_DIR, 'hr_shifts.json')
+const LOCAL_SHIFTS_FILE = path.join(process.cwd(), 'data', 'hr_shifts.json')
 
 // Hotel premises geo-coordinates for geofencing
 // PRIMARY: Hotel Grand Godwin — Google My Business verified pin: 28.64574210, 77.21535140
@@ -143,6 +145,98 @@ function logAudit(entry: any) {
     writeJson(AUDIT_FILE, trimmed, LOCAL_AUDIT_FILE)
   } catch (e) {
     console.warn('Audit trail log error:', e)
+  }
+}
+
+/**
+ * getRosterShiftTimes:
+ * Reads the employee's monthly roster for today's date and returns the
+ * actual shift startTime + endTime from hr_shifts.json.
+ * Falls back to employee's default morningTime/eveningTime if roster not found.
+ */
+function getRosterShiftTimes(emp: any, dateStr: string): { startTime: string; endTime: string; shiftName: string } {
+  try {
+    // Parse date
+    const [yearStr, monthStr, dayStr] = dateStr.split('-')
+    const year = parseInt(yearStr, 10)
+    const month = parseInt(monthStr, 10) - 1 // 0-indexed
+    const dayNum = parseInt(dayStr, 10)
+
+    // Read roster for this year-month
+    const rosterFile = path.join(DATA_DIR, `hr_roster_${year}_${month}.json`)
+    const localRosterFile = path.join(process.cwd(), 'data', `hr_roster_${year}_${month}.json`)
+    let roster: Record<string, Record<string, string>> = {}
+    for (const f of [rosterFile, localRosterFile]) {
+      try {
+        if (fs.existsSync(f)) {
+          const raw = fs.readFileSync(f, 'utf-8')
+          const parsed = JSON.parse(raw)
+          if (parsed && Object.keys(parsed).length > 0) {
+            roster = parsed
+            break
+          }
+        }
+      } catch {}
+    }
+
+    // Find employee in roster by id
+    const empId = emp?.id
+    const empRoster = empId ? (roster[empId] || {}) : {}
+
+    // Day number key (as stored in ShiftsManager — numeric)
+    const assignedShiftName: string = empRoster[dayNum] || empRoster[String(dayNum)] || ''
+
+    if (!assignedShiftName || assignedShiftName === 'OFF') {
+      // Fallback to default
+      return {
+        startTime: emp?.morningTime || '09:00',
+        endTime: emp?.eveningTime || '18:00',
+        shiftName: assignedShiftName || 'Default'
+      }
+    }
+
+    // Read defined shifts from hr_shifts.json
+    let definedShifts: any[] = []
+    try {
+      definedShifts = readJson<any[]>(SHIFTS_FILE, LOCAL_SHIFTS_FILE, [])
+    } catch {}
+
+    // Match shift by name (case-insensitive)
+    const matchedShift = definedShifts.find(
+      (s: any) => s.name?.toLowerCase() === assignedShiftName.toLowerCase()
+    )
+
+    if (matchedShift) {
+      return {
+        startTime: matchedShift.startTime || emp?.morningTime || '09:00',
+        endTime: matchedShift.endTime || emp?.eveningTime || '18:00',
+        shiftName: assignedShiftName,
+      }
+    }
+
+    // Named shift fallback (common known names)
+    if (assignedShiftName === 'Morning Shift') {
+      return { startTime: emp?.morningTime || '09:00', endTime: emp?.eveningTime || '18:00', shiftName: assignedShiftName }
+    }
+    if (assignedShiftName === 'Night Shift') {
+      return { startTime: '20:00', endTime: '08:00', shiftName: assignedShiftName }
+    }
+    if (assignedShiftName === 'Break Shift') {
+      return { startTime: '10:00', endTime: '22:00', shiftName: assignedShiftName }
+    }
+
+    // Final fallback
+    return {
+      startTime: emp?.morningTime || '09:00',
+      endTime: emp?.eveningTime || '18:00',
+      shiftName: assignedShiftName
+    }
+  } catch {
+    return {
+      startTime: emp?.morningTime || '09:00',
+      endTime: emp?.eveningTime || '18:00',
+      shiftName: 'Default'
+    }
   }
 }
 
@@ -350,12 +444,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Already punched in today' }, { status: 400 })
       }
 
-      // AUTO-LATE FLAGGING against shift start + 15 mins grace period using IST
-      const shiftStartTime = emp?.morningTime || '09:00'
+      // AUTO-LATE FLAGGING: Use roster-assigned shift for today (falls back to default shift time)
+      const rosterShift = getRosterShiftTimes(emp, dateStr)
+      const shiftStartTime = rosterShift.startTime
+      const activeShiftName = rosterShift.shiftName
       const punchInMinutes = parseTimeToISTMinutes(nowIso)
       const scheduledInMinutes = parseTimeToISTMinutes(shiftStartTime)
+      const graceMinutes = activeShiftName === 'Night Shift' ? 20 : 15
       const lateMinutes = Math.max(0, punchInMinutes - scheduledInMinutes)
-      const isLate = lateMinutes > 15
+      const isLate = lateMinutes > graceMinutes
       const attendanceStatus = isLate ? 'LATE' : 'PRESENT'
 
       const newRecord = {
@@ -370,7 +467,8 @@ export async function POST(req: NextRequest) {
         punchInMode: punchMode,
         punchInCoordinates: punchMode === 'MOBILE_GEOFENCE' ? { lat, lng, distanceMeters: minDistance } : null,
         totalMinutes: null,
-        remarks: isLate ? `Late arrival by ${formatDurationHoursMinutes(lateMinutes)} (+${lateMinutes}m)` : 'Present'
+        shiftName: activeShiftName,
+        remarks: isLate ? `Late arrival by ${formatDurationHoursMinutes(lateMinutes)} (+${lateMinutes}m) [${activeShiftName}]` : `Present [${activeShiftName}]`
       }
 
       saveAttendanceRecord(newRecord)
@@ -385,6 +483,7 @@ export async function POST(req: NextRequest) {
         punchMode,
         status: attendanceStatus,
         shiftScheduled: shiftStartTime,
+        shiftName: activeShiftName,
         lateMinutes: isLate ? lateMinutes : 0,
         lat: lat || null,
         lng: lng || null,
@@ -392,7 +491,7 @@ export async function POST(req: NextRequest) {
         nearestHotel,
         ip: clientIp,
         userAgent,
-        note: isLate ? `Marked LATE: Arrived at +${lateMinutes}m (Shift: ${shiftStartTime} + 15m grace)` : undefined
+        note: isLate ? `Marked LATE: Arrived at +${lateMinutes}m (${activeShiftName}: ${shiftStartTime} + ${graceMinutes}m grace)` : undefined
       })
 
       return NextResponse.json({
@@ -401,9 +500,10 @@ export async function POST(req: NextRequest) {
         status: attendanceStatus,
         isLate,
         lateMinutes: isLate ? lateMinutes : 0,
+        shiftName: activeShiftName,
         message: attendanceStatus === 'LATE' 
-          ? `Punch-In Recorded (Marked Late: ${formatDurationHoursMinutes(lateMinutes)} late - Past ${shiftStartTime} + 15m grace period)`
-          : `Punch-In Recorded (On-Time / Present)`
+          ? `Punch-In Recorded (Marked Late: ${formatDurationHoursMinutes(lateMinutes)} late - Past ${shiftStartTime} + ${graceMinutes}m grace) [${activeShiftName}]`
+          : `Punch-In Recorded (On-Time / Present) [${activeShiftName}]`
       })
 
     } else if (action === 'OUT') {
@@ -418,8 +518,10 @@ export async function POST(req: NextRequest) {
       const punchOutTime = now.getTime()
       const totalMinutes = Math.max(0, Math.floor((punchOutTime - punchInTime) / 60000))
 
-      // Compute early departure against shift end time
-      const shiftEndTime = emp?.eveningTime || '18:00'
+      // Compute early departure against roster-scheduled shift end time
+      const rosterShiftOut = getRosterShiftTimes(emp, dateStr)
+      const shiftEndTime = rosterShiftOut.endTime
+      const activeShiftNameOut = rosterShiftOut.shiftName
       const shiftOutMinutes = parseTimeToISTMinutes(shiftEndTime)
       const punchOutMinutes = parseTimeToISTMinutes(nowIso)
       const earlyOutMinutes = Math.max(0, shiftOutMinutes - punchOutMinutes)
@@ -445,6 +547,9 @@ export async function POST(req: NextRequest) {
       allAttendance[existingIndex].totalMinutes = totalMinutes
       allAttendance[existingIndex].isEarlyOut = isEarlyOut
       allAttendance[existingIndex].earlyOutMinutes = isEarlyOut ? earlyOutMinutes : 0
+      if (!allAttendance[existingIndex].shiftName) {
+        allAttendance[existingIndex].shiftName = activeShiftNameOut
+      }
 
       saveAttendanceRecord(allAttendance[existingIndex])
 
@@ -458,6 +563,7 @@ export async function POST(req: NextRequest) {
         punchMode,
         status: finalStatus,
         totalMinutes,
+        shiftName: activeShiftNameOut,
         earlyOutMinutes: isEarlyOut ? earlyOutMinutes : 0,
         lat: lat || null,
         lng: lng || null,
@@ -466,9 +572,9 @@ export async function POST(req: NextRequest) {
         ip: clientIp,
         userAgent,
         note: totalMinutes <= 300
-          ? `Marked HALF_DAY: ${totalMinutes}m worked (<= 5 hours)`
+          ? `Marked HALF_DAY: ${totalMinutes}m worked (<= 5 hours) [${activeShiftNameOut}]`
           : isEarlyOut
-            ? `Early Out: departed -${earlyOutMinutes}m before shift end`
+            ? `Early Out: departed -${earlyOutMinutes}m before shift end [${activeShiftNameOut}: ${shiftEndTime}]`
             : undefined
       })
 

@@ -31,6 +31,9 @@ export type EmployeeItem = {
   branch: string
   dept: string
   offDays?: string[]
+  swapShiftEligible?: boolean
+  morningTime?: string
+  eveningTime?: string
 }
 
 export const DEFAULT_ROSTER_EMPLOYEES: EmployeeItem[] = []
@@ -155,6 +158,14 @@ function saveMonthlyToStorage(year: number, month: number, data: Record<string, 
     try {
       localStorage.setItem(getMonthlyStorageKey(year, month), JSON.stringify(data))
     } catch {}
+    // Also persist to server (non-blocking) so attendance punch can be roster-aware
+    try {
+      fetch('/api/hr/roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year, month, roster: data }),
+      }).catch(() => {})
+    } catch {}
   }
 }
 
@@ -268,6 +279,9 @@ export default function ShiftsManager() {
             branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
             dept: e.department?.name || e.department || e.dept || 'Front Office',
             offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
+            swapShiftEligible: e.swapShiftEligible === true,
+            morningTime: e.morningTime || '09:00',
+            eveningTime: e.eveningTime || '18:00',
           }))
 
         // Restore custom employee sort order from localStorage if present
@@ -357,7 +371,7 @@ export default function ShiftsManager() {
           setShifts([
             { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' },
             { id: 'shift-2', name: 'Break Shift', type: 'BREAK', startTime: '10:00', endTime: '22:00', firstSlot: '10:00 – 14:00', secondSlot: '18:00 – 22:00', breakTime: '14:00 – 18:00', graceMinutes: 15, branchId: 'mock-1' },
-            { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '22:00', endTime: '07:00', graceMinutes: 20, branchId: 'mock-1' },
+            { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '20:00', endTime: '08:00', graceMinutes: 20, branchId: 'mock-1' },
           ])
         }
       })
@@ -515,6 +529,12 @@ export default function ShiftsManager() {
 
   // Weekly shift toggle
   const cycleRosterShift = (empId: string, day: string) => {
+    const emp = employeesList.find(e => e.id === empId)
+    // Lock non-eligible employees — show brief message instead of toggling
+    if (emp && emp.swapShiftEligible === false) {
+      setMessage(`🔒 ${emp.name} is a Single Shift employee. Enable "Swap Shift Eligible" in Employee profile to allow shift changes.`)
+      return
+    }
     const shiftOptions = ['Morning Shift', 'Break Shift', 'Night Shift', 'OFF']
     const current = roster[empId]?.[day] || 'Morning Shift'
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
@@ -535,6 +555,12 @@ export default function ShiftsManager() {
 
   // Monthly shift toggle
   const cycleMonthlyRosterShift = (empId: string, dayNum: number) => {
+    const emp = employeesList.find(e => e.id === empId)
+    // Lock non-eligible employees — show brief message instead of toggling
+    if (emp && emp.swapShiftEligible === false) {
+      setMessage(`🔒 ${emp.name} is a Single Shift employee. Enable "Swap Shift Eligible" in Employee profile to allow shift changes.`)
+      return
+    }
     const shiftOptions = ['Morning Shift', 'Break Shift', 'Night Shift', 'OFF']
     const current = monthlyRoster[empId]?.[dayNum] || 'Morning Shift'
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
@@ -1866,7 +1892,19 @@ export default function ShiftsManager() {
                               ⠿
                             </div>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem' }}>{emp.name}</div>
+                              <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                {emp.name}
+                                {emp.swapShiftEligible === false && (
+                                  <span style={{ fontSize: '0.6rem', fontWeight: 700, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                    🔒 Single Shift
+                                  </span>
+                                )}
+                                {emp.swapShiftEligible === true && (
+                                  <span style={{ fontSize: '0.6rem', fontWeight: 700, backgroundColor: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.25)', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                    ☀️🌙 Swap
+                                  </span>
+                                )}
+                              </div>
                               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                                 <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{emp.code}</span> • {emp.designation}
                               </div>
@@ -1995,8 +2033,9 @@ export default function ShiftsManager() {
                             >
                               <button
                                 type="button"
-                                draggable={true}
+                                draggable={!emp.swapShiftEligible === false}
                                 onDragStart={(e) => {
+                                  if (emp.swapShiftEligible === false) { e.preventDefault(); return }
                                   setDraggedCell({ type: 'MONTHLY', empId: emp.id, dayKey: dayNum, shift: assignment })
                                   e.dataTransfer.effectAllowed = 'move'
                                   e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'MONTHLY', empId: emp.id, dayKey: dayNum, shift: assignment }))
@@ -2010,12 +2049,12 @@ export default function ShiftsManager() {
                                   width: '32px',
                                   height: '28px',
                                   borderRadius: '5px',
-                                  backgroundColor: badgeBg,
-                                  color: badgeColor,
-                                  border: `1px solid ${badgeColor}40`,
+                                  backgroundColor: emp.swapShiftEligible === false ? (assignment === 'OFF' ? badgeBg : 'rgba(245, 158, 11, 0.08)') : badgeBg,
+                                  color: emp.swapShiftEligible === false ? (assignment === 'OFF' ? badgeColor : '#d97706') : badgeColor,
+                                  border: emp.swapShiftEligible === false ? '1px solid rgba(245, 158, 11, 0.4)' : `1px solid ${badgeColor}40`,
                                   fontSize: badgeText === 'OFF' ? '0.65rem' : '0.75rem',
                                   fontWeight: 800,
-                                  cursor: 'grab',
+                                  cursor: emp.swapShiftEligible === false ? 'not-allowed' : 'grab',
                                   opacity: isBeingDragged ? 0.35 : 1,
                                   transform: isBeingDragged ? 'scale(0.9)' : 'none',
                                   transition: 'all 0.12s ease',
@@ -2024,12 +2063,16 @@ export default function ShiftsManager() {
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   boxShadow: isDragOver ? '0 0 8px rgba(99, 102, 241, 0.5)' : undefined,
+                                  position: 'relative',
                                 }}
-                                title={`${emp.name} — ${dayNum} ${MONTH_NAMES[selectedMonth]}: ${title} (Click to cycle • Drag & Drop to swap)`}
+                                title={emp.swapShiftEligible === false
+                                  ? `🔒 ${emp.name} — Single Shift Only (Swap not enabled). Profile: ${title}`
+                                  : `${emp.name} — ${dayNum} ${MONTH_NAMES[selectedMonth]}: ${title} (Click to cycle • Drag & Drop to swap)`}
                               >
-                                {badgeText}
+                                {emp.swapShiftEligible === false && assignment !== 'OFF' ? '🔒' : badgeText}
                               </button>
                             </td>
+
                           )
                         })}
 
