@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+export const dynamic = "force-dynamic";
+
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), "data");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const LOCAL_USERS_FILE = path.join(process.cwd(), "data", "users.json");
