@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { getMergedAttendance, saveAttendanceRecord } from '@/lib/attendanceStorage'
+import { getMergedShifts } from '@/lib/shiftStorage'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
@@ -198,8 +199,12 @@ function getRosterShiftTimes(emp: any, dateStr: string): { startTime: string; en
     // Read defined shifts from hr_shifts.json
     let definedShifts: any[] = []
     try {
-      definedShifts = readJson<any[]>(SHIFTS_FILE, LOCAL_SHIFTS_FILE, [])
-    } catch {}
+      definedShifts = getMergedShifts()
+    } catch {
+      try {
+        definedShifts = readJson<any[]>(SHIFTS_FILE, LOCAL_SHIFTS_FILE, [])
+      } catch {}
+    }
 
     // Match shift by name (case-insensitive)
     const matchedShift = definedShifts.find(
@@ -217,6 +222,9 @@ function getRosterShiftTimes(emp: any, dateStr: string): { startTime: string; en
     // Named shift fallback (common known names)
     if (assignedShiftName === 'Morning Shift') {
       return { startTime: emp?.morningTime || '09:00', endTime: emp?.eveningTime || '18:00', shiftName: assignedShiftName }
+    }
+    if (assignedShiftName === 'Afternoon Shift') {
+      return { startTime: '13:00', endTime: '23:00', shiftName: assignedShiftName }
     }
     if (assignedShiftName === 'Night Shift') {
       return { startTime: '20:00', endTime: '08:00', shiftName: assignedShiftName }

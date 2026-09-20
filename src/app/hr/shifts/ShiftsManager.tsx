@@ -177,9 +177,27 @@ function saveWeeklyToStorage(monday: Date, data: Record<string, Record<string, s
   }
 }
 
+export const DEFAULT_SHIFTS_LIST: Shift[] = [
+  { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' },
+  { id: 'shift-afternoon', name: 'Afternoon Shift', type: 'FIXED', startTime: '13:00', endTime: '23:00', graceMinutes: 15, branchId: 'mock-1' },
+  { id: 'shift-2', name: 'Break Shift', type: 'BREAK', startTime: '10:00', endTime: '22:00', firstSlot: '10:00 – 14:00', secondSlot: '18:00 – 22:00', breakTime: '14:00 – 18:00', graceMinutes: 15, branchId: 'mock-1' },
+  { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '20:00', endTime: '08:00', graceMinutes: 20, branchId: 'mock-1' },
+]
+
 export default function ShiftsManager() {
   const [employeesList, setEmployeesList] = useState<EmployeeItem[]>(DEFAULT_ROSTER_EMPLOYEES)
-  const [shifts, setShifts] = useState<Shift[]>([])
+  const [shifts, setShifts] = useState<Shift[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('GODWIN_SHIFTS_BACKUP_V1')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        }
+      } catch {}
+    }
+    return DEFAULT_SHIFTS_LIST
+  })
   const [roster, setRoster] = useState<Record<string, Record<string, string>>>(() =>
     generateInitialWeeklyRoster(DEFAULT_ROSTER_EMPLOYEES)
   )
@@ -365,22 +383,37 @@ export default function ShiftsManager() {
     fetch('/api/hr/shifts')
       .then(r => r.json())
       .then(d => {
-        if (d.shifts && d.shifts.length > 0) {
+        if (d.shifts && Array.isArray(d.shifts) && d.shifts.length > 0) {
           setShifts(d.shifts)
+          try {
+            localStorage.setItem('GODWIN_SHIFTS_BACKUP_V1', JSON.stringify(d.shifts))
+          } catch {}
         } else {
-          setShifts([
-            { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' },
-            { id: 'shift-2', name: 'Break Shift', type: 'BREAK', startTime: '10:00', endTime: '22:00', firstSlot: '10:00 – 14:00', secondSlot: '18:00 – 22:00', breakTime: '14:00 – 18:00', graceMinutes: 15, branchId: 'mock-1' },
-            { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '20:00', endTime: '08:00', graceMinutes: 20, branchId: 'mock-1' },
-          ])
+          const cached = typeof window !== 'undefined' ? localStorage.getItem('GODWIN_SHIFTS_BACKUP_V1') : null
+          if (cached) {
+            try {
+              const parsed = JSON.parse(cached)
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setShifts(parsed)
+                return
+              }
+            } catch {}
+          }
+          setShifts(DEFAULT_SHIFTS_LIST)
         }
       })
       .catch(() => {
-        setShifts([
-          { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' },
-          { id: 'shift-2', name: 'Break Shift', type: 'BREAK', startTime: '10:00', endTime: '22:00', firstSlot: '10:00 – 14:00', secondSlot: '18:00 – 22:00', breakTime: '14:00 – 18:00', graceMinutes: 15, branchId: 'mock-1' },
-          { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '20:00', endTime: '08:00', graceMinutes: 20, branchId: 'mock-1' },
-        ])
+        const cached = typeof window !== 'undefined' ? localStorage.getItem('GODWIN_SHIFTS_BACKUP_V1') : null
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setShifts(parsed)
+              return
+            }
+          } catch {}
+        }
+        setShifts(DEFAULT_SHIFTS_LIST)
       })
   }, [])
 
@@ -457,19 +490,20 @@ export default function ShiftsManager() {
 
   const handleDeleteShift = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete "${name}"?`)) {
+      let updatedList = shifts.filter(s => s.id !== id)
       try {
         const res = await fetch(`/api/hr/shifts?id=${encodeURIComponent(id)}`, {
           method: 'DELETE',
         })
         const data = await res.json()
-        if (data.shifts) {
-          setShifts(data.shifts)
-        } else {
-          setShifts(prev => prev.filter(s => s.id !== id))
+        if (data.shifts && Array.isArray(data.shifts)) {
+          updatedList = data.shifts
         }
-      } catch {
-        setShifts(prev => prev.filter(s => s.id !== id))
-      }
+      } catch {}
+      setShifts(updatedList)
+      try {
+        localStorage.setItem('GODWIN_SHIFTS_BACKUP_V1', JSON.stringify(updatedList))
+      } catch {}
       setMessage(`🗑️ Shift "${name}" removed.`)
     }
   }
@@ -499,17 +533,13 @@ export default function ShiftsManager() {
           body: JSON.stringify({ id: editingShiftId, ...payload }),
         })
         const data = await res.json()
-        if (data.shifts) {
-          setShifts(data.shifts)
-        } else {
-          setShifts(prev =>
-            prev.map(s =>
-              s.id === editingShiftId
-                ? { ...s, ...payload }
-                : s
-            )
-          )
-        }
+        const updatedList = data.shifts && Array.isArray(data.shifts) && data.shifts.length > 0
+          ? data.shifts
+          : shifts.map(s => s.id === editingShiftId ? { ...s, ...payload } : s)
+        setShifts(updatedList)
+        try {
+          localStorage.setItem('GODWIN_SHIFTS_BACKUP_V1', JSON.stringify(updatedList))
+        } catch {}
         setMessage('✅ Shift updated successfully!')
         resetForm()
       } else {
@@ -519,33 +549,31 @@ export default function ShiftsManager() {
           body: JSON.stringify(payload),
         })
         const data = await res.json()
-        if (data.shifts) {
-          setShifts(data.shifts)
-        } else {
-          const newShift: Shift = data.shift || {
-            id: 'shift-' + Date.now(),
-            ...payload,
-          }
-          setShifts(prev => [...prev, newShift])
+        const newShift: Shift = data.shift || {
+          id: 'shift-' + Date.now(),
+          ...payload,
         }
+        const updatedList = data.shifts && Array.isArray(data.shifts) && data.shifts.length > 0
+          ? data.shifts
+          : [...shifts, newShift]
+        setShifts(updatedList)
+        try {
+          localStorage.setItem('GODWIN_SHIFTS_BACKUP_V1', JSON.stringify(updatedList))
+        } catch {}
         setMessage('✅ Shift created successfully!')
         resetForm()
       }
     } catch {
+      let updatedList = shifts
       if (editingShiftId) {
-        setShifts(prev =>
-          prev.map(s =>
-            s.id === editingShiftId
-              ? { ...s, ...payload }
-              : s
-          )
-        )
+        updatedList = shifts.map(s => s.id === editingShiftId ? { ...s, ...payload } : s)
       } else {
-        setShifts(prev => [
-          ...prev,
-          { id: 'shift-' + Date.now(), ...payload },
-        ])
+        updatedList = [...shifts, { id: 'shift-' + Date.now(), ...payload }]
       }
+      setShifts(updatedList)
+      try {
+        localStorage.setItem('GODWIN_SHIFTS_BACKUP_V1', JSON.stringify(updatedList))
+      } catch {}
       setMessage('✅ Saved (offline mode)')
       resetForm()
     } finally {
@@ -561,7 +589,7 @@ export default function ShiftsManager() {
       setMessage(`🔒 ${emp.name} is a Single Shift employee. Enable "Swap Shift Eligible" in Employee profile to allow shift changes.`)
       return
     }
-    const shiftOptions = ['Morning Shift', 'Break Shift', 'Night Shift', 'OFF']
+    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'OFF']
     const current = roster[empId]?.[day] || 'Morning Shift'
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
     const nextShift = shiftOptions[nextIdx]
@@ -587,7 +615,7 @@ export default function ShiftsManager() {
       setMessage(`🔒 ${emp.name} is a Single Shift employee. Enable "Swap Shift Eligible" in Employee profile to allow shift changes.`)
       return
     }
-    const shiftOptions = ['Morning Shift', 'Break Shift', 'Night Shift', 'OFF']
+    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'OFF']
     const current = monthlyRoster[empId]?.[dayNum] || 'Morning Shift'
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
     const nextShift = shiftOptions[nextIdx]
@@ -839,6 +867,7 @@ export default function ShiftsManager() {
       '"Department"',
       ...dayHeaders,
       '"Morning (M)"',
+      '"Afternoon (A)"',
       '"Break (B)"',
       '"Night (N)"',
       '"Weekly Off (OFF)"',
@@ -850,6 +879,7 @@ export default function ShiftsManager() {
       const dayValues = daysArray.map(d => `"${empRoster[d] || 'OFF'}"`)
 
       let mCount = 0
+      let aCount = 0
       let bCount = 0
       let nCount = 0
       let offCount = 0
@@ -857,12 +887,13 @@ export default function ShiftsManager() {
       daysArray.forEach(d => {
         const s = empRoster[d]
         if (s === 'Morning Shift') mCount++
+        else if (s === 'Afternoon Shift') aCount++
         else if (s === 'Break Shift') bCount++
         else if (s === 'Night Shift') nCount++
         else offCount++
       })
 
-      const totalWork = mCount + bCount + nCount
+      const totalWork = mCount + aCount + bCount + nCount
 
       return [
         `"${emp.code}"`,
@@ -872,6 +903,7 @@ export default function ShiftsManager() {
         `"${emp.dept}"`,
         ...dayValues,
         mCount,
+        aCount,
         bCount,
         nCount,
         offCount,
@@ -1185,7 +1217,28 @@ export default function ShiftsManager() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+          <style>{`
+            @media (min-width: 960px) {
+              .shifts-top-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+              }
+            }
+            @media (max-width: 959px) and (min-width: 580px) {
+              .shifts-top-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              }
+            }
+            @media (max-width: 579px) {
+              .shifts-top-grid {
+                grid-template-columns: 1fr !important;
+              }
+            }
+            .shift-card-compact {
+              padding: 0.75rem 0.85rem !important;
+              gap: 0.55rem !important;
+            }
+          `}</style>
+          <div className="shifts-top-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
             {shifts.map(shift => {
               const isBreak = shift.type === 'BREAK' || shift.type === 'SPLIT'
               const badgeColor = SHIFT_TYPE_COLOR[shift.type] || '#10b981'
@@ -1193,14 +1246,13 @@ export default function ShiftsManager() {
               return (
                 <div
                   key={shift.id}
-                  className="card"
+                  className="card shift-card-compact"
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    gap: '1rem',
                     border: isBreak ? '1px solid rgba(14, 165, 233, 0.4)' : undefined,
-                    boxShadow: isBreak ? '0 4px 20px rgba(14, 165, 233, 0.1)' : undefined,
+                    boxShadow: isBreak ? '0 4px 16px rgba(14, 165, 233, 0.08)' : undefined,
                     position: 'relative',
                     overflow: 'hidden',
                   }}
@@ -1219,9 +1271,9 @@ export default function ShiftsManager() {
                   )}
 
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                      <div>
-                        <h3 style={{ color: 'var(--text-main)', fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.35rem 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.45rem' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <h3 style={{ color: 'var(--text-main)', fontSize: '0.94rem', fontWeight: 700, margin: '0 0 0.2rem 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {shift.name}
                         </h3>
                         <span
@@ -1230,24 +1282,25 @@ export default function ShiftsManager() {
                             backgroundColor: `${badgeColor}22`,
                             color: badgeColor,
                             fontWeight: 600,
-                            fontSize: '0.72rem',
+                            fontSize: '0.68rem',
+                            padding: '0.1rem 0.4rem',
                             border: `1px solid ${badgeColor}44`,
                           }}
                         >
-                          {isBreak ? 'BREAK / SPLIT' : shift.type}
+                          {isBreak ? 'BREAK' : shift.type}
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '0.35rem' }}>
+                      <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
                         <button
                           onClick={() => handleEditShift(shift)}
                           style={{
                             background: 'none',
                             border: '1px solid var(--border)',
                             borderRadius: '4px',
-                            padding: '0.2rem 0.5rem',
+                            padding: '0.15rem 0.4rem',
                             color: 'var(--text-muted)',
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
                             cursor: 'pointer',
                           }}
                           title="Edit Shift"
@@ -1260,9 +1313,9 @@ export default function ShiftsManager() {
                             background: 'none',
                             border: '1px solid var(--border)',
                             borderRadius: '4px',
-                            padding: '0.2rem 0.5rem',
+                            padding: '0.15rem 0.4rem',
                             color: 'var(--danger, #ef4444)',
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
                             cursor: 'pointer',
                           }}
                           title="Delete Shift"
@@ -1275,35 +1328,35 @@ export default function ShiftsManager() {
                     {isBreak ? (
                       <div
                         style={{
-                          padding: '0.75rem',
+                          padding: '0.4rem 0.55rem',
                           backgroundColor: 'rgba(14, 165, 233, 0.05)',
                           borderRadius: 'var(--radius-sm)',
                           border: '1px solid rgba(14, 165, 233, 0.15)',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '0.4rem',
+                          gap: '0.25rem',
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                            🌅 <b>Morning:</b>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            🌅 <b>Morn:</b>
                           </span>
-                          <span style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.95rem' }}>
+                          <span style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.82rem' }}>
                             {shift.firstSlot || '10:00 – 14:00'}
                           </span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                            🌆 <b>Evening:</b>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            🌆 <b>Eve:</b>
                           </span>
-                          <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.95rem' }}>
+                          <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.82rem' }}>
                             {shift.secondSlot || '18:00 – 22:00'}
                           </span>
                         </div>
                       </div>
                     ) : (
-                      <div style={{ textAlign: 'right', marginBottom: '0.5rem' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '1.25rem', letterSpacing: '0.5px' }}>
+                      <div style={{ textAlign: 'center', padding: '0.2rem 0', marginBottom: '0.25rem' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '1.18rem', letterSpacing: '0.5px' }}>
                           {shift.startTime} – {shift.endTime}
                         </div>
                       </div>
@@ -1315,18 +1368,20 @@ export default function ShiftsManager() {
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      fontSize: '0.8rem',
+                      fontSize: '0.72rem',
                       color: 'var(--text-muted)',
                       borderTop: '1px solid var(--border)',
-                      paddingTop: '0.65rem',
+                      paddingTop: '0.45rem',
                     }}
                   >
-                    <span>⏱ Grace: {shift.graceMinutes} mins</span>
+                    <span>⏱ Grace: {shift.graceMinutes}m</span>
                     <span>
                       {isBreak
-                        ? `☕ Break: ${shift.breakTime || '14:00 – 18:00'}`
+                        ? `☕ ${shift.breakTime || '14:00 – 18:00'}`
                         : shift.type === 'NIGHT'
                         ? '🌙 Night Duty'
+                        : shift.name.toLowerCase().includes('afternoon')
+                        ? '🌆 Afternoon Duty'
                         : '☀️ Day Duty'}
                     </span>
                   </div>
@@ -1474,6 +1529,9 @@ export default function ShiftsManager() {
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.75rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <span style={{ padding: '0.1rem 0.4rem', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontWeight: 700 }}>M</span> Morning (09-18)
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span style={{ padding: '0.1rem 0.4rem', borderRadius: '4px', backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', fontWeight: 700 }}>A</span> Afternoon (13-23)
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <span style={{ padding: '0.1rem 0.4rem', borderRadius: '4px', backgroundColor: 'rgba(14, 165, 233, 0.2)', color: '#0ea5e9', fontWeight: 700 }}>B</span> Break Shift
@@ -1803,6 +1861,7 @@ export default function ShiftsManager() {
 
                     {/* Summary Columns */}
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#10b981', minWidth: '45px', borderBottom: '2px solid var(--border)', borderLeft: '2px solid var(--border)' }} title="Morning Shifts">☀️ M</th>
+                    <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#f59e0b', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Afternoon Shifts">🌆 A</th>
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#0ea5e9', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Break Shifts">☕ B</th>
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#8b5cf6', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Night Shifts">🌙 N</th>
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#f43f5e', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Weekly Off Days">🏖️ OFF</th>
@@ -1814,6 +1873,7 @@ export default function ShiftsManager() {
                     const empRoster = monthlyRoster[emp.id] || {}
 
                     let morningCount = 0
+                    let afternoonCount = 0
                     let breakCount = 0
                     let nightCount = 0
                     let offCount = 0
@@ -1821,12 +1881,13 @@ export default function ShiftsManager() {
                     daysArray.forEach(d => {
                       const s = empRoster[d]
                       if (s === 'Morning Shift') morningCount++
+                      else if (s === 'Afternoon Shift') afternoonCount++
                       else if (s === 'Break Shift') breakCount++
                       else if (s === 'Night Shift') nightCount++
                       else offCount++
                     })
 
-                    const totalWorkDays = morningCount + breakCount + nightCount
+                    const totalWorkDays = morningCount + afternoonCount + breakCount + nightCount
 
                     const isEmpDragged = draggedEmpId === emp.id
                     const isEmpDragOver = dragOverEmpId === emp.id
@@ -1962,7 +2023,12 @@ export default function ShiftsManager() {
                           let badgeText = 'M'
                           let title = 'Morning Shift (09:00 - 18:00)'
 
-                          if (assignment === 'Break Shift') {
+                          if (assignment === 'Afternoon Shift') {
+                            badgeBg = 'rgba(245, 158, 11, 0.18)'
+                            badgeColor = '#f59e0b'
+                            badgeText = 'A'
+                            title = 'Afternoon Shift (13:00 - 23:00)'
+                          } else if (assignment === 'Break Shift') {
                             badgeBg = 'rgba(14, 165, 233, 0.18)'
                             badgeColor = '#0ea5e9'
                             badgeText = 'B'
@@ -2105,6 +2171,9 @@ export default function ShiftsManager() {
                         {/* Summary Columns per Employee */}
                         <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: '#10b981', borderLeft: '2px solid var(--border)' }}>
                           {morningCount}
+                        </td>
+                        <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: '#f59e0b' }}>
+                          {afternoonCount}
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: '#0ea5e9' }}>
                           {breakCount}
@@ -2446,6 +2515,7 @@ export default function ShiftsManager() {
                         const isOff = assignment === 'OFF'
                         const isNight = assignment === 'Night Shift'
                         const isBreak = assignment === 'Break Shift'
+                        const isAfternoon = assignment === 'Afternoon Shift'
 
                         let bgColor = 'rgba(16, 185, 129, 0.12)'
                         let textColor = 'var(--success)'
@@ -2472,6 +2542,10 @@ export default function ShiftsManager() {
                           bgColor = 'rgba(14, 165, 233, 0.15)'
                           textColor = '#0ea5e9'
                           borderColor = 'rgba(14, 165, 233, 0.35)'
+                        } else if (isAfternoon) {
+                          bgColor = 'rgba(245, 158, 11, 0.15)'
+                          textColor = '#f59e0b'
+                          borderColor = 'rgba(245, 158, 11, 0.35)'
                         }
 
                         const isDragOver = dragOverCell?.empId === emp.id && dragOverCell?.dayKey === d.dayKey
@@ -2951,6 +3025,7 @@ export default function ShiftsManager() {
                         style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', width: '130px' }}
                       >
                         <option value="Morning Shift">Morning (Day)</option>
+                        <option value="Afternoon Shift">Afternoon Shift</option>
                         <option value="Night Shift">Night Shift</option>
                         <option value="Break Shift">Break Shift</option>
                         <option value="OFF">Weekly Off</option>

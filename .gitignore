@@ -47,6 +47,8 @@ next-env.d.ts
 /data/attendance_store/
 /data/leave_vault/
 /data/leave_store/
+/data/shift_vault/
+/data/shift_store/
 /data/*_backup.json
 /data/*.jsonl
 /data/deploy.log

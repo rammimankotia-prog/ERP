@@ -37,11 +37,13 @@ export default function EditEmployeeForm({
 
   const initialShift = employee.morningTime === '20:00' || employee.eveningTime === '08:00' || employee.morningTime === '22:00' || employee.eveningTime === '07:00'
     ? 'NIGHT'
+    : employee.morningTime === '13:00' || employee.eveningTime === '23:00'
+    ? 'AFTERNOON'
     : employee.morningTime === '10:00' && employee.eveningTime === '22:00'
     ? 'BREAK'
     : 'MORNING'
 
-  const [selectedShift, setSelectedShift] = useState<'MORNING' | 'BREAK' | 'NIGHT'>(initialShift)
+  const [selectedShift, setSelectedShift] = useState<'MORNING' | 'AFTERNOON' | 'BREAK' | 'NIGHT'>(initialShift)
   const [swapShiftEligible, setSwapShiftEligible] = useState<boolean>(employee.swapShiftEligible === true)
   const [morningTime, setMorningTime] = useState(employee.morningTime || '09:00')
   const [eveningTime, setEveningTime] = useState(employee.eveningTime || '18:00')
@@ -1013,6 +1015,40 @@ export default function EditEmployeeForm({
               </div>
             </button>
 
+            {/* Afternoon Shift Toggle */}
+            <button
+              type="button"
+              className="shift-card-btn"
+              onClick={() => {
+                setSelectedShift('AFTERNOON')
+                setMorningTime('13:00')
+                setEveningTime('23:00')
+              }}
+              style={{
+                padding: '0.85rem 1rem',
+                borderRadius: '10px',
+                border: selectedShift === 'AFTERNOON' ? '2px solid #f59e0b' : '1px solid var(--border)',
+                backgroundColor: selectedShift === 'AFTERNOON' ? 'rgba(245, 158, 11, 0.12)' : 'var(--bg-main)',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.35rem',
+                transition: 'all 0.2s ease',
+                textAlign: 'center',
+              }}
+            >
+              <span className="shift-card-icon" style={{ fontSize: '1.4rem' }}>🌆</span>
+              <div className="shift-card-body">
+                <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'AFTERNOON' ? '#f59e0b' : 'var(--text-main)' }}>
+                  Afternoon Shift
+                </span>
+                <span style={{ fontSize: '0.75rem', color: selectedShift === 'AFTERNOON' ? '#f59e0b' : 'var(--text-muted)' }}>
+                  01:00 PM – 11:00 PM
+                </span>
+              </div>
+            </button>
+
             {/* Break Shift Toggle */}
             <button
               type="button"
@@ -1178,7 +1214,7 @@ export default function EditEmployeeForm({
               {/* Morning / Start Report Time */}
               <div className="form-group">
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
-                  {selectedShift === 'NIGHT' ? '🌙 Night Shift In-Time' : '☀️ Morning Shift In-Time'}
+                  {selectedShift === 'NIGHT' ? '🌙 Night Shift In-Time' : selectedShift === 'AFTERNOON' ? '🌆 Afternoon Shift In-Time' : '☀️ Morning Shift In-Time'}
                 </label>
                 <input
                   name="morningTime"
@@ -1203,7 +1239,7 @@ export default function EditEmployeeForm({
               {/* Evening / End Departure Time */}
               <div className="form-group">
                 <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
-                  {selectedShift === 'NIGHT' ? '🌙 Night Shift Out-Time (Next Day)' : '☀️ Morning Shift Out-Time'}
+                  {selectedShift === 'NIGHT' ? '🌙 Night Shift Out-Time (Next Day)' : selectedShift === 'AFTERNOON' ? '🌆 Afternoon Shift Out-Time' : '☀️ Morning Shift Out-Time'}
                 </label>
                 <input
                   name="eveningTime"

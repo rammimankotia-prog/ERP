@@ -9,6 +9,15 @@
     "branchId": "mock-1"
   },
   {
+    "id": "shift-afternoon",
+    "name": "Afternoon Shift",
+    "type": "FIXED",
+    "startTime": "13:00",
+    "endTime": "23:00",
+    "graceMinutes": 15,
+    "branchId": "mock-1"
+  },
+  {
     "id": "shift-2",
     "name": "Break Shift",
     "type": "BREAK",
