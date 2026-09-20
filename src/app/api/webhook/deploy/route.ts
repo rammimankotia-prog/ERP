@@ -70,7 +70,8 @@ function triggerDeployment(triggerSource: string) {
 
   const cmd = isWindows
     ? "git pull origin main && npm run build"
-    : "git pull origin main && npm run build && (pm2 restart all || pm2 reload all || true)";
+    : "git pull origin main && (./node_modules/.bin/next build || npx next build || npm run build) && (pm2 restart all || pm2 reload all || true)";
+
 
   exec(cmd, { cwd: workingDir, maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PATH: enhancedPath } }, (error, stdout, stderr) => {
     isDeploying = false;
