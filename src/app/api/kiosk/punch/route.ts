@@ -336,7 +336,16 @@ export async function POST(req: NextRequest) {
                           employeeName?.toLowerCase().includes('test') ||
                           employeeName?.toLowerCase().includes('samrat');
 
-      if (geofenceEnabled && !isTestStaff) {
+      // Security Guards are exempt from geofencing — they work at entry/exit points
+      const isSecurityGuard =
+        emp?.role?.toLowerCase().includes('security') ||
+        emp?.assignedRole?.toLowerCase().includes('security') ||
+        emp?.designation?.toLowerCase().includes('guard') ||
+        emp?.designation?.toLowerCase().includes('security') ||
+        emp?.department?.name?.toLowerCase().includes('security') ||
+        emp?.dept?.toLowerCase().includes('security')
+
+      if (geofenceEnabled && !isTestStaff && !isSecurityGuard) {
         if (typeof lat !== 'number' || typeof lng !== 'number') {
           return NextResponse.json(
             { error: `📍 GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within ${defaultRadius || 80}m of hotel premises.` },
