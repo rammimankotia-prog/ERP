@@ -155,6 +155,27 @@ export default function KioskPage() {
     fetchEmployees();
   }, []);
 
+  const [selectedHotel, setSelectedHotel] = useState('ALL');
+  const [sortOption, setSortOption] = useState<'HOTEL' | 'NAME' | 'ID'>('HOTEL');
+
+  // Hotels list (Hotel Grand Godwin & Hotel Godwin Deluxe first)
+  const hotels = useMemo(() => {
+    const defaultHotels = ['Hotel Grand Godwin', 'Hotel Godwin Deluxe', 'Indian Grill', 'Cafe Brownie'];
+    const s = new Set<string>(defaultHotels);
+    employees.forEach(e => {
+      if (e.branch) s.add(e.branch);
+    });
+    const priority = (name: string) => {
+      const l = (name || '').toLowerCase();
+      if (l.includes('grand godwin')) return 1;
+      if (l.includes('godwin deluxe')) return 2;
+      if (l.includes('indian grill')) return 3;
+      if (l.includes('cafe brownie') || l.includes('brownie')) return 4;
+      return 10;
+    };
+    return Array.from(s).sort((a, b) => priority(a) - priority(b));
+  }, [employees]);
+
   // Departments list
   const departments = useMemo(() => {
     const depts = new Set<string>();
@@ -164,9 +185,9 @@ export default function KioskPage() {
     return Array.from(depts);
   }, [employees]);
 
-  // Filtered employees
+  // Filtered and Sorted employees
   const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => {
+    const list = employees.filter(emp => {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
@@ -174,13 +195,39 @@ export default function KioskPage() {
         emp.lastName.toLowerCase().includes(q) ||
         emp.employeeId.toLowerCase().includes(q) ||
         (emp.department && emp.department.toLowerCase().includes(q)) ||
-        (emp.designation && emp.designation.toLowerCase().includes(q));
+        (emp.designation && emp.designation.toLowerCase().includes(q)) ||
+        (emp.branch && emp.branch.toLowerCase().includes(q));
 
       const matchesDept = selectedDept === 'ALL' || emp.department === selectedDept;
+      const matchesHotel = selectedHotel === 'ALL' || emp.branch === selectedHotel;
 
-      return matchesSearch && matchesDept;
+      return matchesSearch && matchesDept && matchesHotel;
     });
-  }, [employees, searchQuery, selectedDept]);
+
+    const hotelPriority = (bName: string) => {
+      const l = (bName || '').toLowerCase();
+      if (l.includes('grand godwin')) return 1;
+      if (l.includes('godwin deluxe')) return 2;
+      if (l.includes('indian grill')) return 3;
+      if (l.includes('cafe brownie') || l.includes('brownie')) return 4;
+      return 10;
+    };
+
+    return list.sort((a, b) => {
+      if (sortOption === 'HOTEL') {
+        const pA = hotelPriority(a.branch || '');
+        const pB = hotelPriority(b.branch || '');
+        if (pA !== pB) return pA - pB;
+        const bComp = (a.branch || '').localeCompare(b.branch || '');
+        if (bComp !== 0) return bComp;
+        return (a.employeeId || '').localeCompare(b.employeeId || '');
+      } else if (sortOption === 'NAME') {
+        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+      } else {
+        return (a.employeeId || '').localeCompare(b.employeeId || '');
+      }
+    });
+  }, [employees, searchQuery, selectedDept, selectedHotel, sortOption]);
 
   // Handle password / credential login
   const handlePasswordLogin = async (e: React.FormEvent) => {
@@ -885,11 +932,11 @@ export default function KioskPage() {
               </div>
             )}
 
-            {/* Instant Search Bar */}
+            {/* Search and Sort Control Bar */}
             <div
               style={{
                 display: 'flex',
-                gap: '1rem',
+                gap: '0.75rem',
                 flexWrap: 'wrap',
                 alignItems: 'center',
               }}
@@ -911,17 +958,17 @@ export default function KioskPage() {
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Type employee name or staff ID (e.g. GG-1001, Raman, Front Desk)..."
+                  placeholder="Type employee name, ID or hotel (e.g. GG-1001, Raman, Godwin)..."
                   style={{
                     width: '100%',
-                    height: '52px',
+                    height: '48px',
                     paddingLeft: '48px',
                     paddingRight: '48px',
-                    borderRadius: '14px',
+                    borderRadius: '12px',
                     border: isLight ? '2px solid #cbd5e1' : '2px solid #334155',
                     backgroundColor: isLight ? '#ffffff' : '#1e293b',
                     color: 'var(--text-main)',
-                    fontSize: '1.05rem',
+                    fontSize: '0.98rem',
                     fontWeight: 500,
                     outline: 'none',
                     boxShadow: 'var(--shadow)',
@@ -949,48 +996,134 @@ export default function KioskPage() {
                 )}
               </div>
 
-              {/* Department filter chips */}
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDept('ALL')}
+              {/* Sort By Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)' }}>Sort by:</span>
+                <select
+                  value={sortOption}
+                  onChange={e => setSortOption(e.target.value as any)}
                   style={{
-                    padding: '0.5rem 1rem',
-                    borderRadius: '99px',
-                    border: selectedDept === 'ALL' ? '2px solid var(--primary)' : '1px solid var(--border)',
-                    background: selectedDept === 'ALL' ? 'rgba(37, 99, 235, 0.12)' : (isLight ? '#ffffff' : '#1e293b'),
-                    color: selectedDept === 'ALL' ? 'var(--primary)' : 'var(--text-muted)',
-                    cursor: 'pointer',
+                    height: '48px',
+                    padding: '0 12px',
+                    borderRadius: '12px',
+                    border: isLight ? '2px solid #cbd5e1' : '2px solid #334155',
+                    backgroundColor: isLight ? '#ffffff' : '#1e293b',
+                    color: 'var(--primary)',
+                    fontSize: '0.85rem',
                     fontWeight: 700,
-                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    outline: 'none',
                   }}
                 >
-                  All ({employees.length})
-                </button>
-                {departments.map(dept => {
-                  const count = employees.filter(e => e.department === dept).length;
-                  const active = selectedDept === dept;
-                  return (
-                    <button
-                      key={dept}
-                      type="button"
-                      onClick={() => setSelectedDept(dept)}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        borderRadius: '99px',
-                        border: active ? '2px solid var(--primary)' : '1px solid var(--border)',
-                        background: active ? 'rgba(37, 99, 235, 0.12)' : (isLight ? '#ffffff' : '#1e293b'),
-                        color: active ? 'var(--primary)' : 'var(--text-muted)',
-                        cursor: 'pointer',
-                        fontWeight: 700,
-                        fontSize: '0.82rem',
-                      }}
-                    >
-                      {dept} ({count})
-                    </button>
-                  );
-                })}
+                  <option value="HOTEL">🏨 Hotel (Grand Godwin & Godwin Deluxe)</option>
+                  <option value="NAME">👤 Employee Name (A-Z)</option>
+                  <option value="ID">🔢 Staff ID (Ascending)</option>
+                </select>
               </div>
+            </div>
+
+            {/* Hotel / Property Filter Pills */}
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginRight: '0.2rem' }}>HOTEL:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedHotel('ALL')}
+                style={{
+                  padding: '0.42rem 0.85rem',
+                  borderRadius: '99px',
+                  border: selectedHotel === 'ALL' ? '2px solid #f59e0b' : (isLight ? '1px solid #cbd5e1' : '1px solid #334155'),
+                  background: selectedHotel === 'ALL' ? 'rgba(245, 158, 11, 0.15)' : (isLight ? '#ffffff' : '#1e293b'),
+                  color: selectedHotel === 'ALL' ? '#d97706' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                }}
+              >
+                <span>🏨 All Hotels</span>
+                <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>({employees.length})</span>
+              </button>
+              {hotels.map(h => {
+                const count = employees.filter(e => e.branch === h).length;
+                const active = selectedHotel === h;
+                const isGrand = h.toLowerCase().includes('grand godwin');
+                const isDeluxe = h.toLowerCase().includes('deluxe');
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setSelectedHotel(h)}
+                    style={{
+                      padding: '0.42rem 0.85rem',
+                      borderRadius: '99px',
+                      border: active
+                        ? isDeluxe ? '2px solid #6366f1' : isGrand ? '2px solid #d97706' : '2px solid var(--primary)'
+                        : (isLight ? '1px solid #cbd5e1' : '1px solid #334155'),
+                      background: active
+                        ? isDeluxe ? 'rgba(99, 102, 241, 0.15)' : isGrand ? 'rgba(217, 119, 6, 0.15)' : 'rgba(37, 99, 235, 0.12)'
+                        : (isLight ? '#ffffff' : '#1e293b'),
+                      color: active
+                        ? isDeluxe ? '#6366f1' : isGrand ? '#d97706' : 'var(--primary)'
+                        : 'var(--text-main)',
+                      cursor: 'pointer',
+                      fontWeight: 800,
+                      fontSize: '0.8rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                    }}
+                  >
+                    <span>🏨 {h}</span>
+                    <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Department filter chips */}
+            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginRight: '0.2rem' }}>DEPT:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedDept('ALL')}
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  borderRadius: '99px',
+                  border: selectedDept === 'ALL' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                  background: selectedDept === 'ALL' ? 'rgba(37, 99, 235, 0.12)' : (isLight ? '#ffffff' : '#1e293b'),
+                  color: selectedDept === 'ALL' ? 'var(--primary)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                }}
+              >
+                All
+              </button>
+              {departments.map(dept => {
+                const count = employees.filter(e => e.department === dept).length;
+                const active = selectedDept === dept;
+                return (
+                  <button
+                    key={dept}
+                    type="button"
+                    onClick={() => setSelectedDept(dept)}
+                    style={{
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: '99px',
+                      border: active ? '2px solid var(--primary)' : '1px solid var(--border)',
+                      background: active ? 'rgba(37, 99, 235, 0.12)' : (isLight ? '#ffffff' : '#1e293b'),
+                      color: active ? 'var(--primary)' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                    }}
+                  >
+                    {dept} ({count})
+                  </button>
+                );
+              })}
             </div>
 
             {/* Employee Cards Grid (1-Tap to Identify) */}
@@ -1027,6 +1160,8 @@ export default function KioskPage() {
                 {filteredEmployees.map(emp => {
                   const onShift = emp.checkedIn && !emp.checkedOut;
                   const shiftDone = emp.checkedIn && emp.checkedOut;
+                  const isDeluxe = (emp.branch || '').toLowerCase().includes('deluxe') || (emp.employeeId || '').startsWith('GD-');
+                  const isGrand = (emp.branch || '').toLowerCase().includes('grand godwin') || (emp.employeeId || '').startsWith('GG-') || (!isDeluxe && !emp.branch?.toLowerCase().includes('grill') && !emp.branch?.toLowerCase().includes('brownie'));
 
                   return (
                     <div
@@ -1131,10 +1266,33 @@ export default function KioskPage() {
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.4rem',
+                            flexWrap: 'wrap',
+                            gap: '0.35rem',
                             marginTop: '0.35rem',
                           }}
                         >
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              background: isDeluxe
+                                ? 'rgba(99, 102, 241, 0.12)'
+                                : isGrand
+                                ? 'rgba(217, 119, 6, 0.12)'
+                                : 'rgba(16, 185, 129, 0.12)',
+                              color: isDeluxe
+                                ? '#6366f1'
+                                : isGrand
+                                ? '#d97706'
+                                : '#059669',
+                              fontWeight: 800,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            🏨 {isGrand ? 'Grand Godwin' : isDeluxe ? 'Godwin Deluxe' : emp.branch || 'Grand Godwin'}
+                          </span>
+
                           <span
                             style={{
                               fontFamily: 'monospace',

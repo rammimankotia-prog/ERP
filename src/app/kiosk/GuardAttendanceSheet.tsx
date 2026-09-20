@@ -83,6 +83,7 @@ export default function GuardAttendanceSheet({
   const [search, setSearch] = useState('')
   const [branchFilter, setBranchFilter] = useState('ALL')
   const [deptFilter, setDeptFilter] = useState('ALL')
+  const [sortOrder, setSortOrder] = useState<'HOTEL' | 'NAME' | 'ID'>('HOTEL')
 
   const [loading, setLoading] = useState(true)
   const [sheetData, setSheetData] = useState<SheetResponse | null>(null)
@@ -161,14 +162,24 @@ export default function GuardAttendanceSheet({
     setSelectedMonth(currentMonth)
   }
 
-  // Extract branches and departments for dropdowns
+  // Extract branches and departments for dropdowns (Hotel Grand Godwin & Godwin Deluxe first)
   const availableBranches = useMemo(() => {
-    if (!sheetData) return []
-    const s = new Set<string>()
-    sheetData.employees.forEach(e => {
-      if (e.branch) s.add(e.branch)
-    })
-    return Array.from(s)
+    const defaultBranches = ['Hotel Grand Godwin', 'Hotel Godwin Deluxe', 'Indian Grill', 'Cafe Brownie']
+    const s = new Set<string>(defaultBranches)
+    if (sheetData) {
+      sheetData.employees.forEach(e => {
+        if (e.branch) s.add(e.branch)
+      })
+    }
+    const priority = (name: string) => {
+      const l = (name || '').toLowerCase()
+      if (l.includes('grand godwin')) return 1
+      if (l.includes('godwin deluxe')) return 2
+      if (l.includes('indian grill')) return 3
+      if (l.includes('cafe brownie') || l.includes('brownie')) return 4
+      return 10
+    }
+    return Array.from(s).sort((a, b) => priority(a) - priority(b))
   }, [sheetData])
 
   const availableDepts = useMemo(() => {
@@ -179,6 +190,35 @@ export default function GuardAttendanceSheet({
     })
     return Array.from(s)
   }, [sheetData])
+
+  // Sort employees: Hotel Name (Hotel Grand Godwin & Hotel Godwin Deluxe first), Name or ID
+  const sortedEmployees = useMemo(() => {
+    if (!sheetData?.employees) return []
+    const list = [...sheetData.employees]
+    const priority = (name: string) => {
+      const l = (name || '').toLowerCase()
+      if (l.includes('grand godwin')) return 1
+      if (l.includes('godwin deluxe')) return 2
+      if (l.includes('indian grill')) return 3
+      if (l.includes('cafe brownie') || l.includes('brownie')) return 4
+      return 10
+    }
+
+    return list.sort((a, b) => {
+      if (sortOrder === 'HOTEL') {
+        const pA = priority(a.branch)
+        const pB = priority(b.branch)
+        if (pA !== pB) return pA - pB
+        const bComp = (a.branch || '').localeCompare(b.branch || '')
+        if (bComp !== 0) return bComp
+        return (a.employeeId || '').localeCompare(b.employeeId || '')
+      } else if (sortOrder === 'NAME') {
+        return (a.name || '').localeCompare(b.name || '')
+      } else {
+        return (a.employeeId || '').localeCompare(b.employeeId || '')
+      }
+    })
+  }, [sheetData, sortOrder])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
@@ -503,7 +543,7 @@ export default function GuardAttendanceSheet({
               cursor: 'pointer',
             }}
           >
-            <option value="ALL">🏨 All Branches</option>
+            <option value="ALL">🏨 All Hotels / Branches</option>
             {availableBranches.map(b => (
               <option key={b} value={b}>{b}</option>
             ))}
@@ -529,6 +569,27 @@ export default function GuardAttendanceSheet({
             {availableDepts.map(d => (
               <option key={d} value={d}>{d}</option>
             ))}
+          </select>
+
+          {/* Sort Order Selector */}
+          <select
+            value={sortOrder}
+            onChange={e => setSortOrder(e.target.value as any)}
+            style={{
+              height: '40px',
+              padding: '0 12px',
+              borderRadius: '10px',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
+              background: isLight ? '#f8fafc' : '#0f172a',
+              color: 'var(--primary)',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            <option value="HOTEL">↕️ Sort: Hotel (Grand Godwin & Godwin Deluxe)</option>
+            <option value="NAME">👤 Sort: Employee Name (A-Z)</option>
+            <option value="ID">🔢 Sort: Employee ID (Ascending)</option>
           </select>
 
           <button
@@ -600,7 +661,7 @@ export default function GuardAttendanceSheet({
                       borderBottom: isLight ? '2px solid #e2e8f0' : '2px solid #334155',
                     }}
                   >
-                    Employee ({sheetData.employees.length})
+                    Employee ({sortedEmployees.length})
                   </th>
 
                   {/* Date Columns 01 up to Today (Strictly till today) */}
@@ -649,10 +710,9 @@ export default function GuardAttendanceSheet({
                                 fontSize: '0.55rem',
                                 backgroundColor: '#0284c7',
                                 color: '#ffffff',
-                                padding: '1px 4px',
+                                padding: '1px 3px',
                                 borderRadius: '3px',
                                 fontWeight: 900,
-                                letterSpacing: '0.04em',
                               }}
                             >
                               TODAY
@@ -663,7 +723,7 @@ export default function GuardAttendanceSheet({
                     )
                   })}
 
-                  {/* Summary Columns */}
+                  {/* Monthly Aggregate Columns */}
                   <th
                     style={{
                       padding: '0.65rem 0.6rem',
@@ -674,7 +734,7 @@ export default function GuardAttendanceSheet({
                       borderLeft: isLight ? '2px solid #e2e8f0' : '2px solid #334155',
                       fontWeight: 800,
                     }}
-                    title="Total Present Days"
+                    title="Total Present Days (On-Time + Late)"
                   >
                     🟢 P
                   </th>
@@ -733,7 +793,7 @@ export default function GuardAttendanceSheet({
                 </tr>
               </thead>
               <tbody>
-                {sheetData.employees.map(emp => {
+                {sortedEmployees.map(emp => {
                   let presentCount = 0
                   let halfDayCount = 0
                   let leaveCount = 0
@@ -749,6 +809,9 @@ export default function GuardAttendanceSheet({
                     else if (cell.status === 'WEEKLY_OFF') offCount++
                     else if (cell.status === 'ABSENT') absentCount++
                   })
+
+                  const isDeluxe = (emp.branch || '').toLowerCase().includes('deluxe')
+                  const isGrand = (emp.branch || '').toLowerCase().includes('grand godwin')
 
                   return (
                     <tr
@@ -776,7 +839,11 @@ export default function GuardAttendanceSheet({
                               width: '34px',
                               height: '34px',
                               borderRadius: '8px',
-                              background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                              background: isDeluxe
+                                ? 'linear-gradient(135deg, #6366f1, #4f46e5)'
+                                : isGrand
+                                ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                                : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
                               color: '#ffffff',
                               display: 'flex',
                               alignItems: 'center',
@@ -809,6 +876,29 @@ export default function GuardAttendanceSheet({
                               {' · '}{emp.designation}
                             </div>
                             <div style={{ display: 'flex', gap: '4px', marginTop: '3px', flexWrap: 'wrap' }}>
+                              {/* Hotel Property Badge */}
+                              <span
+                                title={`Hotel: ${emp.branch}`}
+                                style={{
+                                  fontSize: '0.65rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  background: isDeluxe
+                                    ? 'rgba(99, 102, 241, 0.12)'
+                                    : isGrand
+                                    ? 'rgba(217, 119, 6, 0.12)'
+                                    : 'rgba(16, 185, 129, 0.12)',
+                                  color: isDeluxe
+                                    ? '#6366f1'
+                                    : isGrand
+                                    ? '#d97706'
+                                    : '#059669',
+                                  fontWeight: 800,
+                                }}
+                              >
+                                🏨 {isGrand ? 'Grand Godwin' : isDeluxe ? 'Godwin Deluxe' : emp.branch || 'Grand Godwin'}
+                              </span>
+
                               <span
                                 style={{
                                   fontSize: '0.65rem',

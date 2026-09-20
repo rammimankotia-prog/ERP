@@ -123,11 +123,28 @@ export async function GET(req: NextRequest) {
   const allEmps = await getAllEmployees()
   let employees: any[] = allEmps
     .filter((e: any) => e.status === 'ACTIVE' || !e.status)
-    .map((e: any) => ({
-      ...e,
-      branch: typeof e.branch === 'object' ? (e.branch?.name || 'Hotel Grand Godwin') : (e.branch || 'Hotel Grand Godwin'),
-      department: typeof e.department === 'object' ? (e.department?.name || 'Operations') : (e.department || 'Operations'),
-    }))
+    .map((e: any) => {
+      const empIdNorm = (e.employeeId || e.id || '').trim().toUpperCase()
+      let branchName = 'Hotel Grand Godwin'
+      if (typeof e.branch === 'object' && e.branch?.name) {
+        branchName = e.branch.name
+      } else if (typeof e.branch === 'string' && e.branch.trim()) {
+        branchName = e.branch.trim()
+      } else if (e.branchId === 'branch-gd' || empIdNorm.startsWith('GD-')) {
+        branchName = 'Hotel Godwin Deluxe'
+      } else if (e.branchId === 'branch-ig' || empIdNorm.startsWith('IG-')) {
+        branchName = 'Indian Grill'
+      } else if (e.branchId === 'branch-cb' || empIdNorm.startsWith('CB-')) {
+        branchName = 'Cafe Brownie'
+      }
+
+      return {
+        ...e,
+        branch: branchName,
+        branchId: e.branchId || (typeof e.branch === 'object' ? e.branch?.id : null),
+        department: typeof e.department === 'object' ? (e.department?.name || 'Operations') : (e.department || 'Operations'),
+      }
+    })
 
   if (branchId && branchId !== 'ALL') {
     employees = employees.filter(e => e.branchId === branchId || e.branch?.id === branchId || e.branch === branchId)
@@ -143,6 +160,25 @@ export async function GET(req: NextRequest) {
       (e.designation || '').toLowerCase().includes(q)
     )
   }
+
+  // Sort by Hotel Name: Hotel Grand Godwin first, then Hotel Godwin Deluxe, then others
+  const hotelPriority = (bName: string) => {
+    const lower = (bName || '').toLowerCase()
+    if (lower.includes('grand godwin')) return 1
+    if (lower.includes('godwin deluxe')) return 2
+    if (lower.includes('indian grill')) return 3
+    if (lower.includes('cafe brownie') || lower.includes('brownie')) return 4
+    return 10
+  }
+
+  employees.sort((a, b) => {
+    const pA = hotelPriority(a.branch)
+    const pB = hotelPriority(b.branch)
+    if (pA !== pB) return pA - pB
+    const bCompare = (a.branch || '').localeCompare(b.branch || '')
+    if (bCompare !== 0) return bCompare
+    return (a.employeeId || '').localeCompare(b.employeeId || '')
+  })
 
   // 3. Fetch Attendance Logs (Prisma DB first, then merge with JSON)
   let allAttendance: any[] = []
