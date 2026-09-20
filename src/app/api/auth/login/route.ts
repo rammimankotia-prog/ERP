@@ -36,7 +36,7 @@ const DEFAULT_USERS = [
     username: "sec@godwinhotels.com",
     name: "Security Team",
     email: "sec@godwinhotels.com",
-    password: "Jaimatadi@24",
+    password: "Balaknath@99",
     role: "Security Guard",
     status: "Active",
     createdAt: new Date().toISOString().split("T")[0],
