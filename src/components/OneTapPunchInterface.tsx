@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { verifyStaffLocation } from '@/lib/geofence';
 
@@ -306,6 +306,26 @@ export default function OneTapPunchInterface({
     }
   };
 
+  const calculatedDays = useMemo(() => {
+    if (!leaveForm.fromDate || !leaveForm.toDate) return 0;
+    const start = new Date(leaveForm.fromDate);
+    const end = new Date(leaveForm.toDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return 0;
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  }, [leaveForm.fromDate, leaveForm.toDate]);
+
+  const openLeaveModal = () => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    setLeaveForm(prev => ({
+      ...prev,
+      fromDate: prev.fromDate || todayStr,
+      toDate: prev.toDate || todayStr,
+    }));
+    setLeaveMsg(null);
+    setShowLeaveModal(true);
+  };
 
   const formatTimeStr = (isoString?: string | null) => {
     if (!isoString) return '--:--';
@@ -837,25 +857,39 @@ export default function OneTapPunchInterface({
       </div>
 
       {/* Secondary Actions (Request Leave, My Attendance & Log Out) - ONLY for self-service staff logged in with email & password */}
+      {/* Secondary Actions (Request Leave, My Attendance & Log Out) - ONLY for self-service staff logged in with email & password */}
       {showLeaveAndHistory && (
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: '0.65rem',
+            justifyContent: 'center',
+            marginTop: '0.5rem',
+            flexWrap: 'wrap',
+            width: '100%',
+            maxWidth: '520px',
+          }}
+        >
           <button
             type="button"
-            onClick={() => setShowLeaveModal(true)}
+            onClick={openLeaveModal}
             style={{
-              padding: '0.65rem 1.3rem',
+              flex: '1 1 135px',
+              padding: '0.65rem 1rem',
               borderRadius: '10px',
               border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
               background: isLight ? '#ffffff' : '#1e293b',
               color: isLight ? '#0f172a' : '#f8fafc',
               fontWeight: 700,
-              fontSize: '0.88rem',
+              fontSize: '0.86rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              justifyContent: 'center',
+              gap: '0.45rem',
               boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.06)' : '0 2px 6px rgba(0,0,0,0.3)',
-              transition: 'all 0.15s'
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
             }}
           >
             <span>🌴</span> <span>Request Leave</span>
@@ -864,19 +898,22 @@ export default function OneTapPunchInterface({
             type="button"
             onClick={handleFetchHistory}
             style={{
-              padding: '0.65rem 1.3rem',
+              flex: '1 1 135px',
+              padding: '0.65rem 1rem',
               borderRadius: '10px',
               border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
               background: isLight ? '#ffffff' : '#1e293b',
               color: isLight ? '#0f172a' : '#f8fafc',
               fontWeight: 700,
-              fontSize: '0.88rem',
+              fontSize: '0.86rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              justifyContent: 'center',
+              gap: '0.45rem',
               boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.06)' : '0 2px 6px rgba(0,0,0,0.3)',
-              transition: 'all 0.15s'
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
             }}
           >
             <span>📅</span> <span>My Attendance</span>
@@ -885,19 +922,22 @@ export default function OneTapPunchInterface({
             type="button"
             onClick={onBack}
             style={{
-              padding: '0.65rem 1.3rem',
+              flex: '1 1 110px',
+              padding: '0.65rem 1rem',
               borderRadius: '10px',
               border: '1.5px solid rgba(239, 68, 68, 0.35)',
               background: isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)',
               color: '#dc2626',
               fontWeight: 700,
-              fontSize: '0.88rem',
+              fontSize: '0.86rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              justifyContent: 'center',
+              gap: '0.45rem',
               boxShadow: isLight ? '0 2px 6px rgba(239, 68, 68, 0.1)' : '0 2px 6px rgba(0,0,0,0.3)',
-              transition: 'all 0.15s'
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
             }}
             title="Sign out of your account"
           >
@@ -913,83 +953,534 @@ export default function OneTapPunchInterface({
         </p>
       </div>
 
-      {/* Leave Request Modal */}
+      {/* ============================================================ */}
+      {/* LEAVE REQUEST MODAL (ORGANIZED, RESPONSIVE & MOBILE-OPTIMIZED) */}
+      {/* ============================================================ */}
       {showLeaveAndHistory && showLeaveModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div style={{ background: isLight ? '#ffffff' : '#1e293b', padding: '1.75rem', borderRadius: '16px', width: '92%', maxWidth: '500px', border: isLight ? '1px solid #cbd5e1' : '1px solid #475569', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)' }}>
-            <h3 style={{ margin: '0 0 1.25rem 0', color: isLight ? '#0f172a' : '#f8fafc', fontSize: '1.25rem', fontWeight: 800 }}>Submit Leave Request</h3>
-            <form onSubmit={handleSubmitLeave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowLeaveModal(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 'clamp(0.75rem, 3vw, 1.5rem)',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div
+            style={{
+              background: isLight ? '#ffffff' : '#1e293b',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '480px',
+              maxHeight: 'calc(100vh - 2rem)',
+              display: 'flex',
+              flexDirection: 'column',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              overflow: 'hidden',
+              boxSizing: 'border-box',
+              animation: 'scaleUp 0.18s ease-out',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '1.15rem 1.4rem',
+                borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+                background: isLight ? '#f8fafc' : '#0f172a',
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                <div
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.3rem',
+                    boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)',
+                    flexShrink: 0,
+                  }}
+                >
+                  🌴
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h3
+                    style={{
+                      margin: 0,
+                      color: isLight ? '#0f172a' : '#f8fafc',
+                      fontSize: '1.15rem',
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    Submit Leave Request
+                  </h3>
+                  <p
+                    style={{
+                      margin: '2px 0 0 0',
+                      fontSize: '0.75rem',
+                      color: 'var(--text-muted)',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {employee.firstName} {employee.lastName} • {employee.employeeId}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowLeaveModal(false)}
+                title="Close"
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                  background: isLight ? '#ffffff' : '#1e293b',
+                  color: 'var(--text-muted)',
+                  fontSize: '1.1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body (Scrollable with border-box on all elements) */}
+            <div
+              style={{
+                padding: '1.25rem 1.4rem',
+                overflowY: 'auto',
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+                boxSizing: 'border-box',
+              }}
+            >
               {leaveMsg && (
-                <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: leaveMsg.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)', color: leaveMsg.type === 'success' ? '#10b981' : '#ef4444', fontWeight: 600, fontSize: '0.85rem' }}>
-                  {leaveMsg.text}
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    background: leaveMsg.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                    color: leaveMsg.type === 'success' ? '#10b981' : '#ef4444',
+                    border: leaveMsg.type === 'success' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <span>{leaveMsg.type === 'success' ? '✅' : '⚠️'}</span>
+                  <span>{leaveMsg.text}</span>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 180px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.82rem', fontWeight: 600, color: isLight ? '#334155' : '#cbd5e1' }}>From Date</label>
-                  <input type="date" required value={leaveForm.fromDate} onChange={e => setLeaveForm({...leaveForm, fromDate: e.target.value})} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569', background: isLight ? '#f8fafc' : '#0f172a', color: isLight ? '#0f172a' : '#f8fafc', fontSize: '0.9rem' }} />
+
+              <form id="leave-request-form" onSubmit={handleSubmitLeave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', boxSizing: 'border-box' }}>
+                {/* Leave Type */}
+                <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '0.35rem',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      color: isLight ? '#334155' : '#cbd5e1',
+                    }}
+                  >
+                    Leave Category *
+                  </label>
+                  <select
+                    value={leaveForm.leaveTypeId}
+                    onChange={e => {
+                      const name = e.target.options[e.target.selectedIndex].text;
+                      setLeaveForm({ ...leaveForm, leaveTypeId: e.target.value, leaveTypeName: name });
+                    }}
+                    style={{
+                      width: '100%',
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
+                      height: '44px',
+                      padding: '0 12px',
+                      borderRadius: '10px',
+                      border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+                      background: isLight ? '#f8fafc' : '#0f172a',
+                      color: isLight ? '#0f172a' : '#f8fafc',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="lt-casual">🏖️ Casual Leave (CL)</option>
+                    <option value="lt-sick">🤒 Sick Leave (SL)</option>
+                    <option value="lt-annual">📅 Annual / Earned Leave (EL)</option>
+                    <option value="lt-unpaid">📄 Unpaid Leave</option>
+                  </select>
                 </div>
-                <div style={{ flex: '1 1 180px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.82rem', fontWeight: 600, color: isLight ? '#334155' : '#cbd5e1' }}>To Date</label>
-                  <input type="date" required value={leaveForm.toDate} onChange={e => setLeaveForm({...leaveForm, toDate: e.target.value})} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569', background: isLight ? '#f8fafc' : '#0f172a', color: isLight ? '#0f172a' : '#f8fafc', fontSize: '0.9rem' }} />
+
+                {/* Dates: 2-column responsive layout */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                    gap: '0.75rem',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <div style={{ minWidth: 0, boxSizing: 'border-box' }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        marginBottom: '0.35rem',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        color: isLight ? '#334155' : '#cbd5e1',
+                      }}
+                    >
+                      From Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={leaveForm.fromDate}
+                      onChange={e => {
+                        const newFrom = e.target.value;
+                        setLeaveForm(prev => ({
+                          ...prev,
+                          fromDate: newFrom,
+                          toDate: prev.toDate && prev.toDate < newFrom ? newFrom : prev.toDate,
+                        }));
+                      }}
+                      style={{
+                        width: '100%',
+                        maxWidth: '100%',
+                        boxSizing: 'border-box',
+                        height: '44px',
+                        padding: '0 10px',
+                        borderRadius: '10px',
+                        border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+                        background: isLight ? '#f8fafc' : '#0f172a',
+                        color: isLight ? '#0f172a' : '#f8fafc',
+                        fontSize: '0.9rem',
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ minWidth: 0, boxSizing: 'border-box' }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        marginBottom: '0.35rem',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        color: isLight ? '#334155' : '#cbd5e1',
+                      }}
+                    >
+                      To Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      min={leaveForm.fromDate}
+                      value={leaveForm.toDate}
+                      onChange={e => setLeaveForm({ ...leaveForm, toDate: e.target.value })}
+                      style={{
+                        width: '100%',
+                        maxWidth: '100%',
+                        boxSizing: 'border-box',
+                        height: '44px',
+                        padding: '0 10px',
+                        borderRadius: '10px',
+                        border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+                        background: isLight ? '#f8fafc' : '#0f172a',
+                        color: isLight ? '#0f172a' : '#f8fafc',
+                        fontSize: '0.9rem',
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.82rem', fontWeight: 600, color: isLight ? '#334155' : '#cbd5e1' }}>Leave Type</label>
-                <select value={leaveForm.leaveTypeId} onChange={e => {
-                  const name = e.target.options[e.target.selectedIndex].text;
-                  setLeaveForm({...leaveForm, leaveTypeId: e.target.value, leaveTypeName: name});
-                }} style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569', background: isLight ? '#f8fafc' : '#0f172a', color: isLight ? '#0f172a' : '#f8fafc', fontSize: '0.9rem' }}>
-                  <option value="lt-casual">Casual Leave</option>
-                  <option value="lt-sick">Sick Leave</option>
-                  <option value="lt-annual">Annual Leave</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.82rem', fontWeight: 600, color: isLight ? '#334155' : '#cbd5e1' }}>Reason</label>
-                <textarea required rows={3} value={leaveForm.reason} onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})} placeholder="Reason for leave..." style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569', background: isLight ? '#f8fafc' : '#0f172a', color: isLight ? '#0f172a' : '#f8fafc', fontSize: '0.9rem' }}></textarea>
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
-                <button type="button" onClick={() => setShowLeaveModal(false)} style={{ flex: 1, padding: '0.7rem', background: isLight ? '#f1f5f9' : '#334155', border: isLight ? '1px solid #cbd5e1' : '1px solid #475569', color: isLight ? '#0f172a' : '#f8fafc', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Cancel</button>
-                <button type="submit" disabled={submittingLeave} style={{ flex: 1, padding: '0.7rem', background: 'var(--primary)', border: 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>{submittingLeave ? 'Submitting...' : 'Submit Request'}</button>
-              </div>
-            </form>
+
+                {/* Duration indicator banner */}
+                {calculatedDays > 0 && (
+                  <div
+                    style={{
+                      padding: '0.65rem 0.9rem',
+                      borderRadius: '10px',
+                      background: 'rgba(37, 99, 235, 0.08)',
+                      border: '1px solid rgba(37, 99, 235, 0.25)',
+                      color: 'var(--primary)',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <span>📅 Requested Leave Duration:</span>
+                    <span style={{ fontSize: '0.92rem', fontWeight: 800 }}>
+                      {calculatedDays} {calculatedDays === 1 ? 'Day' : 'Days'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Reason */}
+                <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                  <label
+                    style={{
+                      display: 'block',
+                      marginBottom: '0.35rem',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      color: isLight ? '#334155' : '#cbd5e1',
+                    }}
+                  >
+                    Reason / Purpose for Leave *
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={leaveForm.reason}
+                    onChange={e => setLeaveForm({ ...leaveForm, reason: e.target.value })}
+                    placeholder="Specify the reason for taking leave (e.g. personal, medical, urgent family matters)..."
+                    style={{
+                      width: '100%',
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+                      background: isLight ? '#f8fafc' : '#0f172a',
+                      color: isLight ? '#0f172a' : '#f8fafc',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                      resize: 'vertical',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+              </form>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '1rem 1.4rem',
+                borderTop: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                display: 'flex',
+                gap: '0.75rem',
+                background: isLight ? '#f8fafc' : '#0f172a',
+                flexShrink: 0,
+                boxSizing: 'border-box',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowLeaveModal(false)}
+                style={{
+                  flex: 1,
+                  height: '44px',
+                  background: isLight ? '#ffffff' : '#1e293b',
+                  border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
+                  color: isLight ? '#0f172a' : '#f8fafc',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="leave-request-form"
+                disabled={submittingLeave}
+                style={{
+                  flex: 1.5,
+                  height: '44px',
+                  background: 'var(--primary)',
+                  border: 'none',
+                  color: '#ffffff',
+                  borderRadius: '10px',
+                  cursor: submittingLeave ? 'not-allowed' : 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                  opacity: submittingLeave ? 0.7 : 1,
+                }}
+              >
+                {submittingLeave ? 'Submitting...' : 'Submit Request'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* History Modal */}
+      {/* ============================================================ */}
+      {/* ATTENDANCE HISTORY MODAL (CLEAN, ORGANIZED & RESPONSIVE)     */}
+      {/* ============================================================ */}
       {showLeaveAndHistory && showHistoryModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div style={{ background: isLight ? '#ffffff' : '#1e293b', padding: '1.75rem', borderRadius: '16px', width: '92%', maxWidth: '700px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', border: isLight ? '1px solid #cbd5e1' : '1px solid #475569', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ margin: 0, color: isLight ? '#0f172a' : '#f8fafc', fontSize: '1.25rem', fontWeight: 800 }}>My Attendance (Last 30 Days)</h3>
-              <button type="button" onClick={() => setShowHistoryModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', color: isLight ? '#475569' : '#cbd5e1', cursor: 'pointer' }}>×</button>
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowHistoryModal(false);
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 'clamp(0.75rem, 3vw, 1.5rem)',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div
+            style={{
+              background: isLight ? '#ffffff' : '#1e293b',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '680px',
+              maxHeight: 'calc(100vh - 2rem)',
+              display: 'flex',
+              flexDirection: 'column',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              overflow: 'hidden',
+              boxSizing: 'border-box',
+              animation: 'scaleUp 0.18s ease-out',
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: '1.15rem 1.4rem',
+                borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: isLight ? '#f8fafc' : '#0f172a',
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>📅</span>
+                <div>
+                  <h3 style={{ margin: 0, color: isLight ? '#0f172a' : '#f8fafc', fontSize: '1.15rem', fontWeight: 800 }}>
+                    My Attendance History
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Last 30 days activity for {employee.firstName} {employee.lastName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                title="Close"
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                  background: isLight ? '#ffffff' : '#1e293b',
+                  color: 'var(--text-muted)',
+                  fontSize: '1.1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                ✕
+              </button>
             </div>
-            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '0.5rem' }}>
+
+            {/* Table Content with horizontal scroll */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '1rem 1.25rem', boxSizing: 'border-box' }}>
               {loadingHistory ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: isLight ? '#475569' : '#cbd5e1' }}>Loading history...</div>
+                <div style={{ textAlign: 'center', padding: '3rem', color: isLight ? '#475569' : '#cbd5e1' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+                  <div>Loading attendance records...</div>
+                </div>
               ) : historyLogs.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '2rem', color: isLight ? '#475569' : '#cbd5e1' }}>No attendance records found.</div>
+                <div style={{ textAlign: 'center', padding: '3rem', color: isLight ? '#475569' : '#cbd5e1' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
+                  <div>No attendance records found for this period.</div>
+                </div>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', minWidth: '500px', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', minWidth: '460px', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                     <thead>
                       <tr style={{ borderBottom: isLight ? '2px solid #e2e8f0' : '2px solid #334155', color: isLight ? '#475569' : '#cbd5e1', textAlign: 'left' }}>
-                        <th style={{ padding: '0.75rem 0' }}>Date</th>
-                        <th style={{ padding: '0.75rem 0' }}>Punch In</th>
-                        <th style={{ padding: '0.75rem 0' }}>Punch Out</th>
-                        <th style={{ padding: '0.75rem 0' }}>Status</th>
+                        <th style={{ padding: '0.65rem 0.5rem' }}>Date</th>
+                        <th style={{ padding: '0.65rem 0.5rem' }}>Punch In</th>
+                        <th style={{ padding: '0.65rem 0.5rem' }}>Punch Out</th>
+                        <th style={{ padding: '0.65rem 0.5rem' }}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {historyLogs.map((log, idx) => (
-                        <tr key={idx} style={{ borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155', color: isLight ? '#0f172a' : '#f8fafc' }}>
-                          <td style={{ padding: '0.75rem 0', fontWeight: 600 }}>{new Date(log.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                          <td style={{ padding: '0.75rem 0', color: '#10b981', fontWeight: 700 }}>{log.punchIn ? new Date(log.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</td>
-                          <td style={{ padding: '0.75rem 0', color: '#ef4444', fontWeight: 700 }}>{log.punchOut ? new Date(log.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}</td>
-                          <td style={{ padding: '0.75rem 0' }}>
-                            <span style={{ padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: log.status === 'LATE' ? 'rgba(245, 158, 11, 0.15)' : log.status === 'ABSENT' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)', color: log.status === 'LATE' ? '#f59e0b' : log.status === 'ABSENT' ? '#ef4444' : '#10b981' }}>
+                        <tr key={idx} style={{ borderBottom: isLight ? '1px solid #f1f5f9' : '1px solid #334155', color: isLight ? '#0f172a' : '#f8fafc' }}>
+                          <td style={{ padding: '0.65rem 0.5rem', fontWeight: 600 }}>
+                            {new Date(log.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem', color: '#10b981', fontWeight: 700 }}>
+                            {log.punchIn ? new Date(log.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem', color: '#ef4444', fontWeight: 700 }}>
+                            {log.punchOut ? new Date(log.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem' }}>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '99px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              backgroundColor: log.status === 'LATE' ? 'rgba(245, 158, 11, 0.15)' : log.status === 'ABSENT' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                              color: log.status === 'LATE' ? '#f59e0b' : log.status === 'ABSENT' ? '#ef4444' : '#10b981'
+                            }}>
                               {log.status || 'ON_TIME'}
                             </span>
                           </td>
@@ -999,6 +1490,35 @@ export default function OneTapPunchInterface({
                   </table>
                 </div>
               )}
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: '0.85rem 1.4rem',
+                borderTop: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                background: isLight ? '#f8fafc' : '#0f172a',
+                flexShrink: 0,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                style={{
+                  padding: '0.5rem 1.25rem',
+                  background: 'var(--primary)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '9px',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

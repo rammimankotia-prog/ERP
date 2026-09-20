@@ -338,10 +338,20 @@ export default function LeaveManagement() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '2px solid var(--border)', paddingBottom: '0' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.5rem',
+          borderBottom: '2px solid var(--border)',
+          paddingBottom: '0',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+        }}
+      >
         {([
           ['calendar', '📅 Leave Calendar'],
-          ['requests', '📋 Leave Requests'],
+          ['requests', `📋 Leave Requests (${requests.length})`],
           ['apply', '✍️ Apply for Leave']
         ] as const).map(([key, label]) => (
           <button
@@ -358,7 +368,9 @@ export default function LeaveManagement() {
               borderBottom: tab === key ? '3px solid var(--primary)' : 'none',
               marginBottom: '-2px',
               fontSize: '0.92rem',
-              transition: 'all 0.15s ease'
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             {label}

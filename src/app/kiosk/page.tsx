@@ -934,6 +934,7 @@ export default function KioskPage() {
 
             {/* Search and Sort Control Bar */}
             <div
+              className="kiosk-search-sort-bar"
               style={{
                 display: 'flex',
                 gap: '0.75rem',
@@ -941,7 +942,7 @@ export default function KioskPage() {
                 alignItems: 'center',
               }}
             >
-              <div style={{ flex: '1 1 300px', position: 'relative' }}>
+              <div style={{ flex: '1 1 280px', minWidth: 0, position: 'relative', width: '100%' }}>
                 <span
                   style={{
                     position: 'absolute',
@@ -961,6 +962,7 @@ export default function KioskPage() {
                   placeholder="Type employee name, ID or hotel (e.g. GG-1001, Raman, Godwin)..."
                   style={{
                     width: '100%',
+                    boxSizing: 'border-box',
                     height: '48px',
                     paddingLeft: '48px',
                     paddingRight: '48px',
@@ -997,13 +999,14 @@ export default function KioskPage() {
               </div>
 
               {/* Sort By Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)' }}>Sort by:</span>
+              <div className="kiosk-sort-container" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Sort by:</span>
                 <select
                   value={sortOption}
                   onChange={e => setSortOption(e.target.value as any)}
                   style={{
                     height: '48px',
+                    boxSizing: 'border-box',
                     padding: '0 12px',
                     borderRadius: '12px',
                     border: isLight ? '2px solid #cbd5e1' : '2px solid #334155',
@@ -1023,12 +1026,26 @@ export default function KioskPage() {
             </div>
 
             {/* Hotel / Property Filter Pills */}
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginRight: '0.2rem' }}>HOTEL:</span>
+            <div
+              className="kiosk-horizontal-scroll"
+              style={{
+                display: 'flex',
+                gap: '0.4rem',
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                paddingBottom: '4px',
+                scrollbarWidth: 'none',
+                alignItems: 'center',
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            >
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginRight: '0.2rem', flexShrink: 0 }}>HOTEL:</span>
               <button
                 type="button"
                 onClick={() => setSelectedHotel('ALL')}
                 style={{
+                  flexShrink: 0,
                   padding: '0.42rem 0.85rem',
                   borderRadius: '99px',
                   border: selectedHotel === 'ALL' ? '2px solid #f59e0b' : (isLight ? '1px solid #cbd5e1' : '1px solid #334155'),
@@ -1040,6 +1057,7 @@ export default function KioskPage() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.3rem',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 <span>🏨 All Hotels</span>
@@ -1056,6 +1074,7 @@ export default function KioskPage() {
                     type="button"
                     onClick={() => setSelectedHotel(h)}
                     style={{
+                      flexShrink: 0,
                       padding: '0.42rem 0.85rem',
                       borderRadius: '99px',
                       border: active
@@ -1073,6 +1092,7 @@ export default function KioskPage() {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '0.3rem',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     <span>🏨 {h}</span>
@@ -1083,12 +1103,26 @@ export default function KioskPage() {
             </div>
 
             {/* Department filter chips */}
-            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginRight: '0.2rem' }}>DEPT:</span>
+            <div
+              className="kiosk-horizontal-scroll"
+              style={{
+                display: 'flex',
+                gap: '0.35rem',
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                paddingBottom: '4px',
+                scrollbarWidth: 'none',
+                alignItems: 'center',
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            >
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginRight: '0.2rem', flexShrink: 0 }}>DEPT:</span>
               <button
                 type="button"
                 onClick={() => setSelectedDept('ALL')}
                 style={{
+                  flexShrink: 0,
                   padding: '0.35rem 0.8rem',
                   borderRadius: '99px',
                   border: selectedDept === 'ALL' ? '2px solid var(--primary)' : '1px solid var(--border)',
@@ -1097,6 +1131,7 @@ export default function KioskPage() {
                   cursor: 'pointer',
                   fontWeight: 700,
                   fontSize: '0.78rem',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 All
@@ -1110,6 +1145,7 @@ export default function KioskPage() {
                     type="button"
                     onClick={() => setSelectedDept(dept)}
                     style={{
+                      flexShrink: 0,
                       padding: '0.35rem 0.8rem',
                       borderRadius: '99px',
                       border: active ? '2px solid var(--primary)' : '1px solid var(--border)',
@@ -1118,6 +1154,7 @@ export default function KioskPage() {
                       cursor: 'pointer',
                       fontWeight: 700,
                       fontSize: '0.78rem',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {dept} ({count})
@@ -1334,6 +1371,7 @@ export default function KioskPage() {
 
       <style jsx>{`
         /* ===== KIOSK — MOBILE RESPONSIVE ===== */
+        .kiosk-horizontal-scroll::-webkit-scrollbar { display: none; }
         .employee-kiosk-card { transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         .employee-kiosk-card:hover {
           transform: translateY(-2px) scale(1.015);
@@ -1342,25 +1380,39 @@ export default function KioskPage() {
         }
         .employee-kiosk-card:active { transform: scale(0.97); }
 
-        /* Phone portrait <=480px */
-        @media (max-width: 480px) {
-          .kiosk-hdr-date   { display: none !important; }
-          .kiosk-hdr-badge  { display: none !important; }
-          .kiosk-hdr-erplink{ display: none !important; }
-          .kiosk-hdr-locktext { display: none !important; }
-          .kiosk-tab-text   { display: none !important; }
-          .kiosk-tab-hint   { display: none !important; }
-        }
-
-        /* Small phone <=600px */
-        @media (max-width: 600px) {
-          .kiosk-tab-hint   { display: none !important; }
-          .kiosk-hdr-erplink{ display: none !important; }
-        }
-
-        /* Tablet <=768px */
+        /* Tablet <= 768px */
         @media (max-width: 768px) {
-          .kiosk-hdr-erplink{ display: none !important; }
+          .kiosk-hdr-erplink { display: none !important; }
+        }
+
+        /* Mobile <= 640px */
+        @media (max-width: 640px) {
+          .kiosk-search-sort-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.5rem !important;
+          }
+          .kiosk-sort-container {
+            width: 100% !important;
+            display: flex !important;
+          }
+          .kiosk-sort-container select {
+            width: 100% !important;
+            flex: 1 !important;
+          }
+          .kiosk-tab-hint { display: none !important; }
+        }
+
+        /* Phone portrait <= 480px */
+        @media (max-width: 480px) {
+          .kiosk-hdr-date { display: none !important; }
+          .kiosk-hdr-badge { display: none !important; }
+          .kiosk-hdr-locktext { display: none !important; }
+          .employee-kiosk-card {
+            padding: 0.85rem 1rem !important;
+            gap: 0.75rem !important;
+            border-radius: 14px !important;
+          }
         }
       `}</style>
     </div>
