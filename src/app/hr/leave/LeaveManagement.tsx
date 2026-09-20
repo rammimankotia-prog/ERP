@@ -48,10 +48,31 @@ const MOCK_LEAVE_TYPES: LeaveType[] = [
 
 const DEFAULT_REQUESTS: LeaveRequest[] = []
 
+const LEAVES_STORAGE_KEY = 'GODWIN_LEAVE_BACKUP_V1'
+
+function getLocalLeavesBackup(): LeaveRequest[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(LEAVES_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed
+    }
+  } catch {}
+  return []
+}
+
+function saveLocalLeavesBackup(leaves: LeaveRequest[]) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(LEAVES_STORAGE_KEY, JSON.stringify(leaves))
+  } catch {}
+}
+
 export default function LeaveManagement() {
   const { user } = useAuth()
   const [employees, setEmployees] = useState<LeaveStaff[]>([])
-  const [requests, setRequests] = useState<LeaveRequest[]>([])
+  const [requests, setRequests] = useState<LeaveRequest[]>(() => getLocalLeavesBackup())
   const [tab, setTab] = useState<'calendar' | 'requests' | 'apply'>('calendar')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
@@ -107,7 +128,7 @@ export default function LeaveManagement() {
       if (res.ok) {
         const data = await res.json()
         if (data.requests && Array.isArray(data.requests)) {
-          const enriched = data.requests.map((r: LeaveRequest) => {
+          const serverList: LeaveRequest[] = data.requests.map((r: any) => {
             const emp = employees.find(e => e.id === r.employeeId || e.employeeId === r.employeeId)
             return {
               ...r,
@@ -115,12 +136,46 @@ export default function LeaveManagement() {
               designation: r.designation || emp?.designation || 'Staff'
             }
           })
-          setRequests(enriched)
+
+          // Merge server records with client-side backup to guarantee zero loss
+          const localList = getLocalLeavesBackup()
+          const map = new Map<string, LeaveRequest>()
+          serverList.forEach(r => map.set(r.id, r))
+
+          const missingOnServer: LeaveRequest[] = []
+          localList.forEach(r => {
+            if (!map.has(r.id)) {
+              map.set(r.id, r)
+              missingOnServer.push(r)
+            }
+          })
+
+          const merged = Array.from(map.values()).sort((a, b) => {
+            const timeA = new Date(a.createdAt || a.fromDate).getTime() || 0
+            const timeB = new Date(b.createdAt || b.fromDate).getTime() || 0
+            return timeB - timeA
+          })
+
+          setRequests(merged)
+          saveLocalLeavesBackup(merged)
+
+          // Self-heal: If local backup had records missing from server (e.g. after update/deploy), re-sync to server
+          if (missingOnServer.length > 0) {
+            fetch('/api/hr/leave', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'SYNC', requests: merged })
+            }).catch(() => {})
+          }
           return
         }
       }
     } catch {
-      // Offline fallback
+      // Offline fallback: use local backup
+      const local = getLocalLeavesBackup()
+      if (local.length > 0) {
+        setRequests(local)
+      }
     }
   }, [employees])
 
@@ -160,7 +215,10 @@ export default function LeaveManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           employeeId: form.employeeId,
+          employeeName: emp?.name || form.employeeId,
+          designation: emp?.designation || 'Staff',
           leaveTypeId: form.leaveTypeId,
+          leaveTypeName: lt?.name || 'Casual Leave',
           fromDate: form.fromDate,
           toDate: form.toDate,
           reason: form.reason
@@ -183,7 +241,11 @@ export default function LeaveManagement() {
           status: 'PENDING',
           createdAt: new Date().toISOString()
         }
-        setRequests(prev => [newReq, ...prev])
+        setRequests(prev => {
+          const updated = [newReq, ...prev]
+          saveLocalLeavesBackup(updated)
+          return updated
+        })
         setMessage({ text: `✅ Leave request submitted successfully for ${emp?.name}!`, type: 'success' })
         setForm(p => ({ ...p, reason: '' }))
         setTab('calendar')
@@ -202,7 +264,11 @@ export default function LeaveManagement() {
         status: 'PENDING',
         createdAt: new Date().toISOString()
       }
-      setRequests(prev => [newReq, ...prev])
+      setRequests(prev => {
+        const updated = [newReq, ...prev]
+        saveLocalLeavesBackup(updated)
+        return updated
+      })
       setMessage({ text: `✅ Leave request submitted for ${emp?.name}!`, type: 'success' })
       setTab('calendar')
     } finally {
@@ -217,7 +283,11 @@ export default function LeaveManagement() {
       headers: { 'Content-Type': 'application/json', 'x-user-role': user?.role || 'Master Admin' },
       body: JSON.stringify({ approverId: approverName, approverNote: `Approved by ${approverName}` })
     }).catch(() => {})
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'APPROVED' } : r))
+    setRequests(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, status: 'APPROVED' } : r)
+      saveLocalLeavesBackup(updated)
+      return updated
+    })
     setMessage({ text: '✅ Leave approved and live calendar updated.', type: 'success' })
   }
 
@@ -228,7 +298,11 @@ export default function LeaveManagement() {
       headers: { 'Content-Type': 'application/json', 'x-user-role': user?.role || 'Master Admin' },
       body: JSON.stringify({ approverId: approverName, approverNote: `Rejected by ${approverName}` })
     }).catch(() => {})
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED' } : r))
+    setRequests(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, status: 'REJECTED' } : r)
+      saveLocalLeavesBackup(updated)
+      return updated
+    })
     setMessage({ text: 'Leave request marked as rejected.', type: 'error' })
   }
 

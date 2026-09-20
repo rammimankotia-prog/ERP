@@ -128,18 +128,8 @@ export async function GET(req: NextRequest) {
   // Load real records — uses Prisma DB first, JSON fallback
   const rawEmployees = await getAllEmployees()
   const allAttendance = getMergedAttendance()
-  const allLeaves: any[] = (() => {
-    try {
-      const fs2 = require('fs')
-      for (const f of [LEAVES_FILE, LOCAL_LEAVES_FILE]) {
-        if (fs2.existsSync(f)) {
-          const parsed = JSON.parse(fs2.readFileSync(f, 'utf-8'))
-          if (Array.isArray(parsed)) return parsed
-        }
-      }
-    } catch {}
-    return []
-  })()
+  const { getMergedLeaves } = await import('@/lib/leaveStorage')
+  const allLeaves = getMergedLeaves()
 
   // Filter employees
   let employees = rawEmployees.filter(e => e.status === 'ACTIVE' || !e.status)

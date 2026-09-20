@@ -1,48 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
-import fs from 'fs'
-import path from 'path'
+import { getMergedLeaves, saveLeaveRecord, saveAllLeaves, LeaveRecord } from '@/lib/leaveStorage'
 
 const prisma = new PrismaClient()
 
-const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
-const LEAVES_FILE = path.join(DATA_DIR, 'hr_leaves.json')
-const LOCAL_LEAVES_FILE = path.join(process.cwd(), 'data', 'hr_leaves.json')
-
-function readLeaves(): any[] {
-  for (const f of [LEAVES_FILE, LOCAL_LEAVES_FILE]) {
-    try {
-      if (fs.existsSync(f)) {
-        const raw = fs.readFileSync(f, 'utf-8')
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) return parsed
-      }
-    } catch {}
-  }
-  return []
-}
-
-function writeLeaves(leaves: any[]) {
-  try {
-    const dir = path.dirname(LEAVES_FILE)
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(LEAVES_FILE, JSON.stringify(leaves, null, 2), 'utf-8')
-
-    if (LEAVES_FILE !== LOCAL_LEAVES_FILE && fs.existsSync(path.dirname(LOCAL_LEAVES_FILE))) {
-      fs.writeFileSync(LOCAL_LEAVES_FILE, JSON.stringify(leaves, null, 2), 'utf-8')
-    }
-  } catch (err) {
-    console.error('Error saving leaves:', err)
-  }
-}
+export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const employeeId = searchParams.get('employeeId')
   const status = searchParams.get('status')
 
+  // 1. Get all records from multi-tier persistent storage (JSON, backup, vault, journal)
+  const persistentRequests = getMergedLeaves()
+
+  // 2. Try DB records as additional source
+  let dbRequests: any[] = []
   try {
-    const requests = await prisma.leaveRequest.findMany({
+    const list = await prisma.leaveRequest.findMany({
       where: {
         ...(employeeId ? { employeeId } : {}),
         ...(status ? { status: status as any } : {})
@@ -50,27 +25,69 @@ export async function GET(req: NextRequest) {
       include: { leaveType: true },
       orderBy: { createdAt: 'desc' }
     })
-    if (requests && requests.length > 0) {
-      return NextResponse.json({ requests })
+    if (list && Array.isArray(list)) {
+      dbRequests = list
     }
   } catch {}
 
-  // Persistent JSON file operations
-  const allRequests = readLeaves()
-  const filtered = allRequests.filter(r => {
-    if (employeeId && r.employeeId !== employeeId && r.employeeCode !== employeeId) return false
-    if (status && r.status !== status) return false
-    return true
+  // 3. Merge both sources by ID
+  const map = new Map<string, any>()
+  for (const r of persistentRequests) {
+    if (r && r.id) map.set(String(r.id), r)
+  }
+  for (const r of dbRequests) {
+    if (r && r.id && !map.has(String(r.id))) {
+      map.set(String(r.id), r)
+    }
+  }
+
+  let allRequests = Array.from(map.values()).sort((a, b) => {
+    const timeA = new Date(a.createdAt || a.fromDate).getTime() || 0
+    const timeB = new Date(b.createdAt || b.fromDate).getTime() || 0
+    return timeB - timeA
   })
 
+  // Filter if needed
+  if (employeeId) {
+    const cleanEmp = employeeId.trim().toLowerCase()
+    allRequests = allRequests.filter(r => {
+      const eId = (r.employeeId || '').trim().toLowerCase()
+      const eCode = (r.employeeCode || '').trim().toLowerCase()
+      return eId === cleanEmp || eCode === cleanEmp
+    })
+  }
+
+  if (status) {
+    const cleanStatus = status.trim().toUpperCase()
+    allRequests = allRequests.filter(r => (r.status || '').trim().toUpperCase() === cleanStatus)
+  }
+
   return NextResponse.json({
-    requests: filtered
+    requests: allRequests
   })
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
+
+    // Support client-side batch synchronization
+    if (body.action === 'SYNC' && Array.isArray(body.requests)) {
+      const existing = getMergedLeaves()
+      const existingMap = new Map<string, LeaveRecord>()
+      existing.forEach(r => existingMap.set(String(r.id), r))
+
+      for (const r of body.requests) {
+        if (r && r.id && !existingMap.has(String(r.id))) {
+          existingMap.set(String(r.id), r)
+        }
+      }
+
+      const merged = Array.from(existingMap.values())
+      saveAllLeaves(merged)
+      return NextResponse.json({ success: true, count: merged.length, requests: merged })
+    }
+
     const { employeeId, employeeName, designation, leaveTypeId, leaveTypeName, fromDate, toDate, reason } = body
 
     if (!employeeId || !fromDate || !toDate || !reason) {
@@ -81,7 +98,7 @@ export async function POST(req: NextRequest) {
     const to = new Date(toDate)
     const totalDays = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1)
 
-    // Check DB first
+    // Check DB overlap if DB is available
     try {
       const overlap = await prisma.leaveRequest.findFirst({
         where: {
@@ -96,9 +113,53 @@ export async function POST(req: NextRequest) {
       if (overlap) {
         return NextResponse.json({ error: 'OVERLAP_DETECTED', message: 'A leave request already exists for this date range.' }, { status: 409 })
       }
+    } catch {}
 
-      const created = await prisma.leaveRequest.create({
+    // Check overlap in multi-tier persistent storage
+    const allRequests = getMergedLeaves()
+    const cleanEmp = employeeId.trim().toLowerCase()
+    const isOverlapping = allRequests.some(r => {
+      const eId = (r.employeeId || '').trim().toLowerCase()
+      const eCode = (r.employeeCode || '').trim().toLowerCase()
+      if (eId !== cleanEmp && eCode !== cleanEmp) return false
+      if (!['PENDING', 'APPROVED'].includes((r.status || '').toUpperCase())) return false
+      const rFrom = new Date(r.fromDate)
+      const rTo = new Date(r.toDate)
+      return rFrom <= to && rTo >= from
+    })
+
+    if (isOverlapping) {
+      return NextResponse.json({ error: 'OVERLAP_DETECTED', message: 'A leave request already exists for this date range.' }, { status: 409 })
+    }
+
+    const newLeave: LeaveRecord = {
+      id: `leave-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      employeeId,
+      employeeName: employeeName || 'Employee',
+      designation: designation || 'Staff',
+      leaveType: {
+        id: leaveTypeId || 'lt-1',
+        name: leaveTypeName || 'Casual Leave',
+        category: 'CASUAL'
+      },
+      leaveTypeId: leaveTypeId || 'lt-1',
+      leaveTypeName: leaveTypeName || 'Casual Leave',
+      fromDate,
+      toDate,
+      totalDays,
+      reason,
+      status: 'PENDING',
+      createdAt: new Date().toISOString()
+    }
+
+    // Always save to multi-tier persistent vaults & backup
+    saveLeaveRecord(newLeave)
+
+    // Attempt DB record creation in background
+    try {
+      await prisma.leaveRequest.create({
         data: {
+          id: newLeave.id,
           employeeId,
           leaveTypeId: leaveTypeId || 'lt-casual',
           fromDate: from,
@@ -108,43 +169,11 @@ export async function POST(req: NextRequest) {
           status: 'PENDING'
         }
       })
-      return NextResponse.json({ success: true, request: created }, { status: 201 })
     } catch {}
-
-    // Persistent JSON file save
-    const allRequests = readLeaves()
-    const isOverlapping = allRequests.some(r =>
-      (r.employeeId === employeeId || r.employeeCode === employeeId) &&
-      ['PENDING', 'APPROVED'].includes(r.status) &&
-      new Date(r.fromDate) <= to && new Date(r.toDate) >= from
-    )
-
-    if (isOverlapping) {
-      return NextResponse.json({ error: 'OVERLAP_DETECTED', message: 'A leave request already exists for this date range.' }, { status: 409 })
-    }
-
-    const newLeave = {
-      id: `leave-${Date.now()}`,
-      employeeId,
-      employeeName: employeeName || 'Employee',
-      designation: designation || 'Staff',
-      leaveType: {
-        name: leaveTypeName || 'Casual Leave',
-        category: 'CASUAL'
-      },
-      fromDate,
-      toDate,
-      totalDays,
-      reason,
-      status: 'PENDING',
-      createdAt: new Date().toISOString()
-    }
-
-    allRequests.unshift(newLeave)
-    writeLeaves(allRequests)
 
     return NextResponse.json({ success: true, request: newLeave }, { status: 201 })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Failed to submit leave request' }, { status: 500 })
   }
 }
+

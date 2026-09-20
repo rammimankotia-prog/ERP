@@ -258,7 +258,8 @@ export async function GET(req: NextRequest) {
     }
   } catch {}
 
-  const fileLeaves = readJson<any[]>(LEAVES_FILE, LOCAL_LEAVES_FILE, [])
+  const { getMergedLeaves } = await import('@/lib/leaveStorage')
+  const fileLeaves = getMergedLeaves()
   fileLeaves
     .filter(l => l.status === 'APPROVED')
     .forEach(fl => {
@@ -268,7 +269,7 @@ export async function GET(req: NextRequest) {
           employeeCode: fl.employeeCode || fl.employeeId,
           fromDate: fl.startDate ? String(fl.startDate).slice(0, 10) : (fl.fromDate ? String(fl.fromDate).slice(0, 10) : ''),
           toDate: fl.endDate ? String(fl.endDate).slice(0, 10) : (fl.toDate ? String(fl.toDate).slice(0, 10) : ''),
-          leaveTypeName: fl.leaveType || fl.type || 'Leave'
+          leaveTypeName: fl.leaveTypeName || fl.leaveType?.name || fl.leaveType || fl.type || 'Leave'
         })
       }
     })

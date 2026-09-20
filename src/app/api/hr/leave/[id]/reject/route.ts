@@ -77,18 +77,17 @@ export async function PUT(
     }
   } catch {}
 
-  // Persistent JSON file update
-  const allLeaves = readJson<any[]>(LEAVES_FILE, LOCAL_LEAVES_FILE, [])
-  const idx = allLeaves.findIndex(l => l.id === id)
-  if (idx !== -1) {
-    allLeaves[idx] = {
-      ...allLeaves[idx],
-      status: 'REJECTED',
-      approverId,
-      approverNote,
-    }
-    targetLeave = allLeaves[idx]
-    writeJson(LEAVES_FILE, LOCAL_LEAVES_FILE, allLeaves)
+  // Persistent multi-tier storage update
+  const { updateLeaveRecord } = await import('@/lib/leaveStorage')
+  const updatedRecord = updateLeaveRecord(id, {
+    status: 'REJECTED',
+    approverId,
+    approverNote,
+    rejectedAt: new Date().toISOString()
+  })
+
+  if (updatedRecord) {
+    targetLeave = updatedRecord
   }
 
   if (targetLeave) {

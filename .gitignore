@@ -45,6 +45,9 @@ next-env.d.ts
 # persistent operational data vaults (protected from git overwrites)
 /data/attendance_vault/
 /data/attendance_store/
+/data/leave_vault/
+/data/leave_store/
 /data/*_backup.json
 /data/*.jsonl
 /data/deploy.log
+
