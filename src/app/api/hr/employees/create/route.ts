@@ -200,6 +200,12 @@ export async function POST(req: NextRequest) {
     fileEmployees.push(newRecord)
     writeJsonFile(EMPLOYEES_FILE, fileEmployees)
 
+    // 4b. Ensure newly created employee is removed from deleted blacklist
+    try {
+      const { unmarkEmployeeDeleted } = await import('@/lib/employeeData')
+      unmarkEmployeeDeleted([newRecord.id, employeeId, newRecord.email])
+    } catch {}
+
     // 5. Sync login account in users.json
     try {
       const USERS_FILE = path.join(DATA_DIR, 'users.json')

@@ -203,6 +203,14 @@ export async function PUT(req: NextRequest) {
 
     writeEmployees(employees)
 
+    // Unmark from deleted if active
+    if (updatedRecord.status === 'ACTIVE') {
+      try {
+        const { unmarkEmployeeDeleted } = await import('@/lib/employeeData')
+        unmarkEmployeeDeleted([targetId, updatedRecord.employeeId, updatedRecord.email])
+      } catch {}
+    }
+
     // Sync status to users.json
     try {
       const USERS_FILE = path.join(DATA_DIR, 'users.json')

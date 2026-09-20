@@ -31,13 +31,26 @@ export function isEmployeeDeleted(emp: any, deletedKeys: string[]): boolean {
   const id = (emp.id || '').toLowerCase().trim()
   const empId = (emp.employeeId || '').toLowerCase().trim()
   const email = (emp.email || '').toLowerCase().trim()
-  const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase().trim()
   return (
     (id !== '' && deletedKeys.includes(id)) ||
     (empId !== '' && deletedKeys.includes(empId)) ||
-    (email !== '' && deletedKeys.includes(email)) ||
-    (fullName !== '' && deletedKeys.includes(fullName))
+    (email !== '' && deletedKeys.includes(email))
   )
+}
+
+export function unmarkEmployeeDeleted(keys: string[]): void {
+  try {
+    const existing = getDeletedEmployeeKeys()
+    const toRemove = new Set(keys.map(k => String(k).toLowerCase().trim()).filter(Boolean))
+    const filtered = existing.filter(k => !toRemove.has(k))
+    for (const f of [DELETED_EMP_FILE, path.join(DATA_DIR, 'deleted_employees.json')]) {
+      try {
+        const dir = path.dirname(f)
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+        fs.writeFileSync(f, JSON.stringify(filtered, null, 2), 'utf-8')
+      } catch {}
+    }
+  } catch {}
 }
 
 

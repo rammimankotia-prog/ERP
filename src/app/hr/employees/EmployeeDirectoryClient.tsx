@@ -168,15 +168,14 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       const rawCache: any[] = JSON.parse(cachedStr)
       if (!Array.isArray(rawCache)) return incomingList
 
-      // Filter out explicitly deleted staff (e.g. Balbir Singh) from cache
-      const DELETED_IDENTIFIERS = ['balbir', 'balbir singh', 'balbirsingh', 'test-001', 'test.staff@godwinhotels.com']
+      // Filter out test dummy records from cache
+      const DELETED_IDENTIFIERS = ['test-001', 'test.staff@godwinhotels.com']
       const cache = rawCache.filter((c: any) => {
         if (!c) return false
-        const fullName = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase().trim()
         const empId = (c.employeeId || '').toLowerCase().trim()
         const id = (c.id || '').toLowerCase().trim()
         const email = (c.email || '').toLowerCase().trim()
-        return !DELETED_IDENTIFIERS.some(d => fullName.includes(d) || empId === d || id === d || email.includes(d))
+        return !DELETED_IDENTIFIERS.some(d => empId === d || id === d || email === d)
       })
 
       // Clean local cache if dirty

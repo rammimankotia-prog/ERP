@@ -65,12 +65,10 @@ function isEmpDeleted(emp: any, deletedKeys: string[]): boolean {
   const id = (emp.id || '').toLowerCase().trim()
   const empId = (emp.employeeId || '').toLowerCase().trim()
   const email = (emp.email || '').toLowerCase().trim()
-  const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase().trim()
   return (
     (id && deletedKeys.includes(id)) ||
     (empId && deletedKeys.includes(empId)) ||
-    (email && deletedKeys.includes(email)) ||
-    (fullName && deletedKeys.includes(fullName))
+    (email && deletedKeys.includes(email))
   )
 }
 
@@ -382,6 +380,12 @@ export async function createEmployee(data: {
     console.warn('Email dispatch warning:', e)
   }
 
+  // Ensure newly created employee is removed from deleted registry
+  try {
+    const { unmarkEmployeeDeleted } = await import('@/lib/employeeData')
+    unmarkEmployeeDeleted([newRecord.id, employeeId, data.email])
+  } catch {}
+
   revalidatePath('/hr/employees')
   return {
     ...newRecord,
@@ -496,7 +500,6 @@ export async function deleteEmployee(id: string): Promise<{ success: boolean; er
   const keysToDel = [id]
   if (targetEmp?.employeeId) keysToDel.push(targetEmp.employeeId)
   if (targetEmp?.email) keysToDel.push(targetEmp.email)
-  if (targetEmp?.firstName) keysToDel.push(`${targetEmp.firstName} ${targetEmp.lastName || ''}`.trim())
   saveDeletedEmployeeKey(keysToDel)
 
   // Relational Integrity: Remove associated user account from users.json
