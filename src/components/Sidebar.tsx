@@ -19,7 +19,7 @@ export default function Sidebar() {
   }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
-  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout') || cleanPath.startsWith('/admin/login')) return null;
+  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout') || cleanPath.startsWith('/admin/login') || cleanPath.startsWith('/kiosk')) return null;
 
   // Helper: show HR sublink only if user has view permission
   const canSee = (module: string) => isMasterAdmin || hasPermission(module, 'view');

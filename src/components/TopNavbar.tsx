@@ -12,6 +12,8 @@ export default function TopNavbar() {
   const { isCollapsed, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const pathname = usePathname();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [deployState, setDeployState] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle');
+  const [deployMsg, setDeployMsg] = useState('');
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -30,10 +32,7 @@ export default function TopNavbar() {
   };
 
   const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
-  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout') || cleanPath.startsWith('/admin/login')) return null;
-
-  const [deployState, setDeployState] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle');
-  const [deployMsg, setDeployMsg] = useState('');
+  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout') || cleanPath.startsWith('/admin/login') || cleanPath.startsWith('/kiosk')) return null;
 
   const isMasterAdmin =
     user?.role === 'Master Admin' ||
