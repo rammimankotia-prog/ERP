@@ -11,5 +11,25 @@
     "punchInMode": "KIOSK",
     "totalMinutes": null,
     "remarks": "Late arrival by 3h 30m (+210m)"
+  },
+  {
+    "id": "att-1789896972613",
+    "employeeId": "IG-1001",
+    "date": "2026-09-20",
+    "punchIn": "2026-09-20T09:36:12.587Z",
+    "punchOut": "2026-09-20T09:37:03.612Z",
+    "status": "HALF_DAY",
+    "isLate": true,
+    "lateMinutes": 366,
+    "punchInMode": "KIOSK",
+    "punchInCoordinates": null,
+    "totalMinutes": 0,
+    "shiftName": "Default",
+    "remarks": "Late arrival by 6h 6m (+366m) [Default]",
+    "_loggedAt": "2026-09-20T09:36:12.613Z",
+    "punchOutMode": "KIOSK",
+    "punchOutCoordinates": null,
+    "isEarlyOut": true,
+    "earlyOutMinutes": 233
   }
 ]

@@ -33,7 +33,6 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Try fetching from DB first
     let logs: any[] = []
     try {
       const dbLogs = await prisma.attendanceLog.findMany({
@@ -46,21 +45,39 @@ export async function GET(req: NextRequest) {
         take: 30
       })
       if (dbLogs && dbLogs.length > 0) {
-        logs = dbLogs
+        logs = dbLogs.map(l => ({
+          ...l,
+          date: l.date instanceof Date ? l.date.toISOString().split('T')[0] : String(l.date).slice(0, 10)
+        }))
       }
     } catch (dbErr) {
       // DB failed, fallback to JSON
     }
 
-    if (logs.length === 0) {
-      const allAttendance = getMergedAttendance()
-      const targetId = employeeId.trim().toUpperCase()
-      logs = allAttendance.filter(a => (a.employeeId || '').trim().toUpperCase() === targetId)
-      // Sort by date descending
-      logs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      // Take last 30
-      logs = logs.slice(0, 30)
-    }
+    const allAttendance = getMergedAttendance()
+    const targetId = employeeId.trim().toUpperCase()
+    const jsonLogs = allAttendance.filter(a => (a.employeeId || '').trim().toUpperCase() === targetId)
+
+    // Merge JSON logs into DB logs
+    jsonLogs.forEach(jl => {
+      const jDate = jl.date || (jl.punchIn ? jl.punchIn.slice(0, 10) : '')
+      const idx = logs.findIndex(l => (l.date === jDate || (l.punchIn && l.punchIn.slice(0, 10) === jDate)))
+      if (idx === -1) {
+        logs.push({ ...jl, date: jDate })
+      } else {
+        logs[idx] = {
+          ...logs[idx],
+          ...jl,
+          punchIn: jl.punchIn || logs[idx].punchIn || null,
+          punchOut: jl.punchOut || logs[idx].punchOut || null,
+          totalMinutes: jl.totalMinutes !== undefined && jl.totalMinutes !== null ? jl.totalMinutes : logs[idx].totalMinutes,
+        }
+      }
+    })
+
+    // Sort by date descending and take last 30
+    logs.sort((a, b) => new Date(b.date || b.punchIn || 0).getTime() - new Date(a.date || a.punchIn || 0).getTime())
+    logs = logs.slice(0, 30)
 
     return NextResponse.json({ logs })
   } catch (e) {

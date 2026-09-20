@@ -164,9 +164,35 @@ export async function GET(req: NextRequest) {
 
   const fileAttendance = getMergedAttendance()
   fileAttendance.forEach(fa => {
-    const dStr = fa.date || (fa.punchIn ? fa.punchIn.slice(0, 10) : '')
-    if (dStr && !allAttendance.some(a => a.employeeId === fa.employeeId && a.date === dStr)) {
+    let dStr = fa.date
+    if (!dStr && fa.punchIn) {
+      try {
+        dStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(fa.punchIn))
+      } catch {
+        dStr = fa.punchIn.slice(0, 10)
+      }
+    }
+    if (!dStr) return
+
+    const faEmpUpper = (fa.employeeId || '').trim().toUpperCase()
+    const existingIdx = allAttendance.findIndex(a => {
+      const aEmpUpper = (a.employeeId || '').trim().toUpperCase()
+      if (aEmpUpper !== faEmpUpper) return false
+      const aDate = a.date || (a.punchIn ? a.punchIn.slice(0, 10) : '')
+      return aDate === dStr
+    })
+
+    if (existingIdx === -1) {
       allAttendance.push({ ...fa, date: dStr })
+    } else {
+      allAttendance[existingIdx] = {
+        ...allAttendance[existingIdx],
+        ...fa,
+        punchIn: fa.punchIn || allAttendance[existingIdx].punchIn || null,
+        punchOut: fa.punchOut || allAttendance[existingIdx].punchOut || null,
+        totalMinutes: fa.totalMinutes !== undefined && fa.totalMinutes !== null ? fa.totalMinutes : allAttendance[existingIdx].totalMinutes,
+        date: dStr,
+      }
     }
   })
 
@@ -185,6 +211,7 @@ export async function GET(req: NextRequest) {
       approvedLeaves = dbLeaves.map(l => ({
         id: l.id,
         employeeId: l.employeeId,
+        employeeCode: l.employeeId,
         fromDate: l.fromDate instanceof Date ? l.fromDate.toISOString().split('T')[0] : String(l.fromDate).slice(0, 10),
         toDate: l.toDate instanceof Date ? l.toDate.toISOString().split('T')[0] : String(l.toDate).slice(0, 10),
         reason: l.reason,
@@ -199,19 +226,13 @@ export async function GET(req: NextRequest) {
   fileLeaves
     .filter(l => l.status === 'APPROVED')
     .forEach(fl => {
-      const fromD = fl.fromDate ? fl.fromDate.slice(0, 10) : ''
-      const toD = fl.toDate ? fl.toDate.slice(0, 10) : ''
       if (!approvedLeaves.some(al => al.id === fl.id)) {
         approvedLeaves.push({
-          id: fl.id,
-          employeeId: fl.employeeId || fl.employeeCode,
+          ...fl,
           employeeCode: fl.employeeCode || fl.employeeId,
-          fromDate: fromD,
-          toDate: toD,
-          reason: fl.reason,
-          status: 'APPROVED',
-          leaveTypeName: fl.leaveTypeName || fl.leaveType?.name || 'Approved Leave',
-          category: fl.category || fl.leaveType?.category || 'CASUAL'
+          fromDate: fl.startDate ? String(fl.startDate).slice(0, 10) : (fl.fromDate ? String(fl.fromDate).slice(0, 10) : ''),
+          toDate: fl.endDate ? String(fl.endDate).slice(0, 10) : (fl.toDate ? String(fl.toDate).slice(0, 10) : ''),
+          leaveTypeName: fl.leaveType || fl.type || 'Leave'
         })
       }
     })
@@ -224,6 +245,8 @@ export async function GET(req: NextRequest) {
   const rosterRows = employees.map(emp => {
     const empId = emp.id
     const empCode = emp.employeeId || emp.id
+    const empIdUpper = (empId || '').trim().toUpperCase()
+    const empCodeUpper = (empCode || '').trim().toUpperCase()
     const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0
       ? emp.offDays
       : ['Sunday']
@@ -258,30 +281,25 @@ export async function GET(req: NextRequest) {
         return
       }
 
-      // B. Check if this day is a configured Weekly Off day for this employee
-      const isConfiguredOff = empOffDays.some((od: string) => od.toLowerCase() === dayName.toLowerCase())
-      if (isConfiguredOff) {
-        if (dayInfo.isToday) offTodayCount++
-        dailyCells[dayNum] = {
-          status: 'WEEKLY_OFF',
-          badgeText: 'OFF',
-          isOffDay: true,
-          isNonAmended: true, // Non-amended weekly off
-          leaveReason: null,
-          punchIn: null,
-          punchOut: null,
-          title: `🏖️ Weekly Off (${dayName}) - Non-amendable scheduled off`,
+      // B. Check Attendance Record FIRST (Actual punches always take precedence over weekly off)
+      const attRecord = allAttendance.find(a => {
+        const aEmp = (a.employeeId || '').trim().toUpperCase()
+        if (aEmp !== empIdUpper && aEmp !== empCodeUpper) return false
+
+        if (a.date === dateStr) return true
+        if (a.punchIn) {
+          if (a.punchIn.slice(0, 10) === dateStr) return true
+          try {
+            const istDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
+            if (istDate === dateStr) return true
+          } catch {}
         }
-        return
-      }
+        return false
+      })
 
-      // C. Check Attendance Record
-      const attRecord = allAttendance.find(a =>
-        (a.employeeId === empId || a.employeeId === empCode) &&
-        (a.date === dateStr || (a.punchIn && a.punchIn.slice(0, 10) === dateStr))
-      )
+      const isConfiguredOff = empOffDays.some((od: string) => od.toLowerCase() === dayName.toLowerCase())
 
-      if (attRecord && attRecord.punchIn) {
+      if (attRecord && (attRecord.punchIn || attRecord.punchOut)) {
         if (dayInfo.isToday) presentTodayCount++
         const formatTime = (iso: string) => {
           try {
@@ -290,7 +308,7 @@ export async function GET(req: NextRequest) {
             return iso
           }
         }
-        const inFormatted = formatTime(attRecord.punchIn)
+        const inFormatted = attRecord.punchIn ? formatTime(attRecord.punchIn) : null
         const outFormatted = attRecord.punchOut ? formatTime(attRecord.punchOut) : null
 
         let totalMins = attRecord.totalMinutes
@@ -301,12 +319,14 @@ export async function GET(req: NextRequest) {
         }
 
         const shiftInMinutes = parseTimeToISTMinutes(emp.morningTime || '09:00')
-        const punchInMinutes = parseTimeToISTMinutes(attRecord.punchIn)
+        const punchInMinutes = attRecord.punchIn ? parseTimeToISTMinutes(attRecord.punchIn) : 0
         const lateMinutes = Math.max(0, punchInMinutes - shiftInMinutes)
         const isLate = attRecord.isLate === true || attRecord.status === 'LATE' || lateMinutes > 15
         const isHalfDay = attRecord.status === 'HALF_DAY' || (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300 && !!attRecord.punchOut)
         const displayStatus = isHalfDay ? 'HALF_DAY' : (isLate ? 'LATE' : (attRecord.status || 'PRESENT'))
         const badgeText = isHalfDay ? '½ DAY' : (isLate ? 'LATE' : 'P')
+
+        const offDayNote = isConfiguredOff ? ` [🏖️ Scheduled Off Day (${dayName})]` : ''
 
         dailyCells[dayNum] = {
           status: displayStatus,
@@ -320,12 +340,29 @@ export async function GET(req: NextRequest) {
           isHalfDay,
           totalMinutes: totalMins,
           isNonAmended: false,
+          isOffDay: isConfiguredOff,
           leaveReason: null,
           title: isHalfDay
-            ? `🟣 Half Day (${typeof totalMins === 'number' ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m ≤ 5h` : '≤ 5 hours'})${isLate ? ` • Late (+${lateMinutes}m)` : ''} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ''}`
+            ? `🟣 Half Day (${typeof totalMins === 'number' ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m ≤ 5h` : '≤ 5 hours'})${isLate ? ` • Late (+${lateMinutes}m)` : ''}${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ''}`
             : isLate
-              ? `⚠️ Late Arrival (+${lateMinutes}m) | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`
-              : `🟢 Present | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`,
+              ? `⚠️ Late Arrival (+${lateMinutes}m)${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`
+              : `🟢 Present${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`,
+        }
+        return
+      }
+
+      // C. If NO punch record exists, check if this day is a configured Weekly Off day
+      if (isConfiguredOff) {
+        if (dayInfo.isToday) offTodayCount++
+        dailyCells[dayNum] = {
+          status: 'WEEKLY_OFF',
+          badgeText: 'OFF',
+          isOffDay: true,
+          isNonAmended: true, // Non-amended weekly off
+          leaveReason: null,
+          punchIn: null,
+          punchOut: null,
+          title: `🏖️ Weekly Off (${dayName}) - Scheduled off day`,
         }
         return
       }

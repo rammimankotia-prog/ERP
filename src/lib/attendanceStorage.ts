@@ -75,17 +75,27 @@ export function getMergedAttendance(): AttendanceRecord[] {
   const map = new Map<string, AttendanceRecord>()
 
   const mergeRecord = (rec: any) => {
-    if (!rec || !rec.employeeId || !rec.date) return
-    const key = `${rec.employeeId.trim().toUpperCase()}_${rec.date.trim()}`
+    if (!rec || !rec.employeeId) return
+    let d = rec.date
+    if (!d && rec.punchIn) {
+      try {
+        d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(rec.punchIn))
+      } catch {
+        d = String(rec.punchIn).slice(0, 10)
+      }
+    }
+    if (!d) return
+    const key = `${rec.employeeId.trim().toUpperCase()}_${String(d).trim()}`
     const existing = map.get(key)
 
     if (!existing) {
-      map.set(key, { ...rec })
+      map.set(key, { ...rec, date: String(d).trim() })
     } else {
       // Intelligently merge without losing punchIn or punchOut
       const merged: AttendanceRecord = {
         ...existing,
         ...rec,
+        date: existing.date || String(d).trim(),
         punchIn: existing.punchIn || rec.punchIn || null,
         punchOut: rec.punchOut || existing.punchOut || null,
         punchInMode: existing.punchInMode || rec.punchInMode || null,
@@ -95,7 +105,7 @@ export function getMergedAttendance(): AttendanceRecord[] {
           : (existing.punchIn ? existing.status : rec.status),
         isLate: existing.isLate !== undefined ? existing.isLate : rec.isLate,
         lateMinutes: existing.lateMinutes || rec.lateMinutes || 0,
-        totalMinutes: rec.totalMinutes || existing.totalMinutes || null,
+        totalMinutes: rec.totalMinutes !== undefined && rec.totalMinutes !== null ? rec.totalMinutes : (existing.totalMinutes || null),
         remarks: rec.remarks || existing.remarks || null,
       }
       map.set(key, merged)
@@ -143,7 +153,7 @@ export function getMergedAttendance(): AttendanceRecord[] {
         if (!line.trim()) continue
         try {
           const entry = JSON.parse(line)
-          if (entry && entry.employeeId && entry.date) {
+          if (entry && entry.employeeId) {
             mergeRecord(entry)
           }
         } catch {}
@@ -153,16 +163,20 @@ export function getMergedAttendance(): AttendanceRecord[] {
 
   const mergedList = Array.from(map.values())
 
-  // Self-healing: If merged count is greater than primary file, auto-repair all primary and backup files
+  // Self-healing: If merged records differ from primary files, auto-repair all primary, backup and master files
   try {
-    const primaryCount = safeReadJson<any[]>(ATTENDANCE_FILE, []).length
-    if (mergedList.length > primaryCount) {
-      safeWriteJson(ATTENDANCE_FILE, mergedList)
-      if (ATTENDANCE_FILE !== LOCAL_ATTENDANCE_FILE) {
-        safeWriteJson(LOCAL_ATTENDANCE_FILE, mergedList)
+    if (mergedList.length > 0) {
+      const primaryRecords = safeReadJson<any[]>(ATTENDANCE_FILE, [])
+      const primaryStr = JSON.stringify(primaryRecords)
+      const mergedStr = JSON.stringify(mergedList)
+      if (primaryStr !== mergedStr) {
+        safeWriteJson(ATTENDANCE_FILE, mergedList)
+        if (ATTENDANCE_FILE !== LOCAL_ATTENDANCE_FILE) {
+          safeWriteJson(LOCAL_ATTENDANCE_FILE, mergedList)
+        }
+        safeWriteJson(BACKUP_ATTENDANCE_FILE, mergedList)
+        safeWriteJson(MASTER_VAULT_FILE, mergedList)
       }
-      safeWriteJson(BACKUP_ATTENDANCE_FILE, mergedList)
-      safeWriteJson(MASTER_VAULT_FILE, mergedList)
     }
   } catch {}
 

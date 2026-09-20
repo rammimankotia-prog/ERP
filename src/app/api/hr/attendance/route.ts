@@ -16,14 +16,25 @@ export async function GET(req: NextRequest) {
     const employees = await getAllEmployees()
     const allAttendance = getMergedAttendance()
 
-    const todayAttendance = allAttendance.filter(a => a.date === dateStr)
+    const todayAttendance = allAttendance.filter(a => {
+      if (a.date === dateStr) return true
+      if (a.punchIn) {
+        if (a.punchIn.slice(0, 10) === dateStr) return true
+        try {
+          const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
+          if (inDateIST === dateStr) return true
+        } catch {}
+      }
+      return false
+    })
 
     // Combine employees with their attendance
     const teamAttendance = employees.map(emp => {
-      const empIdNorm = (emp.employeeId || emp.id || '').trim().toUpperCase()
+      const empIdNorm = (emp.id || '').trim().toUpperCase()
+      const empCodeNorm = (emp.employeeId || '').trim().toUpperCase()
       const record = todayAttendance.find(a => {
         const aIdNorm = (a.employeeId || '').trim().toUpperCase()
-        return aIdNorm === empIdNorm || (emp.id && aIdNorm === emp.id.trim().toUpperCase())
+        return aIdNorm === empIdNorm || aIdNorm === empCodeNorm
       })
       let status = record ? record.status : 'ABSENT'
 

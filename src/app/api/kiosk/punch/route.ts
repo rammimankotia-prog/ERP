@@ -244,20 +244,39 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const employeeId = searchParams.get('employeeId')
-    const dateStr = searchParams.get('date') || new Date().toISOString().split('T')[0]
+    const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+    const dateStr = searchParams.get('date') || todayIST
 
     if (!employeeId) {
       return NextResponse.json({ error: 'employeeId required' }, { status: 400 })
     }
 
     const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
-    const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId)
-
-    const allAttendance = readJson<any[]>(ATTENDANCE_FILE, LOCAL_ATTENDANCE_FILE, [])
-    const record = allAttendance.find(a => 
-      (a.employeeId === employeeId || (emp && (a.employeeId === emp.id || a.employeeId === emp.employeeId))) && 
-      a.date === dateStr
+    const targetEmpId = employeeId.trim().toUpperCase()
+    const emp = employees.find(e => 
+      (e.id && e.id.trim().toUpperCase() === targetEmpId) || 
+      (e.employeeId && e.employeeId.trim().toUpperCase() === targetEmpId)
     )
+
+    const allAttendance = getMergedAttendance()
+    const empIdUpper = emp?.id?.trim().toUpperCase()
+    const empCodeUpper = emp?.employeeId?.trim().toUpperCase()
+
+    const record = allAttendance.find(a => {
+      const aEmp = (a.employeeId || '').trim().toUpperCase()
+      const empMatch = aEmp === targetEmpId || (empIdUpper && aEmp === empIdUpper) || (empCodeUpper && aEmp === empCodeUpper)
+      if (!empMatch) return false
+
+      if (a.date === dateStr) return true
+      if (a.punchIn) {
+        if (a.punchIn.slice(0, 10) === dateStr) return true
+        try {
+          const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
+          if (inDateIST === dateStr) return true
+        } catch {}
+      }
+      return false
+    })
 
     return NextResponse.json({
       checkedIn: !!(record && record.punchIn),
@@ -446,10 +465,22 @@ export async function POST(req: NextRequest) {
 
     const allAttendance = getMergedAttendance()
 
-    let existingIndex = allAttendance.findIndex(a => 
-      ((a.employeeId && a.employeeId.trim().toUpperCase() === normalizedEmpId.toUpperCase()) || (emp && (a.employeeId === emp.id || a.employeeId === emp.employeeId))) && 
-      a.date === dateStr
-    )
+    let existingIndex = allAttendance.findIndex(a => {
+      const aEmp = (a.employeeId || '').trim().toUpperCase()
+      const normEmp = normalizedEmpId.trim().toUpperCase()
+      const empIdMatch = aEmp === normEmp || (emp && (aEmp === emp.id?.trim().toUpperCase() || aEmp === emp.employeeId?.trim().toUpperCase()))
+      if (!empIdMatch) return false
+
+      if (a.date === dateStr) return true
+      if (a.punchIn) {
+        if (a.punchIn.slice(0, 10) === dateStr) return true
+        try {
+          const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
+          if (inDateIST === dateStr) return true
+        } catch {}
+      }
+      return false
+    })
 
     if (action === 'IN') {
       if (existingIndex !== -1 && allAttendance[existingIndex].punchIn) {
