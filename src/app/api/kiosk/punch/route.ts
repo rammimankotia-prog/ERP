@@ -342,7 +342,10 @@ export async function POST(req: NextRequest) {
         emp?.assignedRole?.toLowerCase().includes('security') ||
         emp?.designation?.toLowerCase().includes('guard') ||
         emp?.designation?.toLowerCase().includes('security') ||
+        (typeof emp?.department === 'string' && emp?.department?.toLowerCase().includes('security')) ||
         emp?.department?.name?.toLowerCase().includes('security') ||
+        emp?.departmentId === 'dept-4' ||
+        emp?.departmentId === 'dept-11' ||
         emp?.dept?.toLowerCase().includes('security')
 
       if (geofenceEnabled && !isTestStaff && !isSecurityGuard) {

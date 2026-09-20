@@ -35,13 +35,14 @@ export default function EditEmployeeForm({
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const initialShift = employee.morningTime === '22:00' || employee.eveningTime === '07:00'
+  const initialShift = employee.morningTime === '20:00' || employee.eveningTime === '08:00' || employee.morningTime === '22:00' || employee.eveningTime === '07:00'
     ? 'NIGHT'
     : employee.morningTime === '10:00' && employee.eveningTime === '22:00'
     ? 'BREAK'
     : 'MORNING'
 
   const [selectedShift, setSelectedShift] = useState<'MORNING' | 'BREAK' | 'NIGHT'>(initialShift)
+  const [swapShiftEligible, setSwapShiftEligible] = useState<boolean>(employee.swapShiftEligible === true)
   const [morningTime, setMorningTime] = useState(employee.morningTime || '09:00')
   const [eveningTime, setEveningTime] = useState(employee.eveningTime || '18:00')
   const [breakStart, setBreakStart] = useState('14:00')
@@ -138,6 +139,7 @@ export default function EditEmployeeForm({
         designation,
         morningTime: morningTime || (formData.get('morningTime') as string) || '09:00',
         eveningTime: eveningTime || (formData.get('eveningTime') as string) || '18:00',
+        swapShiftEligible,
         offDays: offDays.length > 0 ? offDays : ['Sunday'],
         doj: dojStr ? new Date(dojStr).toISOString() : new Date().toISOString(),
         dob: dobStr ? new Date(dobStr).toISOString() : undefined,
@@ -1053,8 +1055,8 @@ export default function EditEmployeeForm({
               className="shift-card-btn"
               onClick={() => {
                 setSelectedShift('NIGHT')
-                setMorningTime('22:00')
-                setEveningTime('07:00')
+                setMorningTime('20:00')
+                setEveningTime('08:00')
               }}
               style={{
                 padding: '0.85rem 1rem',
@@ -1076,7 +1078,7 @@ export default function EditEmployeeForm({
                   Night Shift
                 </span>
                 <span style={{ fontSize: '0.75rem', color: selectedShift === 'NIGHT' ? '#8b5cf6' : 'var(--text-muted)' }}>
-                  10:00 PM – 07:00 AM
+                  08:00 PM – 08:00 AM
                 </span>
               </div>
             </button>
@@ -1292,6 +1294,105 @@ export default function EditEmployeeForm({
               })}
             </div>
           </div>
+        </div>
+
+        {/* Section 5: Shift Eligibility & Roster Rotation */}
+        <div className="form-card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>🔄</span>
+            <div>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+                Section 5: Shift Eligibility & Rotation
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Define whether this employee can be rostered for both Day and Night shifts (Swap Shift).
+              </p>
+            </div>
+          </div>
+
+          {/* Swap Shift Toggle Card */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '1rem',
+              padding: '1.1rem 1.25rem',
+              borderRadius: '12px',
+              border: swapShiftEligible
+                ? '2px solid #8b5cf6'
+                : '1px solid var(--border)',
+              backgroundColor: swapShiftEligible
+                ? 'rgba(139, 92, 246, 0.08)'
+                : 'var(--bg-main)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              userSelect: 'none',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={swapShiftEligible}
+              onChange={(e) => setSwapShiftEligible(e.target.checked)}
+              style={{
+                width: '18px',
+                height: '18px',
+                marginTop: '2px',
+                accentColor: '#8b5cf6',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                <span style={{ fontSize: '1.1rem' }}>☀️🌙</span>
+                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: swapShiftEligible ? '#8b5cf6' : 'var(--text-main)' }}>
+                  Swap Shift Eligible
+                </span>
+                {swapShiftEligible && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      backgroundColor: '#8b5cf6',
+                      color: '#fff',
+                      padding: '2px 8px',
+                      borderRadius: '20px',
+                    }}
+                  >
+                    ENABLED
+                  </span>
+                )}
+              </div>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                {swapShiftEligible
+                  ? '✅ This employee can be assigned to both Day Shift and Night Shift in the Duty Roster. Shift Manager will allow full shift rotation for this employee.'
+                  : "🔒 This employee is locked to a single default shift. Shift Manager will restrict this employee's roster cell to their assigned shift only (no swap allowed)."}
+              </p>
+            </div>
+          </label>
+
+          {/* Info note */}
+          {!swapShiftEligible && (
+            <div
+              style={{
+                marginTop: '0.85rem',
+                padding: '0.65rem 1rem',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.8rem',
+                color: '#d97706',
+              }}
+            >
+              <span>🔒</span>
+              <span>
+                <strong>Single Shift Mode:</strong> Shift Manager mein yeh employee lock rahega aur swap nahi hoga jab tak yeh option enable nahi kiya jaata.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
