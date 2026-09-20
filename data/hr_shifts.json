@@ -1,0 +1,32 @@
+[
+  {
+    "id": "shift-1",
+    "name": "Morning Shift",
+    "type": "FIXED",
+    "startTime": "09:00",
+    "endTime": "18:00",
+    "graceMinutes": 15,
+    "branchId": "mock-1"
+  },
+  {
+    "id": "shift-2",
+    "name": "Break Shift",
+    "type": "BREAK",
+    "startTime": "10:00",
+    "endTime": "22:00",
+    "firstSlot": "10:00 – 14:00",
+    "secondSlot": "18:00 – 22:00",
+    "breakTime": "14:00 – 18:00",
+    "graceMinutes": 15,
+    "branchId": "mock-1"
+  },
+  {
+    "id": "shift-3",
+    "name": "Night Shift",
+    "type": "NIGHT",
+    "startTime": "20:00",
+    "endTime": "08:00",
+    "graceMinutes": 20,
+    "branchId": "mock-1"
+  }
+]

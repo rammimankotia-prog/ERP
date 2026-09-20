@@ -379,7 +379,7 @@ export default function ShiftsManager() {
         setShifts([
           { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' },
           { id: 'shift-2', name: 'Break Shift', type: 'BREAK', startTime: '10:00', endTime: '22:00', firstSlot: '10:00 – 14:00', secondSlot: '18:00 – 22:00', breakTime: '14:00 – 18:00', graceMinutes: 15, branchId: 'mock-1' },
-          { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '22:00', endTime: '07:00', graceMinutes: 20, branchId: 'mock-1' },
+          { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '20:00', endTime: '08:00', graceMinutes: 20, branchId: 'mock-1' },
         ])
       })
   }, [])
@@ -455,9 +455,21 @@ export default function ShiftsManager() {
     setShowForm(true)
   }
 
-  const handleDeleteShift = (id: string, name: string) => {
+  const handleDeleteShift = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete "${name}"?`)) {
-      setShifts(prev => prev.filter(s => s.id !== id))
+      try {
+        const res = await fetch(`/api/hr/shifts?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        })
+        const data = await res.json()
+        if (data.shifts) {
+          setShifts(data.shifts)
+        } else {
+          setShifts(prev => prev.filter(s => s.id !== id))
+        }
+      } catch {
+        setShifts(prev => prev.filter(s => s.id !== id))
+      }
       setMessage(`🗑️ Shift "${name}" removed.`)
     }
   }
@@ -481,27 +493,41 @@ export default function ShiftsManager() {
 
     try {
       if (editingShiftId) {
-        setShifts(prev =>
-          prev.map(s =>
-            s.id === editingShiftId
-              ? { ...s, ...payload }
-              : s
+        const res = await fetch('/api/hr/shifts', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingShiftId, ...payload }),
+        })
+        const data = await res.json()
+        if (data.shifts) {
+          setShifts(data.shifts)
+        } else {
+          setShifts(prev =>
+            prev.map(s =>
+              s.id === editingShiftId
+                ? { ...s, ...payload }
+                : s
+            )
           )
-        )
+        }
         setMessage('✅ Shift updated successfully!')
         resetForm()
       } else {
         const res = await fetch('/api/hr/shifts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-user-role': 'ADMIN' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
         const data = await res.json()
-        const newShift: Shift = data.shift || {
-          id: 'shift-' + Date.now(),
-          ...payload,
+        if (data.shifts) {
+          setShifts(data.shifts)
+        } else {
+          const newShift: Shift = data.shift || {
+            id: 'shift-' + Date.now(),
+            ...payload,
+          }
+          setShifts(prev => [...prev, newShift])
         }
-        setShifts(prev => [...prev, newShift])
         setMessage('✅ Shift created successfully!')
         resetForm()
       }
@@ -1945,7 +1971,7 @@ export default function ShiftsManager() {
                             badgeBg = 'rgba(139, 92, 246, 0.18)'
                             badgeColor = '#8b5cf6'
                             badgeText = 'N'
-                            title = 'Night Duty (22:00 - 07:00)'
+                            title = 'Night Duty (20:00 - 08:00)'
                           } else if (assignment === 'OFF') {
                             badgeBg = isSun ? 'rgba(244, 63, 94, 0.18)' : isSat ? 'rgba(245, 158, 11, 0.18)' : 'rgba(100, 116, 139, 0.12)'
                             badgeColor = isSun ? '#f43f5e' : isSat ? '#f59e0b' : '#94a3b8'
