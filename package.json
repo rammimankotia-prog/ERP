@@ -7,10 +7,11 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "./node_modules/.bin/next build || next build",
     "start": "node server.js",
     "lint": "eslint",
     "postinstall": "prisma generate"
+
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
