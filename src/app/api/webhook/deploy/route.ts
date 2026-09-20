@@ -37,12 +37,28 @@ function verifySignature(payload: string, signature: string | null): boolean {
   }
 }
 
+function findGitDirectory(): string {
+  let curr = process.cwd();
+  for (let i = 0; i < 5; i++) {
+    try {
+      if (fs.existsSync(path.join(curr, ".git"))) {
+        return curr;
+      }
+    } catch {}
+    const parent = path.dirname(curr);
+    if (parent === curr) break;
+    curr = parent;
+  }
+  return process.cwd();
+}
+
 function triggerDeployment(triggerSource: string) {
   isDeploying = true;
   lastDeployStatus = `In Progress (Triggered by ${triggerSource})`;
   lastDeployTime = new Date().toISOString();
 
-  appendDeployLog(`🚀 Deployment started by ${triggerSource}...`);
+  const workingDir = findGitDirectory();
+  appendDeployLog(`🚀 Deployment started by ${triggerSource} in ${workingDir}...`);
 
   // Detect platform command
   const isWindows = process.platform === "win32";
@@ -50,7 +66,7 @@ function triggerDeployment(triggerSource: string) {
     ? "git pull origin main && npm run build"
     : "git pull origin main && npm run build && (pm2 restart all || pm2 reload all || true)";
 
-  exec(cmd, { cwd: process.cwd(), maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+  exec(cmd, { cwd: workingDir, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
     isDeploying = false;
     if (error) {
       lastDeployStatus = `Failed: ${error.message}`;
@@ -82,6 +98,8 @@ export async function GET() {
     lastStatus: lastDeployStatus,
     lastDeployTime,
     webhookUrl: "https://grandgodwin.com/api/webhook/deploy",
+    serverCwd: process.cwd(),
+    workingDir: findGitDirectory(),
     secretConfigured: true,
     log: logContent || "No deployment logs yet.",
   });
