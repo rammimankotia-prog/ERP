@@ -273,16 +273,12 @@ export async function createEmployee(data: {
     ? data.password.trim()
     : `Godwin#${Math.floor(1000 + Math.random() * 9000)}`
 
-  // 2. Determine RBAC Role based on designation and department
+  // 2. Determine Role (All regular staff are Employee, only guards get Security Guard)
   const lowerDesig = (data.designation || '').toLowerCase()
   const lowerDept = (department?.name || '').toLowerCase()
   let assignedRole = 'Employee'
   if (lowerDesig.includes('guard') || lowerDept.includes('security') || lowerDesig.includes('security')) {
     assignedRole = 'Security Guard'
-  } else if (lowerDesig.includes('general manager') || lowerDesig.includes('root admin')) {
-    assignedRole = 'Master Admin'
-  } else if (lowerDesig.includes('manager') || lowerDesig.includes('supervisor')) {
-    assignedRole = 'Manager'
   }
 
   const configuredOffDays = Array.isArray(data.offDays) && data.offDays.length > 0
@@ -335,35 +331,37 @@ export async function createEmployee(data: {
   fileEmployees.push(newRecord)
   writeJsonFile(EMPLOYEES_FILE, fileEmployees)
 
-  // 5. Automatically create login account in users.json for portal authentication
-  const USERS_FILE = path.join(DATA_DIR, 'users.json')
-  const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
-  try {
-    const users = readJsonFile<any[]>(USERS_FILE, readJsonFile<any[]>(LOCAL_USERS_FILE, []))
-    const existingIndex = users.findIndex(u => (u.email && u.email.toLowerCase() === data.email.toLowerCase()) || u.id === newRecord.id)
-    const userPayload = {
-      id: newRecord.id,
-      username: data.email,
-      name: `${data.firstName} ${data.lastName}`,
-      email: data.email,
-      password: generatedPassword,
-      role: assignedRole,
-      status: 'Active',
-      createdAt: new Date().toISOString().split('T')[0],
-      permissions: assignedRole === 'Security Guard' ? { kiosk: true } : undefined
-    }
+  // 5. Only sync Security Guard account to users.json for dedicated security kiosk authentication
+  if (assignedRole === 'Security Guard') {
+    const USERS_FILE = path.join(DATA_DIR, 'users.json')
+    const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
+    try {
+      const users = readJsonFile<any[]>(USERS_FILE, readJsonFile<any[]>(LOCAL_USERS_FILE, []))
+      const existingIndex = users.findIndex(u => (u.email && u.email.toLowerCase() === data.email.toLowerCase()) || u.id === newRecord.id)
+      const userPayload = {
+        id: newRecord.id,
+        username: data.email,
+        name: `${data.firstName} ${data.lastName}`,
+        email: data.email,
+        password: generatedPassword,
+        role: 'Security Guard',
+        status: 'Active',
+        createdAt: new Date().toISOString().split('T')[0],
+        permissions: { kiosk: { access: true } }
+      }
 
-    if (existingIndex >= 0) {
-      users[existingIndex] = { ...users[existingIndex], ...userPayload }
-    } else {
-      users.push(userPayload)
+      if (existingIndex >= 0) {
+        users[existingIndex] = { ...users[existingIndex], ...userPayload }
+      } else {
+        users.push(userPayload)
+      }
+      writeJsonFile(USERS_FILE, users)
+      if (USERS_FILE !== LOCAL_USERS_FILE) {
+        writeJsonFile(LOCAL_USERS_FILE, users)
+      }
+    } catch (e) {
+      console.warn('Failed to sync security guard account in users.json:', e)
     }
-    writeJsonFile(USERS_FILE, users)
-    if (USERS_FILE !== LOCAL_USERS_FILE) {
-      writeJsonFile(LOCAL_USERS_FILE, users)
-    }
-  } catch (e) {
-    console.warn('Failed to sync user account in users.json:', e)
   }
 
   // 6. Automatically dispatch credentials email

@@ -197,44 +197,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
-            if (parsed && parsed.username && parsed.id) {
+            const isMaster = parsed && (
+              parsed.role === 'Master Admin' ||
+              parsed.role === 'ADMIN' ||
+              ['admin-001', 'admin-002', 'admin-003', 'admin-004'].includes(parsed.id) ||
+              ['mail@godwinhotels.com', 'generalmanager@godwinhotels.com', 'ksareen@godwinhotels.com', 'vsareen@godwinhotels.com'].includes((parsed.email || '').toLowerCase())
+            );
+            if (isMaster && parsed.username && parsed.id) {
               setUser(parsed);
             } else {
-              setUser(null);
-            }
-          } catch {
-            setUser(null);
-          }
-        } else {
-          // If no admin user, check for active staff kiosk session
-          const kioskSaved = localStorage.getItem('kiosk_employee') || sessionStorage.getItem('kiosk_employee');
-          if (kioskSaved) {
-            try {
-              const kEmp = JSON.parse(kioskSaved);
-              if (kEmp && kEmp.id && (!kEmp.expiresAt || kEmp.expiresAt >= Date.now())) {
-                const isMaster = kEmp.role === 'Master Admin' || kEmp.role === 'ADMIN';
-                setUser({
-                  id: kEmp.id,
-                  username: kEmp.employeeId || kEmp.email || kEmp.id,
-                  name: `${kEmp.firstName || ''} ${kEmp.lastName || ''}`.trim() || kEmp.name || 'Staff User',
-                  email: kEmp.email || '',
-                  role: kEmp.role || kEmp.designation || 'Staff',
-                  status: 'Active',
-                  permissions: isMaster ? MASTER_ADMIN_PERMISSIONS : (kEmp.permissions || { kiosk: { access: true } })
-                });
-              } else {
-                setUser(null);
-                if (!isPublic) redirectToLogin();
-              }
-            } catch {
+              // Regular employees have no ERP access
               setUser(null);
               if (!isPublic) redirectToLogin();
             }
-          } else {
-            // If no user is logged in, redirect if on protected route
+          } catch {
             setUser(null);
             if (!isPublic) redirectToLogin();
           }
+        } else {
+          setUser(null);
+          if (!isPublic) redirectToLogin();
         }
       }
     } catch (err) {
@@ -382,20 +364,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [pathname, router]);
 
 
-  // RBAC route enforcement for Security Guard role
+  // Check if current user is an authorized Master Admin
+  const isMasterAdmin = !!(
+    user &&
+    (
+      user.role === 'Master Admin' ||
+      user.role === 'ADMIN' ||
+      user.id === 'admin-001' ||
+      user.id === 'admin-002' ||
+      user.id === 'admin-003' ||
+      user.id === 'admin-004' ||
+      ['mail@godwinhotels.com', 'generalmanager@godwinhotels.com', 'ksareen@godwinhotels.com', 'vsareen@godwinhotels.com'].includes((user.email || '').toLowerCase())
+    )
+  );
+
+  // Strict RBAC route enforcement: ONLY Master Admins can access administrative ERP routes
   useEffect(() => {
-    if (!user || !authChecked) return;
+    if (!authChecked) return;
     const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
     const cleanPath = (currentPath || '').split('?')[0].replace(/\/$/, '') || '/';
 
-    if (user.role === 'Security Guard') {
-      const isAllowed = 
-        cleanPath === '/kiosk' || 
-        cleanPath.startsWith('/kiosk') || 
-        cleanPath === '/logout' || 
-        cleanPath === '/login';
+    const isAdminRoute = 
+      cleanPath.startsWith('/hr') || 
+      cleanPath.startsWith('/users') || 
+      cleanPath.startsWith('/settings') || 
+      cleanPath.startsWith('/operations');
 
-      if (!isAllowed) {
+    if (isAdminRoute) {
+      if (!user || !isMasterAdmin) {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/admin/login';
+        } else {
+          router.push('/admin/login');
+        }
+      }
+    } else if (user && !isMasterAdmin) {
+      // Non-admin logged in trying to access non-kiosk pages
+      if (!cleanPath.startsWith('/kiosk') && !cleanPath.startsWith('/login') && !cleanPath.startsWith('/logout') && cleanPath !== '/') {
         if (typeof window !== 'undefined') {
           window.location.href = '/kiosk';
         } else {
@@ -403,36 +408,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [user, pathname, router, authChecked]);
-
-  // Check if current user is Master Admin
-  const isMasterAdmin = !!(
-    user &&
-    (user.id === 'admin-001' || user.role === 'Master Admin' || user.role === 'ADMIN')
-  );
+  }, [user, pathname, router, authChecked, isMasterAdmin]);
 
   const hasPermission = useCallback((module: string, action?: string): boolean => {
     if (isMasterAdmin) return true;
-    if (!user?.permissions) return false;
-
-    const parts = module.split('.');
-    let current: any = user.permissions;
-
-    for (const part of parts) {
-      if (current == null || typeof current !== 'object') return false;
-      current = current[part];
-    }
-
-    if (action) {
-      return current?.[action] === true;
-    }
-
-    if (current && typeof current === 'object') {
-      return Object.values(current).some(v => v === true);
-    }
-
-    return current === true;
-  }, [user, isMasterAdmin]);
+    return false;
+  }, [isMasterAdmin]);
 
   const currentPath = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
   const cleanPath = (currentPath || '').split('?')[0].replace(/\/$/, '') || '/';
@@ -447,14 +428,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     cleanPath === '/kiosk' || 
     cleanPath.startsWith('/kiosk');
 
-  const defaultRedirectUrl = 
-    cleanPath.startsWith('/admin') ||
-    cleanPath.startsWith('/hr') ||
-    cleanPath.startsWith('/users') ||
-    cleanPath.startsWith('/settings') ||
-    cleanPath.startsWith('/operations')
-      ? '/admin/login'
-      : '/login';
+  const defaultRedirectUrl = '/admin/login';
 
   return (
     <AuthContext.Provider value={{ user, login, logout, hasPermission, isMasterAdmin }}>
@@ -488,7 +462,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
           `}</style>
         </div>
-      ) : !user ? (
+      ) : !user || !isMasterAdmin ? (
         <div style={{
           minHeight: '100vh',
           width: '100%',
@@ -504,13 +478,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           textAlign: 'center'
         }}>
           <span style={{ fontSize: '2.5rem' }}>🔒</span>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Authentication Required</h2>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', maxWidth: '340px' }}>
-            Please log in to your account to access this section.
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>Administrative Access Required</h2>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', maxWidth: '360px' }}>
+            This section is restricted to authorized Executive Administrators only. Employees can only access the Punch Terminal.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.75rem', width: '100%', maxWidth: '280px' }}>
             <a
-              href={defaultRedirectUrl}
+              href="/admin/login"
               style={{
                 display: 'block',
                 padding: '0.75rem 1.25rem',
@@ -523,13 +497,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 boxShadow: '0 4px 12px rgba(217, 119, 6, 0.4)'
               }}
             >
-              {defaultRedirectUrl === '/admin/login' ? 'Executive Login ➔' : 'Staff Portal Login ➔'}
+              Executive Admin Login ➔
             </a>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.25rem' }}>
-              <a href="/login" style={{ color: '#38bdf8', fontSize: '0.8rem', textDecoration: 'underline' }}>Staff Portal</a>
-              <span style={{ color: '#475569' }}>•</span>
-              <a href="/admin/login" style={{ color: '#38bdf8', fontSize: '0.8rem', textDecoration: 'underline' }}>Executive Portal</a>
-            </div>
+            <a
+              href="/kiosk"
+              style={{
+                display: 'block',
+                padding: '0.65rem 1.25rem',
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#cbd5e1',
+                borderRadius: '8px',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                textDecoration: 'none',
+                border: '1px solid rgba(255, 255, 255, 0.15)'
+              }}
+            >
+              Staff Punch Terminal ➔
+            </a>
           </div>
         </div>
       ) : (

@@ -31,18 +31,20 @@ export default function TopNavbar() {
     }
   };
 
-  const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
-  if (!user || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout') || cleanPath.startsWith('/admin/login') || cleanPath.startsWith('/kiosk')) return null;
+  const isMasterAdmin = !!(
+    user && (
+      user.role === 'Master Admin' ||
+      user.role === 'ADMIN' ||
+      user.id === 'admin-001' ||
+      user.id === 'admin-002' ||
+      user.id === 'admin-003' ||
+      user.id === 'admin-004' ||
+      (user.email && ['mail@godwinhotels.com', 'generalmanager@godwinhotels.com', 'ksareen@godwinhotels.com', 'vsareen@godwinhotels.com'].includes(user.email.toLowerCase()))
+    )
+  );
 
-  const isMasterAdmin =
-    user?.role === 'Master Admin' ||
-    user?.role === 'ADMIN' ||
-    user?.role === 'Manager' ||
-    user?.id === 'admin-001' ||
-    user?.id === 'admin-002' ||
-    user?.id === 'admin-003' ||
-    user?.id === 'admin-004' ||
-    (user?.email && ['mail@godwinhotels.com', 'generalmanager@godwinhotels.com', 'ksareen@godwinhotels.com', 'vsareen@godwinhotels.com'].includes(user.email.toLowerCase()));
+  const cleanPath = (pathname || '').split('?')[0].replace(/\/$/, '') || '/';
+  if (!user || !isMasterAdmin || cleanPath.startsWith('/login') || cleanPath.startsWith('/logout') || cleanPath.startsWith('/admin/login') || cleanPath.startsWith('/kiosk')) return null;
 
   const handleActivateServer = async () => {
     if (deployState === 'deploying') return;

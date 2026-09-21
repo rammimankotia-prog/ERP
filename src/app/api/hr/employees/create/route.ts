@@ -124,16 +124,12 @@ export async function POST(req: NextRequest) {
       ? data.password.trim()
       : `Godwin#${Math.floor(1000 + Math.random() * 9000)}`
 
-    // 2. Determine RBAC Role
+    // 2. Determine Role (Employees never get admin access; access is strictly punch terminal)
     const lowerDesig = (data.designation || '').toLowerCase()
     const lowerDept = (department?.name || '').toLowerCase()
     let assignedRole = 'Employee'
     if (lowerDesig.includes('guard') || lowerDept.includes('security') || lowerDesig.includes('security')) {
       assignedRole = 'Security Guard'
-    } else if (lowerDesig.includes('general manager') || lowerDesig.includes('root admin')) {
-      assignedRole = 'Master Admin'
-    } else if (lowerDesig.includes('manager') || lowerDesig.includes('supervisor')) {
-      assignedRole = 'Manager'
     }
 
     const configuredOffDays = Array.isArray(data.offDays) && data.offDays.length > 0
@@ -206,37 +202,39 @@ export async function POST(req: NextRequest) {
       unmarkEmployeeDeleted([newRecord.id, employeeId, newRecord.email])
     } catch {}
 
-    // 5. Sync login account in users.json
-    try {
-      const USERS_FILE = path.join(DATA_DIR, 'users.json')
-      const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
-      const users = readJsonFile<any[]>(USERS_FILE, LOCAL_USERS_FILE, [])
-      const existingIndex = users.findIndex((u: any) =>
-        (u.email && u.email.toLowerCase() === newRecord.email.toLowerCase()) ||
-        u.id === newRecord.id ||
-        (u.username && u.username.toLowerCase() === newRecord.employeeId.toLowerCase())
-      )
+    // 5. Only sync Security Guard account to users.json for dedicated security kiosk authentication
+    if (assignedRole === 'Security Guard') {
+      try {
+        const USERS_FILE = path.join(DATA_DIR, 'users.json')
+        const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
+        const users = readJsonFile<any[]>(USERS_FILE, LOCAL_USERS_FILE, [])
+        const existingIndex = users.findIndex((u: any) =>
+          (u.email && u.email.toLowerCase() === newRecord.email.toLowerCase()) ||
+          u.id === newRecord.id ||
+          (u.username && u.username.toLowerCase() === newRecord.employeeId.toLowerCase())
+        )
 
-      const userPayload = {
-        id: newRecord.id,
-        username: newRecord.email,
-        name: `${newRecord.firstName} ${newRecord.lastName}`,
-        email: newRecord.email,
-        password: generatedPassword,
-        role: assignedRole,
-        status: 'Active',
-        createdAt: new Date().toISOString().split('T')[0],
-        permissions: assignedRole === 'Security Guard' ? { kiosk: true } : undefined
-      }
+        const userPayload = {
+          id: newRecord.id,
+          username: newRecord.email,
+          name: `${newRecord.firstName} ${newRecord.lastName}`,
+          email: newRecord.email,
+          password: generatedPassword,
+          role: 'Security Guard',
+          status: 'Active',
+          createdAt: new Date().toISOString().split('T')[0],
+          permissions: { kiosk: { access: true } }
+        }
 
-      if (existingIndex >= 0) {
-        users[existingIndex] = { ...users[existingIndex], ...userPayload }
-      } else {
-        users.push(userPayload)
+        if (existingIndex >= 0) {
+          users[existingIndex] = { ...users[existingIndex], ...userPayload }
+        } else {
+          users.push(userPayload)
+        }
+        writeJsonFile(USERS_FILE, users)
+      } catch (e) {
+        console.warn('Failed to sync security guard account in users.json:', e)
       }
-      writeJsonFile(USERS_FILE, users)
-    } catch (e) {
-      console.warn('Failed to sync user account in users.json:', e)
     }
 
     // 6. Email dispatch

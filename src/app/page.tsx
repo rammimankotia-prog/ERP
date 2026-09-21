@@ -9,14 +9,20 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // 1. Authenticated User Redirection
+    // 1. Authenticated User Redirection: Only Master Admins access ERP
     if (user) {
-      if (user.role === 'Security Guard') {
-        try { router.replace('/kiosk'); } catch {}
-        try { window.location.replace('/kiosk'); } catch {}
-      } else {
+      const isMaster = 
+        user.role === 'Master Admin' || 
+        user.role === 'ADMIN' ||
+        ['admin-001', 'admin-002', 'admin-003', 'admin-004'].includes(user.id) ||
+        ['mail@godwinhotels.com', 'generalmanager@godwinhotels.com', 'ksareen@godwinhotels.com', 'vsareen@godwinhotels.com'].includes((user.email || '').toLowerCase());
+
+      if (isMaster) {
         try { router.replace('/hr/employees'); } catch {}
         try { window.location.replace('/hr/employees'); } catch {}
+      } else {
+        try { router.replace('/kiosk'); } catch {}
+        try { window.location.replace('/kiosk'); } catch {}
       }
       return;
     }

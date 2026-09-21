@@ -154,12 +154,13 @@ export async function POST(req: Request) {
         u.password === password
     );
 
-    // If not found in system users, also check HR Employees directory
+    // STRICT SECURITY: Only authorized Master Admin accounts can access the ERP portal.
+    // If user not found in admin users, check if they are an employee trying to log into admin
     if (!user) {
       try {
         const { getAllEmployees } = await import('@/lib/employeeData');
         const employees = await getAllEmployees();
-        const emp = employees.find((e: any) => {
+        const isEmployee = employees.some((e: any) => {
           const eMail = (e.email || '').trim().toLowerCase();
           const eId = (e.employeeId || '').trim().toLowerCase();
           const rawId = (e.id || '').trim().toLowerCase();
@@ -171,63 +172,31 @@ export async function POST(req: Request) {
           );
         });
 
-        if (emp) {
-          const empPass = (emp.password || 'Godwin@123').trim();
-          if (empPass === password || emp.password === password) {
-            const isMaster = emp.role === 'Master Admin' || emp.role === 'ADMIN';
-            const isManagerOrSupervisor = 
-              emp.role === 'Manager' || 
-              (emp.designation && (emp.designation.toLowerCase().includes('manager') || emp.designation.toLowerCase().includes('supervisor')));
-
-            const permissions = isMaster
-              ? MASTER_ADMIN_PERMISSIONS
-              : isManagerOrSupervisor
-              ? {
-                  hr: {
-                    employees: { view: true, edit: true },
-                    attendance: { view: true, edit: true },
-                    shifts: { view: true, edit: true },
-                    leave: { view: true, approve: true },
-                    reports: { view: true },
-                  },
-                  kiosk: { access: true },
-                }
-              : {
-                  hr: {
-                    attendance: { view: true },
-                    leave: { view: true },
-                  },
-                  kiosk: { access: true },
-                };
-
-            user = {
-              id: emp.id,
-              employeeId: emp.employeeId,
-              username: emp.employeeId || emp.email,
-              name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Employee',
-              email: emp.email || '',
-              role: emp.role || emp.designation || 'Staff',
-              status: emp.status === 'INACTIVE' ? 'Inactive' : 'Active',
-              permissions,
-            };
-          }
+        if (isEmployee) {
+          return NextResponse.json(
+            { error: "Access Denied: Employee accounts cannot access the Administrative ERP portal. Employees can only use the Punch Terminal at /kiosk." },
+            { status: 403 }
+          );
         }
-      } catch (err) {
-        console.warn('Fallback employee lookup failed', err);
-      }
-    }
+      } catch {}
 
-    if (!user) {
-      return NextResponse.json({ error: "Invalid username or password. Please verify your credentials." }, { status: 401 });
+      return NextResponse.json({ error: "Invalid administrative credentials. Please verify your username and password." }, { status: 401 });
     }
 
     if (user.status !== "Active") {
       return NextResponse.json({ error: "Your account is currently inactive or suspended. Please contact Admin." }, { status: 403 });
     }
 
-    // Master Admin always gets full permissions regardless of stored data
-    const isMasterAdmin = user.id === "admin-001" || user.role === "Master Admin";
-    const permissions = isMasterAdmin ? MASTER_ADMIN_PERMISSIONS : (user.permissions || {});
+    // STRICT: Only Master Admin roles have access to the Executive ERP Portal
+    const isMasterAdmin = user.id === "admin-001" || user.id === "admin-002" || user.id === "admin-003" || user.id === "admin-004" || user.role === "Master Admin";
+    if (!isMasterAdmin) {
+      return NextResponse.json(
+        { error: "Access Denied: Administrative privileges required. Employees can only access the Punch Terminal at /kiosk." },
+        { status: 403 }
+      );
+    }
+
+    const permissions = MASTER_ADMIN_PERMISSIONS;
 
     const safeUser = {
       id: user.id,
