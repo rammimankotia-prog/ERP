@@ -53,22 +53,11 @@ function readJsonFile<T>(file: string, fallbackFile: string = '', fallback: T = 
   return fallback
 }
 
+import { writeToAllTiers } from '@/lib/persistentVault'
+
 function writeJsonFile(file: string, data: any): void {
-  const localDataDir = path.join(process.cwd(), 'data')
   const fileName = path.basename(file)
-  const localFile = path.join(localDataDir, fileName)
-  const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
-  for (const target of [file, localFile, backupFile]) {
-    try {
-      const dir = path.dirname(target)
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true })
-      }
-      fs.writeFileSync(target, JSON.stringify(data, null, 2), 'utf-8')
-    } catch (err) {
-      console.error(`Error writing ${target}:`, err)
-    }
-  }
+  writeToAllTiers(fileName, data)
 }
 
 export async function POST(req: NextRequest) {

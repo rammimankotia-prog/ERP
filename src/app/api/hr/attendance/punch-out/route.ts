@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
+import { saveAttendanceRecord } from '@/lib/attendanceStorage'
 
 const prisma = new PrismaClient()
 
@@ -72,6 +73,22 @@ export async function POST(req: NextRequest) {
         status
       }
     })
+
+    // Indestructible Multi-Tier Storage Persistence
+    try {
+      saveAttendanceRecord({
+        id: `att-${Date.now()}`,
+        employeeId,
+        date: todayIST,
+        punchIn: existing.punchIn ? existing.punchIn.toISOString() : null,
+        punchOut: now.toISOString(),
+        status: String(status),
+        totalMinutes,
+        punchOutMode: mode,
+      })
+    } catch (saveErr) {
+      console.error('Failed to persist punch-out to permanent vault:', saveErr)
+    }
 
     // Create overtime record if applicable
     if (overtimeMinutes > 0) {

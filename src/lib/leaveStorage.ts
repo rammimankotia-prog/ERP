@@ -1,5 +1,13 @@
 import fs from 'fs'
 import path from 'path'
+import {
+  getAllDataDirs,
+  safeReadJsonFile,
+  safeWriteJsonFile,
+  writeToAllTiers,
+  appendToImmutableJournal,
+  ensureDirExists
+} from './persistentVault'
 
 export interface LeaveRecord {
   id: string
@@ -28,62 +36,8 @@ export interface LeaveRecord {
   [key: string]: any
 }
 
-const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
-const LOCAL_DATA_DIR = path.join(process.cwd(), 'data')
-
-const LEAVES_FILE = path.join(DATA_DIR, 'hr_leaves.json')
-const LOCAL_LEAVES_FILE = path.join(LOCAL_DATA_DIR, 'hr_leaves.json')
-const BACKUP_LEAVES_FILE = path.join(DATA_DIR, 'hr_leaves_backup.json')
-const LOCAL_BACKUP_FILE = path.join(LOCAL_DATA_DIR, 'hr_leaves_backup.json')
-
-const VAULT_DIR = path.join(DATA_DIR, 'leave_vault')
-const LOCAL_VAULT_DIR = path.join(LOCAL_DATA_DIR, 'leave_vault')
-const JOURNAL_FILE = path.join(VAULT_DIR, 'leave_journal.jsonl')
-const LOCAL_JOURNAL_FILE = path.join(LOCAL_VAULT_DIR, 'leave_journal.jsonl')
-const MASTER_VAULT_FILE = path.join(VAULT_DIR, 'master_leaves.json')
-const LOCAL_MASTER_VAULT_FILE = path.join(LOCAL_VAULT_DIR, 'master_leaves.json')
-
-function ensureDir(dirPath: string) {
-  try {
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true })
-    }
-  } catch {}
-}
-
-function safeReadJson<T>(filePath: string, fallback: T): T {
-  try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8').trim()
-      if (content) {
-        return JSON.parse(content) as T
-      }
-    }
-  } catch {}
-  return fallback
-}
-
-function safeWriteJson(filePath: string, data: any) {
-  try {
-    ensureDir(path.dirname(filePath))
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
-  } catch (e) {
-    console.error(`[leaveStorage] Error writing to ${filePath}:`, e)
-  }
-}
-
-function appendToJournal(entry: any) {
-  for (const f of [JOURNAL_FILE, LOCAL_JOURNAL_FILE]) {
-    try {
-      ensureDir(path.dirname(f))
-      const line = JSON.stringify({ ...entry, _journalLoggedAt: new Date().toISOString() }) + '\n'
-      fs.appendFileSync(f, line, 'utf-8')
-    } catch {}
-  }
-}
-
 /**
- * Get all merged leave records across all persistent storage tiers.
+ * Get all merged leave records across all persistent storage tiers and historical deployments.
  * Guarantees that no leave records are lost even if git pull or server update overwrites hr_leaves.json.
  */
 export function getMergedLeaves(): LeaveRecord[] {
@@ -115,29 +69,30 @@ export function getMergedLeaves(): LeaveRecord[] {
     }
   }
 
-  // 1. Read Master Vault Files (immune to git overwrites)
-  for (const f of [MASTER_VAULT_FILE, LOCAL_MASTER_VAULT_FILE]) {
-    const list = safeReadJson<any[]>(f, [])
+  const allDirs = getAllDataDirs()
+
+  // 1. Read Master Vault Files across all directories
+  for (const dir of allDirs) {
+    const mv = path.join(dir, 'leave_vault', 'master_leaves.json')
+    const list = safeReadJsonFile<any[]>(mv, [])
     if (Array.isArray(list)) list.forEach(mergeRecord)
   }
 
-  // 2. Read Backup Files (immune to git overwrites)
-  for (const f of [BACKUP_LEAVES_FILE, LOCAL_BACKUP_FILE]) {
-    const list = safeReadJson<any[]>(f, [])
-    if (Array.isArray(list)) list.forEach(mergeRecord)
+  // 2. Read Primary and Backup Files across all directories
+  for (const dir of allDirs) {
+    for (const filename of ['hr_leaves.json', 'hr_leaves_backup.json']) {
+      const fPath = path.join(dir, filename)
+      const list = safeReadJsonFile<any[]>(fPath, [])
+      if (Array.isArray(list)) list.forEach(mergeRecord)
+    }
   }
 
-  // 3. Read Active JSON Files
-  for (const f of [LEAVES_FILE, LOCAL_LEAVES_FILE]) {
-    const list = safeReadJson<any[]>(f, [])
-    if (Array.isArray(list)) list.forEach(mergeRecord)
-  }
-
-  // 4. Read Append-Only Journal Files
-  for (const f of [JOURNAL_FILE, LOCAL_JOURNAL_FILE]) {
+  // 3. Read Append-Only Journal Files across all directories
+  for (const dir of allDirs) {
+    const jFile = path.join(dir, 'leave_vault', 'leave_journal.jsonl')
     try {
-      if (fs.existsSync(f)) {
-        const lines = fs.readFileSync(f, 'utf-8').split('\n')
+      if (fs.existsSync(jFile)) {
+        const lines = fs.readFileSync(jFile, 'utf-8').split('\n')
         for (const line of lines) {
           const trimmed = line.trim()
           if (!trimmed) continue
@@ -157,9 +112,14 @@ export function getMergedLeaves(): LeaveRecord[] {
   })
 
   // Self-heal: If vault or backup had more records than active hr_leaves.json, synchronize all files
-  const activeCount = safeReadJson<any[]>(LEAVES_FILE, []).length
-  if (merged.length > 0 && merged.length !== activeCount) {
-    saveAllLeaves(merged)
+  if (merged.length > 0) {
+    try {
+      const localPrimary = path.join(process.cwd(), 'data', 'hr_leaves.json')
+      const currentOnDisk = safeReadJsonFile<any[]>(localPrimary, [])
+      if (currentOnDisk.length !== merged.length) {
+        saveAllLeaves(merged)
+      }
+    } catch {}
   }
 
   return merged
@@ -168,23 +128,13 @@ export function getMergedLeaves(): LeaveRecord[] {
 /**
  * Save all leave records atomically across all persistent storage tiers.
  */
-export function saveAllLeaves(leaves: LeaveRecord[]) {
-  // 1. Write to Active storage
-  safeWriteJson(LEAVES_FILE, leaves)
-  if (LEAVES_FILE !== LOCAL_LEAVES_FILE) {
-    safeWriteJson(LOCAL_LEAVES_FILE, leaves)
-  }
-
-  // 2. Write to Protected Backup storage (in .gitignore)
-  safeWriteJson(BACKUP_LEAVES_FILE, leaves)
-  if (BACKUP_LEAVES_FILE !== LOCAL_BACKUP_FILE) {
-    safeWriteJson(LOCAL_BACKUP_FILE, leaves)
-  }
-
-  // 3. Write to Protected Vault storage (in .gitignore)
-  safeWriteJson(MASTER_VAULT_FILE, leaves)
-  if (MASTER_VAULT_FILE !== LOCAL_MASTER_VAULT_FILE) {
-    safeWriteJson(LOCAL_MASTER_VAULT_FILE, leaves)
+export function saveAllLeaves(leaves: LeaveRecord[]): void {
+  writeToAllTiers('hr_leaves.json', leaves)
+  const allDirs = getAllDataDirs()
+  for (const dir of allDirs) {
+    const vDir = path.join(dir, 'leave_vault')
+    ensureDirExists(vDir)
+    safeWriteJsonFile(path.join(vDir, 'master_leaves.json'), leaves)
   }
 }
 
@@ -202,7 +152,7 @@ export function saveLeaveRecord(record: LeaveRecord): LeaveRecord {
   }
 
   saveAllLeaves(leaves)
-  appendToJournal(record)
+  appendToImmutableJournal('leave_vault', 'leave_journal.jsonl', record)
   return record
 }
 
@@ -214,7 +164,6 @@ export function updateLeaveRecord(id: string, updates: Partial<LeaveRecord>): Le
   const idx = leaves.findIndex(l => l.id === id)
 
   if (idx === -1) {
-    // Record not found in existing; create synthetic record if possible
     const synthetic: LeaveRecord = {
       id,
       employeeId: updates.employeeId || 'unknown',
@@ -230,7 +179,7 @@ export function updateLeaveRecord(id: string, updates: Partial<LeaveRecord>): Le
     }
     leaves.unshift(synthetic)
     saveAllLeaves(leaves)
-    appendToJournal(synthetic)
+    appendToImmutableJournal('leave_vault', 'leave_journal.jsonl', synthetic)
     return synthetic
   }
 
@@ -242,6 +191,6 @@ export function updateLeaveRecord(id: string, updates: Partial<LeaveRecord>): Le
 
   leaves[idx] = updated
   saveAllLeaves(leaves)
-  appendToJournal(updated)
+  appendToImmutableJournal('leave_vault', 'leave_journal.jsonl', updated)
   return updated
 }

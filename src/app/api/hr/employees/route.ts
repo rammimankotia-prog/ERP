@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { getAllEmployees } from '@/lib/employeeData'
+import { writeToAllTiers, getAllDataDirs } from '@/lib/persistentVault'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,7 @@ function saveDeletedEmployeeKey(keys: string[]): void {
   try {
     const existing = getDeletedEmployeeKeys()
     const merged = Array.from(new Set([...existing, ...keys.map(k => k.toLowerCase().trim())]))
-    fs.writeFileSync(DELETED_EMP_FILE, JSON.stringify(merged, null, 2), 'utf-8')
+    writeToAllTiers('deleted_employees.json', merged)
   } catch {}
 }
 
@@ -98,32 +99,12 @@ function getMergedEmployees(): any[] {
  * so all files are always in sync.
  */
 function writeEmployees(data: any[]): void {
-  const targets = Array.from(new Set([EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, BACKUP_EMPLOYEES_FILE]))
-  for (const target of targets) {
-    try {
-      const dir = path.dirname(target)
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-      fs.writeFileSync(target, JSON.stringify(data, null, 2), 'utf-8')
-    } catch (err) {
-      console.error(`Error writing ${target}:`, err)
-    }
-  }
+  writeToAllTiers('hr_employees.json', data)
 }
 
 function writeJson(file: string, data: any): void {
-  const localDataDir = path.join(process.cwd(), 'data')
   const fileName = path.basename(file)
-  const localFile = path.join(localDataDir, fileName)
-  // Note: For users.json, do NOT write to backup (users_backup is in gitignore but not managed the same)
-  for (const target of [file, localFile]) {
-    try {
-      const dir = path.dirname(target)
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-      fs.writeFileSync(target, JSON.stringify(data, null, 2), 'utf-8')
-    } catch (err) {
-      console.error(`Error writing ${target}:`, err)
-    }
-  }
+  writeToAllTiers(fileName, data)
 }
 
 // ─── GET ────────────────────────────────────────────────────────────────────────

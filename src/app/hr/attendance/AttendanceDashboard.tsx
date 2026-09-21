@@ -87,18 +87,52 @@ export default function AttendanceDashboard() {
   const isToday = date === todayStr
 
   const fetchTeamAttendance = useCallback(async (selectedDate: string) => {
+    // 1. Optimistic instant load from client-side cache
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem(`godwin_attendance_cache_${selectedDate}`)
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLogs(parsed)
+          }
+        }
+      }
+    } catch {}
+
     setLoading(true)
     try {
       const res = await fetch(`/api/hr/attendance?date=${selectedDate}`)
       if (res.ok) {
         const data = await res.json()
-        setLogs(data.logs || [])
-      } else {
-        setLogs([])
+        const serverLogs: TeamAttendanceLog[] = data.logs || []
+
+        // Intelligent client-side reconciliation with local cache
+        let finalLogs = serverLogs
+        try {
+          if (typeof window !== 'undefined') {
+            const cached = localStorage.getItem(`godwin_attendance_cache_${selectedDate}`)
+            if (cached) {
+              const parsedCache: TeamAttendanceLog[] = JSON.parse(cached)
+              if (Array.isArray(parsedCache)) {
+                // If cache has punched records that server temporarily missed, protect and retain them!
+                finalLogs = serverLogs.map(sLog => {
+                  const cLog = parsedCache.find(c => c.employeeId === sLog.employeeId)
+                  if (cLog && (cLog.punchIn || cLog.punchOut) && !sLog.punchIn && !sLog.punchOut) {
+                    return { ...sLog, ...cLog }
+                  }
+                  return sLog
+                })
+              }
+            }
+            localStorage.setItem(`godwin_attendance_cache_${selectedDate}`, JSON.stringify(finalLogs))
+          }
+        } catch {}
+
+        setLogs(finalLogs)
       }
     } catch (e) {
       console.error('Failed to fetch attendance', e)
-      setLogs([])
     } finally {
       setLoading(false)
     }

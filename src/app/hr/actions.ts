@@ -6,6 +6,7 @@ import fs from 'fs'
 import path from 'path'
 import { removeAttendanceRecord } from '@/lib/attendanceStorage'
 import { getAllEmployees } from '@/lib/employeeData'
+import { writeToAllTiers } from '@/lib/persistentVault'
 
 const prisma = new PrismaClient()
 
@@ -29,12 +30,12 @@ const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')
       const dest = path.join(DATA_DIR, fname)
       const src = path.join(localDataDir, fname)
       if (!fs.existsSync(dest) && fs.existsSync(src)) {
-        fs.copyFileSync(src, dest)
+        try {
+          fs.copyFileSync(src, dest)
+        } catch {}
       }
     }
-  } catch (e) {
-    console.warn('Warning: Could not initialize data directory:', e)
-  }
+  } catch {}
 })()
 
 // Deleted employees registry path
@@ -55,9 +56,7 @@ function saveDeletedEmployeeKey(keys: string[]): void {
   try {
     const existing = getDeletedEmployeeKeys()
     const merged = Array.from(new Set([...existing, ...keys.map(k => String(k).toLowerCase().trim()).filter(Boolean)]))
-    const localDir = path.join(process.cwd(), 'data')
-    if (!fs.existsSync(localDir)) fs.mkdirSync(localDir, { recursive: true })
-    fs.writeFileSync(DELETED_EMP_FILE, JSON.stringify(merged, null, 2), 'utf-8')
+    writeToAllTiers('deleted_employees.json', merged)
   } catch {}
 }
 
@@ -113,21 +112,8 @@ function readJsonFile<T>(filePath: string, fallback: T): T {
 }
 
 function writeJsonFile(filePath: string, data: any): void {
-  const localDataDir = path.join(process.cwd(), 'data')
   const fileName = path.basename(filePath)
-  const localFile = path.join(localDataDir, fileName)
-  const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
-  for (const target of [filePath, localFile, backupFile]) {
-    try {
-      const dir = path.dirname(target)
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true })
-      }
-      fs.writeFileSync(target, JSON.stringify(data, null, 2), 'utf-8')
-    } catch (err) {
-      console.error(`Error writing ${target}:`, err)
-    }
-  }
+  writeToAllTiers(fileName, data)
 }
 
 // --- BRANCH ACTIONS ---

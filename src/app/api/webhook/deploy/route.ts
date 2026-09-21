@@ -52,6 +52,55 @@ function findGitDirectory(): string {
   return process.cwd();
 }
 
+import { getPermanentDataDir, ensureDirExists } from "@/lib/persistentVault";
+
+function copyRecursiveSync(src: string, dest: string) {
+  if (!fs.existsSync(src)) return;
+  const stats = fs.statSync(src);
+  if (stats.isDirectory()) {
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    const entries = fs.readdirSync(src);
+    for (const entry of entries) {
+      copyRecursiveSync(path.join(src, entry), path.join(dest, entry));
+    }
+  } else {
+    // Always preserve data: copy if dest does not exist or src has content
+    try {
+      if (!fs.existsSync(dest) || fs.statSync(src).size > 0) {
+        fs.copyFileSync(src, dest);
+      }
+    } catch {}
+  }
+}
+
+function preDeploySnapshot(workingDir: string) {
+  try {
+    const permDir = getPermanentDataDir();
+    const sourceDataDir = path.join(workingDir, "data");
+    if (fs.existsSync(sourceDataDir) && permDir !== sourceDataDir) {
+      ensureDirExists(permDir);
+      copyRecursiveSync(sourceDataDir, permDir);
+      appendDeployLog(`🛡️ Pre-deploy snapshot: Preserved live database files to permanent vault: ${permDir}`);
+    }
+  } catch (err: any) {
+    appendDeployLog(`⚠️ Pre-deploy snapshot warning: ${err?.message}`);
+  }
+}
+
+function postDeployReconcile(workingDir: string) {
+  try {
+    const permDir = getPermanentDataDir();
+    const destDataDir = path.join(workingDir, "data");
+    if (fs.existsSync(permDir) && permDir !== destDataDir) {
+      ensureDirExists(destDataDir);
+      copyRecursiveSync(permDir, destDataDir);
+      appendDeployLog(`🛡️ Post-deploy reconcile: Synchronized permanent vault files back to live working data.`);
+    }
+  } catch (err: any) {
+    appendDeployLog(`⚠️ Post-deploy reconcile warning: ${err?.message}`);
+  }
+}
+
 function triggerDeployment(triggerSource: string) {
   isDeploying = true;
   lastDeployStatus = `In Progress (Triggered by ${triggerSource})`;
@@ -59,6 +108,9 @@ function triggerDeployment(triggerSource: string) {
 
   const workingDir = findGitDirectory();
   appendDeployLog(`🚀 Deployment started by ${triggerSource} in ${workingDir}...`);
+
+  // 1. Take Pre-Deploy Data Snapshot to Permanent External Vault
+  preDeploySnapshot(workingDir);
 
   // Detect platform command and environment
   const isWindows = process.platform === "win32";
@@ -70,11 +122,13 @@ function triggerDeployment(triggerSource: string) {
 
   const cmd = isWindows
     ? "git pull origin main && npm run build"
-    : "git pull origin main && (./node_modules/.bin/next build || npx next build || npm run build) && (pm2 restart all || pm2 reload all || true)";
-
+    : "git pull origin main && (npm run build || ./node_modules/.bin/next build || npx next build) && (pm2 restart all || pm2 reload all || true)";
 
   exec(cmd, { cwd: workingDir, maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PATH: enhancedPath } }, (error, stdout, stderr) => {
     isDeploying = false;
+    // 2. Execute Post-Deploy Data Reconciliation
+    postDeployReconcile(workingDir);
+
     if (error) {
       lastDeployStatus = `Failed: ${error.message}`;
       appendDeployLog(`❌ Deployment ERROR: ${error.message}\n${stderr || ""}`);

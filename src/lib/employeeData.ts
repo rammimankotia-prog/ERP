@@ -1,30 +1,35 @@
 /**
  * Shared employee helper used by all HR API routes.
  * Single source of truth: Prisma DB first, JSON files merged/fallback.
+ * Integrated with indestructible persistentVault.
  * Deleted employees are always excluded.
  */
 import fs from 'fs'
 import path from 'path'
 import { PrismaClient } from '@prisma/client'
+import {
+  getAllDataDirs,
+  safeReadJsonFile,
+  safeWriteJsonFile,
+  writeToAllTiers,
+  ensureDirExists
+} from './persistentVault'
 
 const prisma = new PrismaClient()
 
-const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
-const LOCAL_DATA_DIR = path.join(process.cwd(), 'data')
-const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
-const LOCAL_EMPLOYEES_FILE = path.join(LOCAL_DATA_DIR, 'hr_employees.json')
-const BACKUP_EMPLOYEES_FILE = path.join(LOCAL_DATA_DIR, 'hr_employees_backup.json')
-const DELETED_EMP_FILE = path.join(LOCAL_DATA_DIR, 'deleted_employees.json')
-
 export function getDeletedEmployeeKeys(): string[] {
-  try {
-    if (fs.existsSync(DELETED_EMP_FILE)) {
-      const raw = fs.readFileSync(DELETED_EMP_FILE, 'utf-8')
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) return parsed.map((k: any) => String(k).toLowerCase().trim())
+  const allDirs = getAllDataDirs()
+  const keysSet = new Set<string>()
+
+  for (const dir of allDirs) {
+    const filePath = path.join(dir, 'deleted_employees.json')
+    const list = safeReadJsonFile<any[]>(filePath, [])
+    if (Array.isArray(list)) {
+      list.forEach(k => keysSet.add(String(k).toLowerCase().trim()))
     }
-  } catch {}
-  return []
+  }
+
+  return Array.from(keysSet)
 }
 
 export function isEmployeeDeleted(emp: any, deletedKeys: string[]): boolean {
@@ -43,28 +48,22 @@ export function unmarkEmployeeDeleted(keys: string[]): void {
     const existing = getDeletedEmployeeKeys()
     const toRemove = new Set(keys.map(k => String(k).toLowerCase().trim()).filter(Boolean))
     const filtered = existing.filter(k => !toRemove.has(k))
-    for (const f of [DELETED_EMP_FILE, path.join(DATA_DIR, 'deleted_employees.json')]) {
-      try {
-        const dir = path.dirname(f)
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-        fs.writeFileSync(f, JSON.stringify(filtered, null, 2), 'utf-8')
-      } catch {}
-    }
+    writeToAllTiers('deleted_employees.json', filtered)
   } catch {}
 }
 
-
 /**
- * Returns ALL active employees, normalized and unified across Prisma DB and JSON files.
- * - Queries Prisma DB (production source of truth).
- * - Merges with JSON files so no employee is missed.
+ * Returns ALL active employees, normalized and unified across Prisma DB,
+ * permanent external vault, historical build folders, and local data files.
+ * - Queries Prisma DB (if reachable).
+ * - Merges with all JSON files across all tiers so no employee is ever missed.
  * - Always excludes employees in deleted_employees.json.
  */
 export async function getAllEmployees(): Promise<any[]> {
   const deletedKeys = getDeletedEmployeeKeys()
   const map = new Map<string, any>()
 
-  // 1. Prisma DB (production source of truth)
+  // 1. Prisma DB (production source of truth when configured)
   try {
     const dbEmployees = await prisma.employee.findMany({
       include: { branch: true, department: true },
@@ -105,35 +104,47 @@ export async function getAllEmployees(): Promise<any[]> {
       }
     }
   } catch {
-    // Prisma unavailable — fall through to JSON
+    // Prisma unavailable — fall through to indestructible persistent storage
   }
 
-  // 2. JSON fallback / merge (reads local and persistent files)
-  for (const f of [BACKUP_EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, EMPLOYEES_FILE]) {
-    try {
-      if (fs.existsSync(f)) {
-        const list = JSON.parse(fs.readFileSync(f, 'utf-8'))
-        if (Array.isArray(list)) {
-          for (const emp of list) {
-            const key = (emp.employeeId || emp.id || '').toUpperCase().trim()
-            if (!key || isEmployeeDeleted(emp, deletedKeys)) continue
-            // Only add if not already populated by Prisma
-            if (!map.has(key)) {
-              map.set(key, {
-                ...emp,
-                id: emp.id || key,
-                employeeId: emp.employeeId || key,
-                morningTime: emp.morningTime || '09:00',
-                eveningTime: emp.eveningTime || '18:00',
-                status: emp.status || 'ACTIVE',
-                offDays: emp.offDays || [],
-              })
-            }
+  // 2. Indestructible JSON multi-tier merge (reads permanent external vault, sibling versions, and local)
+  const allDirs = getAllDataDirs()
+  for (const dir of allDirs) {
+    for (const filename of ['hr_employees.json', 'hr_employees_backup.json']) {
+      const f = path.join(dir, filename)
+      const list = safeReadJsonFile<any[]>(f, [])
+      if (Array.isArray(list)) {
+        for (const emp of list) {
+          const key = (emp.employeeId || emp.id || '').toUpperCase().trim()
+          if (!key || isEmployeeDeleted(emp, deletedKeys)) continue
+          if (!map.has(key)) {
+            map.set(key, {
+              ...emp,
+              id: emp.id || key,
+              employeeId: emp.employeeId || key,
+              morningTime: emp.morningTime || '09:00',
+              eveningTime: emp.eveningTime || '18:00',
+              status: emp.status || 'ACTIVE',
+              offDays: emp.offDays || [],
+            })
           }
         }
+      }
+    }
+  }
+
+  const result = Array.from(map.values())
+
+  // Self-heal: ensure all directories have the complete list
+  if (result.length > 0) {
+    try {
+      const localPrimary = path.join(process.cwd(), 'data', 'hr_employees.json')
+      const currentOnDisk = safeReadJsonFile<any[]>(localPrimary, [])
+      if (currentOnDisk.length !== result.length) {
+        writeToAllTiers('hr_employees.json', result)
       }
     } catch {}
   }
 
-  return Array.from(map.values())
+  return result
 }

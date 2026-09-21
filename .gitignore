@@ -42,14 +42,22 @@ next-env.d.ts
 
 /src/generated/prisma
 
-# persistent operational data vaults (protected from git overwrites)
-/data/attendance_vault/
-/data/attendance_store/
-/data/leave_vault/
-/data/leave_store/
-/data/shift_vault/
-/data/shift_store/
+# persistent operational data vaults & live database files (strictly protected from git overwrites)
+/data/hr_attendance.json
+/data/hr_employees.json
+/data/hr_leaves.json
+/data/hr_shifts.json
+/data/users.json
+/data/audit_trail.json
+/data/deleted_employees.json
+/data/deleted_users.json
+/data/revoked_sessions.json
+/data/notifications.json
+/data/*_vault/
+/data/*_store/
 /data/*_backup.json
 /data/*.jsonl
 /data/deploy.log
+godwin_local_permanent_vault/
+godwin_permanent_data/
 

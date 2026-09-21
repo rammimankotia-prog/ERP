@@ -1,5 +1,12 @@
 import fs from 'fs'
 import path from 'path'
+import {
+  getAllDataDirs,
+  safeReadJsonFile,
+  safeWriteJsonFile,
+  writeToAllTiers,
+  ensureDirExists
+} from './persistentVault'
 
 export interface ShiftRecord {
   id: string
@@ -16,19 +23,6 @@ export interface ShiftRecord {
   updatedAt?: string
   [key: string]: any
 }
-
-const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
-const LOCAL_DATA_DIR = path.join(process.cwd(), 'data')
-
-const SHIFTS_FILE = path.join(DATA_DIR, 'hr_shifts.json')
-const LOCAL_SHIFTS_FILE = path.join(LOCAL_DATA_DIR, 'hr_shifts.json')
-const BACKUP_SHIFTS_FILE = path.join(DATA_DIR, 'hr_shifts_backup.json')
-const LOCAL_BACKUP_FILE = path.join(LOCAL_DATA_DIR, 'hr_shifts_backup.json')
-
-const VAULT_DIR = path.join(DATA_DIR, 'shift_vault')
-const LOCAL_VAULT_DIR = path.join(LOCAL_DATA_DIR, 'shift_vault')
-const MASTER_VAULT_FILE = path.join(VAULT_DIR, 'master_shifts.json')
-const LOCAL_MASTER_VAULT_FILE = path.join(LOCAL_VAULT_DIR, 'master_shifts.json')
 
 export const DEFAULT_SHIFTS: ShiftRecord[] = [
   {
@@ -72,37 +66,8 @@ export const DEFAULT_SHIFTS: ShiftRecord[] = [
   }
 ]
 
-function ensureDir(dirPath: string) {
-  try {
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true })
-    }
-  } catch {}
-}
-
-function safeReadJson<T>(filePath: string, fallback: T): T {
-  try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8').trim()
-      if (content) {
-        return JSON.parse(content) as T
-      }
-    }
-  } catch {}
-  return fallback
-}
-
-function safeWriteJson(filePath: string, data: any) {
-  try {
-    ensureDir(path.dirname(filePath))
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8')
-  } catch (e) {
-    console.error(`[shiftStorage] Error writing to ${filePath}:`, e)
-  }
-}
-
 /**
- * Get all merged shifts across all persistent storage tiers (Vault, Backup, Active).
+ * Get all merged shifts across all persistent storage tiers and historical deployments.
  * Guarantees Morning Shift custom times and Afternoon Shift are never lost during git updates or redeploys.
  */
 export function getMergedShifts(): ShiftRecord[] {
@@ -131,21 +96,21 @@ export function getMergedShifts(): ShiftRecord[] {
   // 1. Start with defaults (ensures Afternoon Shift always exists)
   DEFAULT_SHIFTS.forEach(mergeShift)
 
-  // 2. Read Active JSON files
-  for (const f of [LOCAL_SHIFTS_FILE, SHIFTS_FILE]) {
-    const list = safeReadJson<any[]>(f, [])
-    if (Array.isArray(list)) list.forEach(mergeShift)
+  const allDirs = getAllDataDirs()
+
+  // 2. Read Primary and Backup files across all directories
+  for (const dir of allDirs) {
+    for (const filename of ['hr_shifts.json', 'hr_shifts_backup.json']) {
+      const fPath = path.join(dir, filename)
+      const list = safeReadJsonFile<any[]>(fPath, [])
+      if (Array.isArray(list)) list.forEach(mergeShift)
+    }
   }
 
-  // 3. Read Protected Backup files (immune to git overwrites)
-  for (const f of [LOCAL_BACKUP_FILE, BACKUP_SHIFTS_FILE]) {
-    const list = safeReadJson<any[]>(f, [])
-    if (Array.isArray(list)) list.forEach(mergeShift)
-  }
-
-  // 4. Read Protected Master Vault files (immune to git overwrites)
-  for (const f of [LOCAL_MASTER_VAULT_FILE, MASTER_VAULT_FILE]) {
-    const list = safeReadJson<any[]>(f, [])
+  // 3. Read Master Vault files across all directories
+  for (const dir of allDirs) {
+    const mv = path.join(dir, 'shift_vault', 'master_shifts.json')
+    const list = safeReadJsonFile<any[]>(mv, [])
     if (Array.isArray(list)) list.forEach(mergeShift)
   }
 
@@ -166,22 +131,12 @@ export function getMergedShifts(): ShiftRecord[] {
  * Save all shifts atomically across all storage tiers.
  */
 export function saveAllShifts(shifts: ShiftRecord[]): void {
-  // 1. Active storage
-  safeWriteJson(SHIFTS_FILE, shifts)
-  if (SHIFTS_FILE !== LOCAL_SHIFTS_FILE) {
-    safeWriteJson(LOCAL_SHIFTS_FILE, shifts)
-  }
-
-  // 2. Protected Backup storage (in .gitignore)
-  safeWriteJson(BACKUP_SHIFTS_FILE, shifts)
-  if (BACKUP_SHIFTS_FILE !== LOCAL_BACKUP_FILE) {
-    safeWriteJson(LOCAL_BACKUP_FILE, shifts)
-  }
-
-  // 3. Protected Vault storage (in .gitignore)
-  safeWriteJson(MASTER_VAULT_FILE, shifts)
-  if (MASTER_VAULT_FILE !== LOCAL_MASTER_VAULT_FILE) {
-    safeWriteJson(LOCAL_MASTER_VAULT_FILE, shifts)
+  writeToAllTiers('hr_shifts.json', shifts)
+  const allDirs = getAllDataDirs()
+  for (const dir of allDirs) {
+    const vDir = path.join(dir, 'shift_vault')
+    ensureDirExists(vDir)
+    safeWriteJsonFile(path.join(vDir, 'master_shifts.json'), shifts)
   }
 }
 
