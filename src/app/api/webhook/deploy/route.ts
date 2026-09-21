@@ -114,20 +114,29 @@ function triggerDeployment(triggerSource: string) {
 
   // Detect platform command and environment
   const isWindows = process.platform === "win32";
-  const nodeBinDir = path.dirname(process.execPath);
+  const nodeBin = process.execPath;
+  const nodeBinDir = path.dirname(nodeBin);
   const nodeModulesBin = path.join(workingDir, "node_modules", ".bin");
   const enhancedPath = isWindows
     ? process.env.PATH
     : `${nodeBinDir}:${nodeModulesBin}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
 
-  const npmBin = path.join(nodeBinDir, 'npm');
-  const npmCmd = fs.existsSync(npmBin) ? `"${npmBin}"` : 'npm';
-  const nextBin = path.join(nodeModulesBin, 'next');
-  const nextCmd = fs.existsSync(nextBin) ? `"${nextBin}"` : './node_modules/.bin/next';
+  let nextBinPath = "";
+  try {
+    nextBinPath = require.resolve("next/dist/bin/next");
+  } catch {
+    nextBinPath = path.join(workingDir, "node_modules", "next", "dist", "bin", "next");
+  }
 
-  const cmd = isWindows
-    ? "git pull origin main && npm run build"
-    : `git pull origin main && (${npmCmd} run build || ${nextCmd} build || npx next build) && (pm2 restart all || pm2 reload all || true)`;
+  const buildCmd = fs.existsSync(nextBinPath)
+    ? `"${nodeBin}" "${nextBinPath}" build`
+    : `npm run build`;
+
+  const restartCmd = isWindows
+    ? ""
+    : " && (pm2 restart all || pm2 reload all || true)";
+
+  const cmd = `git pull origin main && ${buildCmd}${restartCmd}`;
 
   exec(cmd, { cwd: workingDir, maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PATH: enhancedPath } }, (error, stdout, stderr) => {
     isDeploying = false;
