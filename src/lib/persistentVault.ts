@@ -97,11 +97,69 @@ export function getAllDataDirs(): string[] {
   const local = path.join(process.cwd(), 'data')
   if (!dirs.includes(local)) dirs.push(local)
 
-  // Find sibling version build directories if on Hostinger / versioned system
+  // Comprehensive search for all Hostinger build versions and permanent storage locations
   try {
     const cwd = process.cwd()
+    const potentialVersionRoots = [
+      '/home/u790942238/domains/grandgodwin.com/hbuilds/versions',
+      '/home/u790942238/domains/grandgodwin.com/godwin_permanent_data',
+      '/home/u790942238/godwin_permanent_data',
+      '/home/u790942238/domains/grandgodwin.com/nodejs/data',
+      '/home/u790942238/domains/grandgodwin.com/public_html/data',
+    ]
+
+    for (const p of potentialVersionRoots) {
+      if (fs.existsSync(p)) {
+        if (p.endsWith('data') || p.endsWith('godwin_permanent_data')) {
+          if (!dirs.includes(p)) dirs.push(p)
+        } else {
+          // It's a versions directory
+          try {
+            const versionFolders = fs.readdirSync(p)
+            for (const vf of versionFolders) {
+              const cand1 = path.join(p, vf, 'nodejs', 'data')
+              const cand2 = path.join(p, vf, 'data')
+              for (const cand of [cand1, cand2]) {
+                if (fs.existsSync(cand) && !dirs.includes(cand)) {
+                  dirs.push(cand)
+                }
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // Dynamic upward traversal to find any versions or hbuilds directory
+    let curr = cwd
+    for (let i = 0; i < 6; i++) {
+      const vDir = path.join(curr, 'hbuilds', 'versions')
+      if (fs.existsSync(vDir)) {
+        try {
+          const vFolders = fs.readdirSync(vDir)
+          for (const vf of vFolders) {
+            const cand1 = path.join(vDir, vf, 'nodejs', 'data')
+            const cand2 = path.join(vDir, vf, 'data')
+            for (const cand of [cand1, cand2]) {
+              if (fs.existsSync(cand) && !dirs.includes(cand)) {
+                dirs.push(cand)
+              }
+            }
+          }
+        } catch {}
+      }
+
+      const pData = path.join(curr, 'godwin_permanent_data')
+      if (fs.existsSync(pData) && !dirs.includes(pData)) {
+        dirs.push(pData)
+      }
+
+      const parent = path.dirname(curr)
+      if (parent === curr) break
+      curr = parent
+    }
+
     if (cwd.includes('versions')) {
-      // cwd: .../hbuilds/versions/<uuid>/nodejs
       const versionsDir = path.dirname(path.dirname(cwd))
       if (fs.existsSync(versionsDir)) {
         const versionFolders = fs.readdirSync(versionsDir)

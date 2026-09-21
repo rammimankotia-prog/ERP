@@ -124,6 +124,57 @@ export function getMergedAttendance(): AttendanceRecord[] {
     } catch {}
   }
 
+  // 5. Harvest and resurrect punches from audit_trail.json & audit_trail_backup.json across all directories
+  // Every kiosk and mobile punch logs exact action (IN/OUT), employeeId, employeeName, status, lateMinutes, and ISO timestamp
+  for (const dir of allDirs) {
+    for (const filename of ['audit_trail.json', 'audit_trail_backup.json']) {
+      const fPath = path.join(dir, filename)
+      const list = safeReadJsonFile<any[]>(fPath, [])
+      if (Array.isArray(list)) {
+        for (const audit of list) {
+          if (!audit || !audit.employeeId || !audit.timestamp) continue
+          const action = String(audit.action || '').toUpperCase()
+          if (action !== 'IN' && action !== 'OUT') continue
+
+          let d = ''
+          try {
+            d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(audit.timestamp))
+          } catch {
+            d = String(audit.timestamp).slice(0, 10)
+          }
+          if (!d) continue
+
+          if (action === 'IN') {
+            mergeRecord({
+              id: audit.id || `att-audit-${audit.employeeId}-${d}`,
+              employeeId: audit.employeeId,
+              employeeName: audit.employeeName || undefined,
+              date: d,
+              punchIn: audit.timestamp,
+              punchInMode: audit.punchMode || 'KIOSK',
+              status: audit.status || (audit.isLate || audit.lateMinutes > 0 ? 'LATE' : 'PRESENT'),
+              isLate: audit.isLate !== undefined ? audit.isLate : (audit.lateMinutes > 0),
+              lateMinutes: audit.lateMinutes || 0,
+              shiftName: audit.shiftName || undefined,
+            })
+          } else if (action === 'OUT') {
+            mergeRecord({
+              id: audit.id || `att-audit-${audit.employeeId}-${d}`,
+              employeeId: audit.employeeId,
+              employeeName: audit.employeeName || undefined,
+              date: d,
+              punchOut: audit.timestamp,
+              punchOutMode: audit.punchMode || 'KIOSK',
+              totalMinutes: audit.totalMinutes || undefined,
+              status: audit.status || undefined,
+              shiftName: audit.shiftName || undefined,
+            })
+          }
+        }
+      }
+    }
+  }
+
   const mergedList = Array.from(map.values())
 
   // Self-healing: If records exist, synchronize them to all tiers to ensure consistency

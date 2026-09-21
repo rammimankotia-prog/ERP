@@ -80,6 +80,7 @@ export default function AttendanceDashboard() {
   const [departmentFilter, setDepartmentFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [activePunchEmployee, setActivePunchEmployee] = useState<EmployeeInfo | null>(null)
+  const [restoreLoading, setRestoreLoading] = useState(false)
 
   const todayStr = useMemo(() => getTodayDateStr(), [])
   const isPastDate = date < todayStr
@@ -116,13 +117,24 @@ export default function AttendanceDashboard() {
               const parsedCache: TeamAttendanceLog[] = JSON.parse(cached)
               if (Array.isArray(parsedCache)) {
                 // If cache has punched records that server temporarily missed, protect and retain them!
+                const toSyncToServer: any[] = []
                 finalLogs = serverLogs.map(sLog => {
                   const cLog = parsedCache.find(c => c.employeeId === sLog.employeeId)
                   if (cLog && (cLog.punchIn || cLog.punchOut) && !sLog.punchIn && !sLog.punchOut) {
+                    toSyncToServer.push(cLog)
                     return { ...sLog, ...cLog }
                   }
                   return sLog
                 })
+
+                // Auto-sync client cached punches back to indestructible server vault
+                if (toSyncToServer.length > 0) {
+                  fetch('/api/hr/attendance/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(toSyncToServer)
+                  }).catch(() => {})
+                }
               }
             }
             localStorage.setItem(`godwin_attendance_cache_${selectedDate}`, JSON.stringify(finalLogs))
@@ -130,13 +142,28 @@ export default function AttendanceDashboard() {
         } catch {}
 
         setLogs(finalLogs)
+
+        // If today and very few/no punches were returned, trigger background vault recover once
+        if (selectedDate === todayStr && serverLogs.filter(l => l.punchIn).length <= 2) {
+          fetch('/api/hr/attendance/recover').then(r => r.json()).then(recData => {
+            if (recData?.todayRecordsCount > 2) {
+              // Re-fetch to display all recovered punches
+              fetch(`/api/hr/attendance?date=${selectedDate}`)
+                .then(r => r.json())
+                .then(fresh => {
+                  if (fresh.logs) setLogs(fresh.logs)
+                })
+                .catch(() => {})
+            }
+          }).catch(() => {})
+        }
       }
     } catch (e) {
       console.error('Failed to fetch attendance', e)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [todayStr])
 
   useEffect(() => {
     fetchTeamAttendance(date)
@@ -200,6 +227,24 @@ export default function AttendanceDashboard() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  const handleRestoreAttendance = async () => {
+    setRestoreLoading(true)
+    try {
+      const res = await fetch('/api/hr/attendance/recover')
+      const data = await res.json()
+      if (data.success) {
+        alert(`✅ Attendance Restored Successfully!\nFound ${data.todayRecordsCount} records for today across ${data.storageDirectoriesSearched?.length || 0} storage vaults.\nTotal merged attendance records: ${data.totalMergedCount}`)
+        await fetchTeamAttendance(date)
+      } else {
+        alert('⚠️ Attendance Restore Warning: ' + (data.error || 'Failed'))
+      }
+    } catch (err: any) {
+      alert('Failed to run attendance recovery: ' + err.message)
+    } finally {
+      setRestoreLoading(false)
+    }
   }
 
   const openPunchModal = (log: TeamAttendanceLog) => {
@@ -471,6 +516,32 @@ export default function AttendanceDashboard() {
             >
               <span>📥</span>
               <span>CSV</span>
+            </button>
+
+            {/* Restore & Reconcile Past Attendance Button */}
+            <button
+              onClick={handleRestoreAttendance}
+              disabled={restoreLoading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.58rem 0.9rem',
+                borderRadius: '8px',
+                backgroundColor: '#059669',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                border: 'none',
+                cursor: restoreLoading ? 'not-allowed' : 'pointer',
+                boxShadow: '0 2px 8px rgba(5, 150, 105, 0.25)',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap'
+              }}
+              title="Restore and reconcile today's attendance from all storage vaults and audit trails"
+            >
+              <span>{restoreLoading ? '⏳' : '⚡'}</span>
+              <span>{restoreLoading ? 'Restoring...' : 'Restore Attendance'}</span>
             </button>
           </div>
 

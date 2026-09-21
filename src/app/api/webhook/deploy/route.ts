@@ -118,11 +118,16 @@ function triggerDeployment(triggerSource: string) {
   const nodeModulesBin = path.join(workingDir, "node_modules", ".bin");
   const enhancedPath = isWindows
     ? process.env.PATH
-    : `${nodeModulesBin}:${nodeBinDir}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
+    : `${nodeBinDir}:${nodeModulesBin}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
+
+  const npmBin = path.join(nodeBinDir, 'npm');
+  const npmCmd = fs.existsSync(npmBin) ? `"${npmBin}"` : 'npm';
+  const nextBin = path.join(nodeModulesBin, 'next');
+  const nextCmd = fs.existsSync(nextBin) ? `"${nextBin}"` : './node_modules/.bin/next';
 
   const cmd = isWindows
     ? "git pull origin main && npm run build"
-    : "git pull origin main && (npm run build || ./node_modules/.bin/next build || npx next build) && (pm2 restart all || pm2 reload all || true)";
+    : `git pull origin main && (${npmCmd} run build || ${nextCmd} build || npx next build) && (pm2 restart all || pm2 reload all || true)`;
 
   exec(cmd, { cwd: workingDir, maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PATH: enhancedPath } }, (error, stdout, stderr) => {
     isDeploying = false;
