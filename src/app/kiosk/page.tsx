@@ -5,14 +5,12 @@ import Link from 'next/link';
 import { useTheme } from '@/components/ThemeProvider';
 import { useAuth } from '@/components/AuthProvider';
 import OneTapPunchInterface, { EmployeeInfo } from '@/components/OneTapPunchInterface';
-import GuardAttendanceSheet from './GuardAttendanceSheet';
 import { verifyStaffLocation } from '@/lib/geofence';
 
 export default function KioskPage() {
   const { theme, toggleTheme } = useTheme();
   const isLight = theme === 'light';
   const { user, login, logout } = useAuth();
-  const [kioskTab, setKioskTab] = useState<'punch' | 'sheet'>('punch');
 
   const [kioskGuard, setKioskGuard] = useState<any>(null);
 
@@ -121,13 +119,6 @@ export default function KioskPage() {
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeInfo | null>(null);
 
-  // Manual PIN / Email login fallback toggle
-  const [showPasswordLogin, setShowPasswordLogin] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
-
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Live clock
@@ -228,38 +219,6 @@ export default function KioskPage() {
       }
     });
   }, [employees, searchQuery, selectedDept, selectedHotel, sortOption]);
-
-  // Handle password / credential login
-  const handlePasswordLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    setLoginLoading(true);
-
-    try {
-      const res = await fetch('/api/kiosk/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
-      }
-
-      // Immediately select employee for One-Tap Punch
-      const matched = employees.find(
-        e => e.id === data.employee.id || e.employeeId === data.employee.employeeId
-      ) || data.employee;
-
-      setSelectedEmployee(matched);
-      setShowPasswordLogin(false);
-    } catch (err: any) {
-      setLoginError(err.message || 'Login failed');
-    } finally {
-      setLoginLoading(false);
-    }
-  };
 
   const handleGuardAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -515,77 +474,7 @@ export default function KioskPage() {
 
 
 
-      {/* ============================================================ */}
-      {/* TAB BAR — compact, icon-only on mobile                       */}
-      {/* ============================================================ */}
-      {isGuardAuthenticated && (
-        <div
-          className="kiosk-top-tab-bar"
-          style={{
-            width: '100%',
-            background: isLight ? '#ffffff' : '#1e293b',
-            borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-            padding: '0.4rem 0.85rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '0.5rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <button
-              type="button"
-              onClick={() => { setKioskTab('punch'); setSelectedEmployee(null); }}
-              style={{
-                padding: '0.4rem 0.8rem',
-                borderRadius: '9px',
-                border: kioskTab === 'punch' ? '2px solid var(--primary)' : (isLight ? '1px solid #cbd5e1' : '1px solid #475569'),
-                background: kioskTab === 'punch' ? 'rgba(37, 99, 235, 0.12)' : 'transparent',
-                color: kioskTab === 'punch' ? 'var(--primary)' : 'var(--text-muted)',
-                fontWeight: 800,
-                fontSize: '0.82rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <span>📇</span>
-              <span className="kiosk-tab-text">Punch Station</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => { setKioskTab('sheet'); setSelectedEmployee(null); }}
-              style={{
-                padding: '0.4rem 0.8rem',
-                borderRadius: '9px',
-                border: kioskTab === 'sheet' ? '2px solid #d97706' : (isLight ? '1px solid #cbd5e1' : '1px solid #475569'),
-                background: kioskTab === 'sheet' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                color: kioskTab === 'sheet' ? '#d97706' : 'var(--text-muted)',
-                fontWeight: 800,
-                fontSize: '0.82rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <span>📋</span>
-              <span className="kiosk-tab-text">Attendance Sheet</span>
-              <span style={{ fontSize: '0.58rem', padding: '1px 4px', borderRadius: '3px', background: '#f59e0b', color: '#fff', fontWeight: 900 }}>MGR</span>
-            </button>
-          </div>
-
-          <div className="kiosk-tab-hint" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-            {kioskTab === 'sheet' ? '🔒 Shift Manager' : '⚡ One-Tap'}
-          </div>
-        </div>
-      )}
+      {/* Main Container */}
 
 
 
@@ -747,33 +636,6 @@ export default function KioskPage() {
               </form>
             </div>
           </div>
-        ) : kioskTab === 'sheet' ? (
-          /* ========================================================================= */
-          /* STAGE 3: SHIFT MANAGER ATTENDANCE SHEET (TILL TODAY ONLY)                */
-          /* ========================================================================= */
-          <div
-            className="page-container"
-            style={{
-              maxWidth: '1400px',
-              width: '100%',
-              paddingTop: '1.5rem',
-              paddingBottom: '2.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.5rem',
-            }}
-          >
-            <GuardAttendanceSheet
-              isLight={isLight}
-              onPunchEmployee={(empId) => {
-                const emp = employees.find(e => e.id === empId || e.employeeId === empId);
-                if (emp) {
-                  setSelectedEmployee(emp);
-                  setKioskTab('punch');
-                }
-              }}
-            />
-          </div>
         ) : selectedEmployee ? (
           /* ========================================================================= */
           /* STAGE 2: PUNCH-IN / PUNCH-OUT INTERFACE (ONE-TAP ACTION)                 */
@@ -800,141 +662,13 @@ export default function KioskPage() {
             className="page-container kiosk-main-content"
             style={{
               maxWidth: '1200px',
-              paddingTop: '2rem',
+              paddingTop: '1rem',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.5rem',
+              gap: '1rem',
             }}
           >
-            {/* Hero Welcome Banner */}
-            <div
-              className="kiosk-hero-banner"
-              style={{
-                background: isLight ? '#ffffff' : '#1e293b',
-                borderRadius: '14px',
-                padding: 'clamp(0.85rem, 2.5vw, 1.5rem)',
-                border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-                boxShadow: 'var(--shadow)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '0.75rem',
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <h2
-                  className="kiosk-hero-title"
-                  style={{
-                    margin: '0 0 0.2rem 0',
-                    fontSize: 'clamp(0.95rem, 3.5vw, 1.5rem)',
-                    fontWeight: 800,
-                    color: 'var(--text-main)',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  👋 Tap Your Name to Clock In/Out
-                </h2>
-                <p className="kiosk-hero-subtitle" style={{ margin: 0, color: 'var(--text-muted)', fontSize: 'clamp(0.75rem, 2vw, 0.88rem)' }}>
-                  One-Tap <strong>Check-In / Check-Out</strong>. System shows your next action.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="kiosk-pwd-btn"
-                onClick={() => setShowPasswordLogin(!showPasswordLogin)}
-                style={{
-                  padding: '0.5rem 0.9rem',
-                  borderRadius: '9px',
-                  border: '1px solid var(--border)',
-                  background: showPasswordLogin ? 'var(--primary)' : 'var(--bg-main)',
-                  color: showPasswordLogin ? 'white' : 'var(--text-main)',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
-                  flexShrink: 0,
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {showPasswordLogin ? '✕ Close' : '🔑 Password Login'}
-              </button>
-            </div>
 
-            {/* Optional Password Login Box */}
-            {showPasswordLogin && (
-              <div
-                style={{
-                  background: isLight ? '#ffffff' : '#1e293b',
-                  borderRadius: '16px',
-                  padding: '1.75rem',
-                  border: '2px solid var(--primary)',
-                  boxShadow: 'var(--shadow-lg)',
-                  maxWidth: '480px',
-                  margin: '0 auto',
-                  width: '100%',
-                }}
-              >
-                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: 800 }}>
-                  Employee Password Verification
-                </h3>
-
-                {loginError && (
-                  <div
-                    style={{
-                      background: 'rgba(239, 68, 68, 0.1)',
-                      color: 'var(--error)',
-                      padding: '0.75rem 1rem',
-                      borderRadius: '8px',
-                      fontSize: '0.88rem',
-                      fontWeight: 600,
-                      marginBottom: '1rem',
-                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                    }}
-                  >
-                    ⚠️ {loginError}
-                  </div>
-                )}
-
-                <form onSubmit={handlePasswordLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="e.g. raman@godwinhotels.com"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      className="form-input"
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-muted)' }}>
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      className="form-input"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loginLoading}
-                    className="btn btn-primary"
-                    style={{ width: '100%', padding: '0.85rem', fontWeight: 700, fontSize: '0.95rem' }}
-                  >
-                    {loginLoading ? 'Verifying...' : 'Identify & Continue'}
-                  </button>
-                </form>
-              </div>
-            )}
 
             {/* Search and Sort Control Bar */}
             <div
