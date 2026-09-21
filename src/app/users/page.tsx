@@ -44,6 +44,20 @@ const EMPTY_PERMISSIONS: PermissionSet = {
   settings: { view: false, edit: false },
 };
 
+const DEFAULT_USER_PERMISSIONS: PermissionSet = {
+  hr: {
+    employees: { view: false, edit: false, delete: false },
+    attendance: { view: false, edit: false },
+    shifts: { view: false, edit: false },
+    leave: { view: false, approve: false },
+    payroll: { view: false, edit: false },
+    reports: { view: false },
+  },
+  kiosk: { access: true }, // Default: Punch In/Out ONLY
+  userAccess: { view: false, edit: false },
+  settings: { view: false, edit: false },
+};
+
 const PERMISSION_MODULES = [
   {
     label: 'HR — Employees', key: 'hr.employees',
@@ -186,7 +200,7 @@ export default function UsersManagementPage() {
       status: 'Active',
       createdAt: new Date().toISOString().split('T')[0],
     });
-    setFormPermissions(JSON.parse(JSON.stringify(EMPTY_PERMISSIONS)));
+    setFormPermissions(JSON.parse(JSON.stringify(DEFAULT_USER_PERMISSIONS)));
     setFormError(''); setFormSuccess('');
     setShowModal(true);
   };
@@ -208,26 +222,34 @@ export default function UsersManagementPage() {
       createdAt: creationDate,
     });
     
-    // Ensure backwards compatibility by adding kiosk to old permissions
+    // Default: Every user must have Punch In/Out (kiosk) permission
     const existingPerms = u.permissions ? JSON.parse(JSON.stringify(u.permissions)) : {};
-    if (!existingPerms.kiosk) existingPerms.kiosk = { access: false };
-    // If security guard and kiosk wasn't explicitly false, ensure it's true
-    if (u.role === 'Security Guard' && existingPerms.kiosk.access !== false) {
-       existingPerms.kiosk.access = true;
-    }
+    if (!existingPerms.kiosk) existingPerms.kiosk = { access: true };
+    if (existingPerms.kiosk.access === undefined) existingPerms.kiosk.access = true;
     
-    setFormPermissions(u.permissions ? existingPerms : JSON.parse(JSON.stringify(EMPTY_PERMISSIONS)));
+    setFormPermissions(u.permissions ? existingPerms : JSON.parse(JSON.stringify(DEFAULT_USER_PERMISSIONS)));
     setFormError(''); setFormSuccess('');
     setShowModal(true);
   };
 
-  // Add auto-permission logic for roles
+  // Role changes keep default 1 permission (Punch in/out) unless Master Admin
   const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value;
     setFormData(p => ({ ...p, role: newRole }));
     
-    // Auto-grant Kiosk access for Security Guard
-    if (newRole === 'Security Guard') {
+    if (newRole === 'Master Admin') {
+      // Grant all permissions for Master Admin
+      setFormPermissions(prev => {
+        const full: any = JSON.parse(JSON.stringify(prev));
+        PERMISSION_MODULES.forEach(mod => {
+          mod.actions.forEach(act => {
+            setNestedValueInPlace(full, `${mod.key}.${act.key}`, true);
+          });
+        });
+        return full;
+      });
+    } else {
+      // For all regular roles (Manager, Supervisor, Staff, Guard, Employee): default strictly to 1 permission (Punch Terminal / Kiosk)
       setFormPermissions(prev => ({
         ...prev,
         kiosk: { access: true }

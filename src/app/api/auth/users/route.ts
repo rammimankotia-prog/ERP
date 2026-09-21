@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { writeToAllTiers } from "@/lib/persistentVault";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +125,20 @@ function getUsers(): any[] {
     users = [...DEFAULT_USERS];
   }
 
+  // Strict RBAC Enforcement:
+  // Only Master Admins have full access.
+  // All other users by default must have ONLY 1 permission: Punch Terminal / Kiosk (kiosk: { access: true }),
+  // unless an Admin has explicitly granted them custom permissions (hasCustomPermissions === true).
+  for (const u of users) {
+    const isMaster = u.id === "admin-001" || u.id === "admin-002" || u.id === "admin-003" || u.id === "admin-004" || u.role === "Master Admin";
+    if (isMaster) {
+      u.permissions = MASTER_ADMIN_PERMISSIONS;
+    } else if (!u.hasCustomPermissions) {
+      // Reset any legacy/stale 10-permission auto-grant back to strictly 1 permission (Punch In/Out)
+      u.permissions = { kiosk: { access: true } };
+    }
+  }
+
   const deletedIds = getDeletedUserIds();
 
   // Also read deleted_employees.json (from employee-side delete) to prevent resurrection
@@ -200,32 +215,20 @@ function getUsers(): any[] {
           modified = true;
         }
       } else {
-        // Auto-register employee in users list
+        // Auto-register employee in users list with strictly 1 permission (Punch in/out)
         const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.name || "Staff Member";
         const desig = (emp.designation || "").toLowerCase();
         const dept = (emp.department?.name || emp.department || "").toLowerCase();
-        let role = "Employee";
-        let perms: any = { kiosk: { access: true } };
+        let role = emp.role || "Employee";
 
         if (desig.includes("manager") || desig.includes("supervisor")) {
           role = "Manager";
-          perms = {
-            hr: {
-              employees: { view: true, edit: true },
-              attendance: { view: true, edit: true },
-              shifts: { view: true, edit: true },
-              leave: { view: true, approve: true },
-              reports: { view: true }
-            },
-            kiosk: { access: true }
-          };
         } else if (desig.includes("guard") || dept.includes("security")) {
           role = "Security Guard";
-          perms = { kiosk: { access: true } };
-        } else if (desig.includes("admin")) {
-          role = "Admin";
-          perms = MASTER_ADMIN_PERMISSIONS;
         }
+
+        // Strict default: Non-admins have ONLY 1 permission by default (Punch Terminal / Kiosk)
+        const perms = { kiosk: { access: true } };
 
         const creationDate = emp.createdAt
           ? (emp.createdAt.includes("T") ? emp.createdAt.split("T")[0] : emp.createdAt)
@@ -242,6 +245,7 @@ function getUsers(): any[] {
           status: emp.status === "ACTIVE" || !emp.status ? "Active" : "Inactive",
           createdAt: creationDate,
           permissions: perms,
+          hasCustomPermissions: false,
         });
         modified = true;
       }
@@ -278,11 +282,7 @@ function getUsers(): any[] {
 
 function saveUsers(users: any[]) {
   try {
-    for (const targetFile of [USERS_FILE, LOCAL_USERS_FILE]) {
-      const dir = path.dirname(targetFile);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(targetFile, JSON.stringify(users, null, 2), "utf-8");
-    }
+    writeToAllTiers("users.json", users);
     return true;
   } catch (error) {
     console.error("Error saving users file:", error);
@@ -325,6 +325,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "A user with this User ID, username, or email already exists." }, { status: 409 });
     }
 
+    const isMaster = role === "Master Admin";
+    const hasCustom = permissions && (
+      (permissions.hr && Object.keys(permissions.hr).some((k: string) => Object.values((permissions.hr as any)[k] || {}).some(Boolean))) ||
+      permissions.userAccess?.view || permissions.userAccess?.edit ||
+      permissions.settings?.view || permissions.settings?.edit
+    );
     const finalCreatedAt = createdAt ? createdAt.trim() : new Date().toISOString().split("T")[0];
 
     const newUser = {
@@ -337,7 +343,8 @@ export async function POST(req: Request) {
       role: role || "Staff",
       status: status || "Active",
       createdAt: finalCreatedAt,
-      permissions: permissions || {},
+      permissions: isMaster ? MASTER_ADMIN_PERMISSIONS : (permissions || { kiosk: { access: true } }),
+      hasCustomPermissions: !isMaster && Boolean(hasCustom),
     };
 
     users.push(newUser);
@@ -403,6 +410,17 @@ export async function PUT(req: Request) {
 
     const updatedCreatedAt = createdAt ? createdAt.trim() : (users[index].createdAt || new Date().toISOString().split("T")[0]);
 
+    const isUpdatingPermissions = permissions !== undefined;
+    const hasCustomExtra = permissions && (
+      (permissions.hr && Object.keys(permissions.hr).some((k: string) => Object.values((permissions.hr as any)[k] || {}).some(Boolean))) ||
+      permissions.userAccess?.view || permissions.userAccess?.edit ||
+      permissions.settings?.view || permissions.settings?.edit
+    );
+
+    const effectivePermissions = isMasterAdmin
+      ? MASTER_ADMIN_PERMISSIONS
+      : (permissions !== undefined ? permissions : (users[index].permissions || { kiosk: { access: true } }));
+
     const updatedUser = {
       ...users[index],
       id: finalId,
@@ -413,7 +431,8 @@ export async function PUT(req: Request) {
       role: isMasterAdmin ? "Master Admin" : (role || users[index].role),
       status: isMasterAdmin ? "Active" : (status || users[index].status),
       password: password && password.trim() !== "" ? password.trim() : users[index].password,
-      permissions: isMasterAdmin ? MASTER_ADMIN_PERMISSIONS : (permissions !== undefined ? permissions : users[index].permissions),
+      permissions: effectivePermissions,
+      hasCustomPermissions: isMasterAdmin ? false : (isUpdatingPermissions ? Boolean(hasCustomExtra) : (users[index].hasCustomPermissions || false)),
       createdAt: updatedCreatedAt,
     };
 
