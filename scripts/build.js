@@ -19,4 +19,10 @@ if (!fs.existsSync(nextBuildJs) || !fs.existsSync(nextBinJs)) {
 }
 
 console.log('🚀 Executing Next.js production build...');
-execSync(`"${process.execPath}" "${nextBinJs}" build`, { cwd: rootDir, stdio: 'inherit' });
+const buildEnv = {
+  ...process.env,
+  NEXT_PRIVATE_WORKERS: '1',
+  NEXT_TELEMETRY_DISABLED: '1',
+  NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --max-old-space-size=1024`.trim()
+};
+execSync(`"${process.execPath}" "${nextBinJs}" build`, { cwd: rootDir, stdio: 'inherit', env: buildEnv });
