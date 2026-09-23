@@ -121,16 +121,7 @@ function triggerDeployment(triggerSource: string) {
     ? process.env.PATH
     : `${nodeBinDir}:${nodeModulesBin}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
 
-  let nextBinPath = "";
-  try {
-    nextBinPath = require.resolve("next/dist/bin/next");
-  } catch {
-    nextBinPath = path.join(workingDir, "node_modules", "next", "dist", "bin", "next");
-  }
-
-  const buildCmd = isWindows
-    ? (fs.existsSync(nextBinPath) ? `"${nodeBin}" "${nextBinPath}" build` : `npm run build`)
-    : `("${nodeBin}" "${nextBinPath}" build || "${nodeBin}" ./node_modules/next/dist/bin/next build || ./node_modules/.bin/next build || npm run build || npx next build)`;
+  const buildCmd = "npm run build";
 
   const restartCmd = isWindows
     ? ""

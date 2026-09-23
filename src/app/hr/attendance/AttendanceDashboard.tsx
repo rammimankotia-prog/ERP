@@ -225,6 +225,7 @@ export default function AttendanceDashboard() {
     try {
       const res = await fetch(`/api/hr/attendance?date=${selectedDate}`)
       if (res.ok) {
+        const data = await res.json()
         const rawLogs: TeamAttendanceLog[] = data.logs || []
         const serverLogs: TeamAttendanceLog[] = rawLogs.map((l: TeamAttendanceLog) => {
           if (l.punchIn && l.punchIn !== '—' && l.punchIn !== '-') {
