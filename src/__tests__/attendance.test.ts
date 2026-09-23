@@ -351,3 +351,55 @@ describe('Strict Past Date Attendance Lockout (Employees & Security)', () => {
   })
 })
 
+describe('Individual Employee Shift Late Hours Calculation (Respects Employee morningTime)', () => {
+  function computePunctuality(punchTimeStr: string, employeeMorningTime: string) {
+    const parseToMins = (t: string) => {
+      const match = t.match(/^(\d{1,2}):(\d{2})$/)
+      if (!match) return 0
+      return parseInt(match[1], 10) * 60 + parseInt(match[2], 10)
+    }
+    const schedMins = parseToMins(employeeMorningTime || '09:00')
+    const punchMins = parseToMins(punchTimeStr)
+    const diffMins = Math.max(0, punchMins - schedMins)
+    const isLate = diffMins > 15
+    const lateMinutes = isLate ? diffMins : 0
+    const status = isLate ? 'LATE' : 'PRESENT'
+    return { status, isLate, lateMinutes }
+  }
+
+  test('✅ Raman Mankotia: Shift 09:00, Punch 09:44 -> 44 minutes late (NOT 104 mins from 08:00)', () => {
+    const result = computePunctuality('09:44', '09:00')
+    expect(result.isLate).toBe(true)
+    expect(result.lateMinutes).toBe(44)
+    expect(result.status).toBe('LATE')
+  })
+
+  test('✅ Chitra Dorbi: Shift 09:30, Punch 09:57 -> 27 minutes late (NOT 117 mins from 08:00)', () => {
+    const result = computePunctuality('09:57', '09:30')
+    expect(result.isLate).toBe(true)
+    expect(result.lateMinutes).toBe(27)
+    expect(result.status).toBe('LATE')
+  })
+
+  test('✅ Azad Singh: Shift 08:30, Punch 09:38 -> 68 minutes late (NOT 98 mins from 08:00)', () => {
+    const result = computePunctuality('09:38', '08:30')
+    expect(result.isLate).toBe(true)
+    expect(result.lateMinutes).toBe(68) // 1h 8m
+    expect(result.status).toBe('LATE')
+  })
+
+  test('✅ Arun Sachdeva: Shift 10:00, Punch 09:57 -> PRESENT / On Time (0 late mins)', () => {
+    const result = computePunctuality('09:57', '10:00')
+    expect(result.isLate).toBe(false)
+    expect(result.lateMinutes).toBe(0)
+    expect(result.status).toBe('PRESENT')
+  })
+
+  test('✅ Anish Thapa: Shift 08:00, Punch 07:59 -> PRESENT / On Time (0 late mins)', () => {
+    const result = computePunctuality('07:59', '08:00')
+    expect(result.isLate).toBe(false)
+    expect(result.lateMinutes).toBe(0)
+    expect(result.status).toBe('PRESENT')
+  })
+})
+

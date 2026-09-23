@@ -19,6 +19,8 @@ export interface EmployeeInfo {
   checkedOut?: boolean;
   punchInTime?: string | null;
   punchOutTime?: string | null;
+  punchInMode?: string | null;
+  punchOutMode?: string | null;
 }
 
 interface Props {
@@ -27,6 +29,7 @@ interface Props {
   onSuccess?: () => void;
   autoResetSeconds?: number;
   mode?: 'KIOSK' | 'MOBILE_GEOFENCE';
+  punchedBy?: string; // 'SECURITY' | employeeId | 'ADMIN'
   showLeaveAndHistory?: boolean;
 }
 
@@ -36,6 +39,7 @@ export default function OneTapPunchInterface({
   onSuccess,
   autoResetSeconds = 3,
   mode = 'KIOSK',
+  punchedBy,
   showLeaveAndHistory = false,
 }: Props) {
   const { theme } = useTheme();
@@ -46,9 +50,12 @@ export default function OneTapPunchInterface({
   const [checkedOut, setCheckedOut] = useState(false);
   const [punchInTime, setPunchInTime] = useState<string | null>(null);
   const [punchOutTime, setPunchOutTime] = useState<string | null>(null);
+  const [punchInMode, setPunchInMode] = useState<string | null>(employee.punchInMode || null);
+  const [punchOutMode, setPunchOutMode] = useState<string | null>(employee.punchOutMode || null);
 
   const [processing, setProcessing] = useState(false);
   const [punchSuccess, setPunchSuccess] = useState<string | null>(null);
+  const [punchLateNotice, setPunchLateNotice] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number>(autoResetSeconds);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -111,17 +118,23 @@ export default function OneTapPunchInterface({
         setCheckedOut(!!data.checkedOut);
         setPunchInTime(data.punchInTime);
         setPunchOutTime(data.punchOutTime);
+        setPunchInMode(data.punchInMode || null);
+        setPunchOutMode(data.punchOutMode || null);
       } else {
         setCheckedIn(!!employee.checkedIn);
         setCheckedOut(!!employee.checkedOut);
         setPunchInTime(employee.punchInTime || null);
         setPunchOutTime(employee.punchOutTime || null);
+        setPunchInMode(employee.punchInMode || null);
+        setPunchOutMode(employee.punchOutMode || null);
       }
     } catch {
       setCheckedIn(!!employee.checkedIn);
       setCheckedOut(!!employee.checkedOut);
       setPunchInTime(employee.punchInTime || null);
       setPunchOutTime(employee.punchOutTime || null);
+      setPunchInMode(employee.punchInMode || null);
+      setPunchOutMode(employee.punchOutMode || null);
     } finally {
       setLoadingStatus(false);
     }
@@ -137,25 +150,58 @@ export default function OneTapPunchInterface({
     setProcessing(true);
     setErrorMsg(null);
 
+    // Duplicate Punch Prevention Guard (Zero Duplicate Tolerated)
+    if (action === 'IN' && checkedIn) {
+      const whoIn = (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
+        ? 'Security Guard'
+        : punchInMode === 'ADMIN'
+        ? 'Admin'
+        : punchInMode
+        ? `Employee (${punchInMode})`
+        : 'Staff / Security';
+      setErrorMsg(`Aapka Punch-In already ${whoIn} dwara ${formatTimeStr(punchInTime)} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`);
+      setProcessing(false);
+      return;
+    }
+
+    if (action === 'OUT' && checkedOut) {
+      const whoOut = (punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
+        ? 'Security Guard'
+        : punchOutMode === 'ADMIN'
+        ? 'Admin'
+        : punchOutMode
+        ? `Employee (${punchOutMode})`
+        : 'Staff / Security';
+      setErrorMsg(`Aapka Check-Out already ${whoOut} dwara ${formatTimeStr(punchOutTime)} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`);
+      setProcessing(false);
+      return;
+    }
+
     let lat: number | undefined;
     let lng: number | undefined;
     let accuracy: number | undefined;
 
     const empAny = employee as any;
     const isSecurityGuard =
+      punchedBy === 'SECURITY' ||
       (empAny.role && String(empAny.role).toLowerCase().includes('security')) ||
       (employee.designation && (employee.designation.toLowerCase().includes('guard') || employee.designation.toLowerCase().includes('security'))) ||
       (typeof employee.department === 'string' && employee.department.toLowerCase().includes('security')) ||
       (empAny.department?.name && String(empAny.department.name).toLowerCase().includes('security')) ||
       empAny.departmentId === 'dept-4' ||
-      empAny.departmentId === 'dept-11' ||
-      (employee.employeeId && (employee.employeeId.toLowerCase().includes('sec') || employee.employeeId.toLowerCase().includes('guard')));
+      empAny.departmentId === 'dept-11';
 
-    // Mobile GPS boundary acquisition (Security Guards are exempt!)
-    if (punchMode === 'MOBILE_GEOFENCE' && !isSecurityGuard) {
+    const isAdmin =
+      punchedBy === 'ADMIN' ||
+      (empAny.role && String(empAny.role).toLowerCase().includes('admin'));
+
+    const isExempt = isSecurityGuard || isAdmin;
+
+    // GPS boundary acquisition is STRICTLY MANDATORY for all employees (except Admin and Security)
+    if (!isExempt) {
       setGeoLocating(true);
       try {
-        const loc = await verifyStaffLocation(employee.employeeId || employee.id);
+        const loc = await verifyStaffLocation(employee.employeeId || employee.id, empAny.role);
         lat = loc.latitude;
         lng = loc.longitude;
         accuracy = loc.accuracy;
@@ -171,6 +217,8 @@ export default function OneTapPunchInterface({
     }
 
     try {
+      const effectivePunchedBy = punchedBy || (punchMode === 'KIOSK' ? 'SECURITY' : (employee.employeeId || employee.id));
+
       const res = await fetch('/api/kiosk/punch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -178,6 +226,7 @@ export default function OneTapPunchInterface({
           employeeId: employee.id || employee.employeeId,
           action,
           punchMode,
+          punchedBy: effectivePunchedBy,
           lat,
           lng,
           accuracy,
@@ -224,17 +273,49 @@ export default function OneTapPunchInterface({
             hour12: true,
           });
 
-      const lateNote = data.status === 'LATE' ? ' ⚠️ (Marked Late - Grace Period Exceeded)' : '';
+      const isLatePunch = data.status === 'LATE' || data.isLate;
+      const lateMins = data.lateMinutes || 0;
+      const lateDuration = lateMins >= 60
+        ? `${Math.floor(lateMins / 60)}h ${lateMins % 60}m`
+        : `${lateMins}m`;
+      const scheduledStr = data.scheduledTime || employee.morningTime || 'scheduled time';
+
+      const lateNoticeHindi = isLatePunch
+        ? (data.lateNotice || `Aaj aap apne scheduled time (${scheduledStr}) se ${lateDuration} late hain.`)
+        : null;
+
       const geoNote = punchMode === 'MOBILE_GEOFENCE' ? ` [📍 GPS Verified: ${data.record?.punchInCoordinates?.distanceMeters ?? 0}m]` : '';
 
       if (action === 'IN') {
         setCheckedIn(true);
         setPunchInTime(serverPunchInIso || new Date().toISOString());
-        setPunchSuccess(`Check-In (Arrival) Recorded at ${timeFormatted}${lateNote}${geoNote}`);
+        setPunchInMode(effectivePunchedBy);
+        setPunchLateNotice(lateNoticeHindi);
+        if (isLatePunch) {
+          setPunchSuccess(`Check-In Recorded at ${timeFormatted} • ⚠️ Marked Late${geoNote}`);
+        } else {
+          setPunchSuccess(`Check-In Recorded at ${timeFormatted} • 🟢 On-Time / Present${geoNote}`);
+        }
       } else {
         setCheckedOut(true);
         setPunchOutTime(serverPunchOutIso || new Date().toISOString());
-        setPunchSuccess(`Check-Out (Departure) Recorded at ${timeFormatted}${geoNote}`);
+        setPunchOutMode(effectivePunchedBy);
+        const isEarly = data.isEarlyOut;
+        const earlyMins = data.earlyOutMinutes || 0;
+        const earlyDuration = earlyMins >= 60
+          ? `${Math.floor(earlyMins / 60)}h ${earlyMins % 60}m`
+          : `${earlyMins}m`;
+        const scheduledOutStr = data.scheduledOutTime || employee.eveningTime || '18:00';
+        const earlyNoticeHindi = isEarly
+          ? (data.earlyNotice || `Aaj aap apne scheduled departure time (${scheduledOutStr}) se ${earlyDuration} pehle checkout kar rahe hain.`)
+          : null;
+
+        setPunchLateNotice(earlyNoticeHindi);
+        if (isEarly) {
+          setPunchSuccess(`Check-Out Recorded at ${timeFormatted} • ⚠️ Early Departure${geoNote}`);
+        } else {
+          setPunchSuccess(`Check-Out (Departure) Recorded at ${timeFormatted} • 🟢 Shift Completed${geoNote}`);
+        }
       }
 
       if (onSuccess) onSuccess();
@@ -423,26 +504,45 @@ export default function OneTapPunchInterface({
         </div>
       )}
 
-      {/* Success Celebration Alert */}
+      {/* Success Celebration Alert / Late Arrival Alert */}
       {punchSuccess && (
         <div
           style={{
-            padding: '1rem 1.25rem',
-            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-            color: 'var(--success)',
-            borderRadius: '12px',
-            border: '2px solid var(--success)',
+            padding: '1.15rem 1.25rem',
+            backgroundColor: punchLateNotice ? (isLight ? '#fffbeb' : 'rgba(245, 158, 11, 0.12)') : (isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.12)'),
+            color: punchLateNotice ? (isLight ? '#92400e' : '#fbbf24') : 'var(--success)',
+            borderRadius: '16px',
+            border: punchLateNotice ? '2px solid #f59e0b' : '2px solid var(--success)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '0.4rem',
+            gap: '0.45rem',
             textAlign: 'center',
-            boxShadow: '0 8px 25px rgba(16, 185, 129, 0.25)',
+            boxShadow: punchLateNotice ? '0 8px 25px rgba(245, 158, 11, 0.25)' : '0 8px 25px rgba(16, 185, 129, 0.25)',
             animation: 'scaleUp 0.2s ease-out',
           }}
         >
-          <div style={{ fontSize: '2rem' }}>🎉</div>
+          <div style={{ fontSize: '2.2rem' }}>{punchLateNotice ? '⚠️' : '🎉'}</div>
           <div style={{ fontSize: '1.15rem', fontWeight: 800 }}>{punchSuccess}</div>
+
+          {punchLateNotice && (
+            <div
+              style={{
+                width: '100%',
+                backgroundColor: isLight ? '#fef3c7' : 'rgba(245, 158, 11, 0.25)',
+                border: '1.5px solid rgba(245, 158, 11, 0.5)',
+                borderRadius: '10px',
+                padding: '0.75rem 1rem',
+                fontSize: '0.98rem',
+                fontWeight: 700,
+                color: isLight ? '#78350f' : '#fef08a',
+                lineHeight: 1.4,
+              }}
+            >
+              📢 {punchLateNotice}
+            </div>
+          )}
+
           <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
             {showLeaveAndHistory
               ? 'Attendance logged in Godwin ERP • Session active for 30 days'
@@ -452,18 +552,20 @@ export default function OneTapPunchInterface({
             type="button"
             onClick={() => {
               setPunchSuccess(null);
+              setPunchLateNotice(null);
               if (!showLeaveAndHistory) onBack();
             }}
             style={{
               marginTop: '0.35rem',
-              padding: '0.4rem 1.15rem',
+              padding: '0.5rem 1.35rem',
               borderRadius: '8px',
               border: 'none',
-              background: 'var(--success)',
+              background: punchLateNotice ? '#f59e0b' : 'var(--success)',
               color: 'white',
-              fontWeight: 700,
-              fontSize: '0.82rem',
+              fontWeight: 800,
+              fontSize: '0.85rem',
               cursor: 'pointer',
+              boxShadow: punchLateNotice ? '0 4px 12px rgba(245, 158, 11, 0.3)' : '0 4px 12px rgba(16, 185, 129, 0.3)',
             }}
           >
             {showLeaveAndHistory ? '✓ Great, Continue' : 'Done (Clock Next Person)'}
@@ -672,17 +774,31 @@ export default function OneTapPunchInterface({
                 {loadingStatus
                   ? 'Checking Live Status...'
                   : checkedIn && !checkedOut
-                  ? 'Currently Checked-In (On Shift)'
+                  ? (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
+                    ? '🛡️ Checked-In by Security Guard (On Shift)'
+                    : 'Currently Checked-In (On Shift)'
                   : checkedOut
-                  ? 'Shift Completed for Today'
+                  ? (punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
+                    ? '🛡️ Shift Completed (Checked-Out by Security)'
+                    : 'Shift Completed for Today'
                   : 'Not Checked-In Today'}
               </div>
               <div style={{ fontSize: '0.72rem', color: isLight ? '#475569' : '#cbd5e1' }}>
                 {checkedIn && punchInTime && (
-                  <span>Checked In: <strong>{formatTimeStr(punchInTime)}</strong></span>
+                  <span>
+                    Checked In: <strong>{formatTimeStr(punchInTime)}</strong>
+                    {(punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
+                      <span style={{ marginLeft: '4px', color: '#10b981', fontWeight: 700 }}>[🛡️ Security]</span>
+                    )}
+                  </span>
                 )}
                 {checkedOut && punchOutTime && (
-                  <span> • Out: <strong>{formatTimeStr(punchOutTime)}</strong></span>
+                  <span>
+                    {' '}• Out: <strong>{formatTimeStr(punchOutTime)}</strong>
+                    {(punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK') && (
+                      <span style={{ marginLeft: '4px', color: '#ef4444', fontWeight: 700 }}>[🛡️ Security]</span>
+                    )}
+                  </span>
                 )}
                 {!checkedIn && <span>Ready to record Arrival punch</span>}
               </div>
@@ -700,9 +816,74 @@ export default function OneTapPunchInterface({
               letterSpacing: '0.04em',
             }}
           >
-            {checkedIn && !checkedOut ? 'ON SHIFT' : (checkedOut ? 'OUT' : 'READY')}
+            {checkedIn && !checkedOut ? 'ON SHIFT' : (checkedOut ? 'COMPLETED' : 'READY')}
           </div>
         </div>
+
+        {/* Security Guard Punch Notice (Informed Notice for Employee) */}
+        {checkedIn && !checkedOut && (punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              padding: '0.65rem 0.95rem',
+              borderRadius: '10px',
+              backgroundColor: isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.12)',
+              border: isLight ? '1.5px solid #86efac' : '1.5px solid rgba(16, 185, 129, 0.4)',
+              color: isLight ? '#166534' : '#86efac',
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.55rem',
+              lineHeight: 1.35,
+              textAlign: 'left',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.1)',
+            }}
+          >
+            <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>🛡️</span>
+            <div>
+              <div style={{ fontWeight: 800 }}>Security Guard ne Punch-In kar diya hai ({formatTimeStr(punchInTime)})</div>
+              <div style={{ fontSize: '0.74rem', opacity: 0.9, marginTop: '2px' }}>
+                Aapka arrival punch lag chuka hai. Dobara punch karne ki zaroorat nahi hai. Shift complete hone par hi Check-Out karein.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Shift Completed Notice Banner */}
+        {checkedOut && (
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              padding: '0.65rem 0.95rem',
+              borderRadius: '10px',
+              backgroundColor: isLight ? '#f8fafc' : 'rgba(100, 116, 139, 0.12)',
+              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid rgba(100, 116, 139, 0.35)',
+              color: isLight ? '#334155' : '#cbd5e1',
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.55rem',
+              lineHeight: 1.35,
+              textAlign: 'left',
+            }}
+          >
+            <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>
+              {(punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK') ? '🛡️' : '✓'}
+            </span>
+            <div>
+              <div style={{ fontWeight: 800 }}>
+                {(punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
+                  ? `Security Guard dwara Check-Out record ho gaya hai (${formatTimeStr(punchOutTime)})`
+                  : `Check-Out Complete Ho Chuka Hai (${formatTimeStr(punchOutTime)})`}
+              </div>
+              <div style={{ fontSize: '0.74rem', opacity: 0.85, marginTop: '2px' }}>
+                Aaj ki shift complete ho chuki hai. Dobara punch nahi lag sakta.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
 
@@ -834,7 +1015,7 @@ export default function OneTapPunchInterface({
               ? 'Check-In (Arrival)'
               : currentAction === 'OUT'
               ? 'Check-Out (Departure)'
-              : 'Shift Completed'}
+              : 'Shift Completed (Attendance Done)'}
           </div>
 
           <div
@@ -851,7 +1032,7 @@ export default function OneTapPunchInterface({
               ? 'One-Tap Arrival Punch • Tap to Clock In'
               : currentAction === 'OUT'
               ? `Checked In at ${formatTimeStr(punchInTime)} • Tap to Clock Out`
-              : `In: ${formatTimeStr(punchInTime)} • Out: ${formatTimeStr(punchOutTime)} • All punches logged`}
+              : `In: ${formatTimeStr(punchInTime)} • Out: ${formatTimeStr(punchOutTime)} • Dobara punch nahi hoga`}
           </div>
         </button>
       </div>

@@ -337,7 +337,7 @@ export async function GET(req: NextRequest) {
       const isConfiguredOff = empOffDays.some((od: string) => od.toLowerCase() === dayName.toLowerCase())
 
       if (attRecord && (attRecord.punchIn || attRecord.punchOut)) {
-        if (dayInfo.isToday) presentTodayCount++
+        if (dayInfo.isToday && attRecord.punchIn) presentTodayCount++
         const formatTime = (iso: string) => {
           try {
             return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
@@ -355,13 +355,16 @@ export async function GET(req: NextRequest) {
           } catch {}
         }
 
-        const shiftInMinutes = parseTimeToISTMinutes(emp.morningTime || '09:00')
-        const punchInMinutes = attRecord.punchIn ? parseTimeToISTMinutes(attRecord.punchIn) : 0
-        const lateMinutes = Math.max(0, punchInMinutes - shiftInMinutes)
-        const isLate = attRecord.isLate === true || attRecord.status === 'LATE' || lateMinutes > 15
+        const empIndividualTime = (emp.morningTime && String(emp.morningTime).trim()) || '09:00'
+        const shiftInMinutes = parseTimeToISTMinutes(empIndividualTime)
+        const punchInMinutes = attRecord.punchIn ? parseTimeToISTMinutes(attRecord.punchIn) : null
+        const lateMinutes = punchInMinutes !== null ? Math.max(0, punchInMinutes - shiftInMinutes) : 0
+        const isLate = punchInMinutes !== null && lateMinutes > 15
         const isHalfDay = attRecord.status === 'HALF_DAY' || (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300 && !!attRecord.punchOut)
-        const displayStatus = isHalfDay ? 'HALF_DAY' : (isLate ? 'LATE' : (attRecord.status || 'PRESENT'))
-        const badgeText = isHalfDay ? '½ DAY' : (isLate ? 'LATE' : 'P')
+        const displayStatus = !attRecord.punchIn
+          ? 'ABSENT'
+          : (isHalfDay ? 'HALF_DAY' : (isLate ? 'LATE' : (attRecord.status === 'LATE' ? 'PRESENT' : (attRecord.status || 'PRESENT'))))
+        const badgeText = !attRecord.punchIn ? 'A' : (isHalfDay ? '½ DAY' : (isLate ? 'LATE' : 'P'))
 
         const offDayNote = isConfiguredOff ? ` [🏖️ Scheduled Off Day (${dayName})]` : ''
 
@@ -373,7 +376,7 @@ export async function GET(req: NextRequest) {
           punchInRaw: attRecord.punchIn,
           punchOutRaw: attRecord.punchOut,
           isLate,
-          lateMinutes: isLate ? (attRecord.lateMinutes || lateMinutes) : 0,
+          lateMinutes: isLate ? lateMinutes : 0,
           isHalfDay,
           totalMinutes: totalMins,
           isNonAmended: false,

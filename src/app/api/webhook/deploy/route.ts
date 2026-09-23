@@ -128,9 +128,9 @@ function triggerDeployment(triggerSource: string) {
     nextBinPath = path.join(workingDir, "node_modules", "next", "dist", "bin", "next");
   }
 
-  const buildCmd = fs.existsSync(nextBinPath)
-    ? `"${nodeBin}" "${nextBinPath}" build`
-    : `npm run build`;
+  const buildCmd = isWindows
+    ? (fs.existsSync(nextBinPath) ? `"${nodeBin}" "${nextBinPath}" build` : `npm run build`)
+    : `("${nodeBin}" "${nextBinPath}" build || "${nodeBin}" ./node_modules/next/dist/bin/next build || ./node_modules/.bin/next build || npm run build || npx next build)`;
 
   const restartCmd = isWindows
     ? ""

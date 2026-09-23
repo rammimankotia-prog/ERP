@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { getMergedAttendance, saveAttendanceRecord } from '@/lib/attendanceStorage'
 import { getMergedShifts } from '@/lib/shiftStorage'
+import { getAllEmployees } from '@/lib/employeeData'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
 const ATTENDANCE_FILE = path.join(DATA_DIR, 'hr_attendance.json')
@@ -157,6 +158,9 @@ function logAudit(entry: any) {
  */
 function getRosterShiftTimes(emp: any, dateStr: string): { startTime: string; endTime: string; shiftName: string } {
   try {
+    const individualMorning = emp?.morningTime && String(emp.morningTime).trim() ? String(emp.morningTime).trim() : null
+    const individualEvening = emp?.eveningTime && String(emp.eveningTime).trim() ? String(emp.eveningTime).trim() : null
+
     // Parse date
     const [yearStr, monthStr, dayStr] = dateStr.split('-')
     const year = parseInt(yearStr, 10)
@@ -180,69 +184,40 @@ function getRosterShiftTimes(emp: any, dateStr: string): { startTime: string; en
       } catch {}
     }
 
-    // Find employee in roster by id
+    // Find employee in roster by id or employeeId
     const empId = emp?.id
-    const empRoster = empId ? (roster[empId] || {}) : {}
+    const empCode = emp?.employeeId
+    const empRoster = (empId && roster[empId]) || (empCode && roster[empCode]) || {}
 
     // Day number key (as stored in ShiftsManager — numeric)
     const assignedShiftName: string = empRoster[dayNum] || empRoster[String(dayNum)] || ''
 
-    if (!assignedShiftName || assignedShiftName === 'OFF') {
-      // Fallback to default
+    // If explicitly scheduled for Night Shift or Afternoon Shift, honor those specific timings
+    if (assignedShiftName === 'Night Shift') {
       return {
-        startTime: emp?.morningTime || '09:00',
-        endTime: emp?.eveningTime || '18:00',
-        shiftName: assignedShiftName || 'Default'
+        startTime: '20:00',
+        endTime: '08:00',
+        shiftName: 'Night Shift'
       }
-    }
-
-    // Read defined shifts from hr_shifts.json
-    let definedShifts: any[] = []
-    try {
-      definedShifts = getMergedShifts()
-    } catch {
-      try {
-        definedShifts = readJson<any[]>(SHIFTS_FILE, LOCAL_SHIFTS_FILE, [])
-      } catch {}
-    }
-
-    // Match shift by name (case-insensitive)
-    const matchedShift = definedShifts.find(
-      (s: any) => s.name?.toLowerCase() === assignedShiftName.toLowerCase()
-    )
-
-    if (matchedShift) {
-      return {
-        startTime: matchedShift.startTime || emp?.morningTime || '09:00',
-        endTime: matchedShift.endTime || emp?.eveningTime || '18:00',
-        shiftName: assignedShiftName,
-      }
-    }
-
-    // Named shift fallback (common known names)
-    if (assignedShiftName === 'Morning Shift') {
-      return { startTime: emp?.morningTime || '09:00', endTime: emp?.eveningTime || '18:00', shiftName: assignedShiftName }
     }
     if (assignedShiftName === 'Afternoon Shift') {
-      return { startTime: '13:00', endTime: '23:00', shiftName: assignedShiftName }
-    }
-    if (assignedShiftName === 'Night Shift') {
-      return { startTime: '20:00', endTime: '08:00', shiftName: assignedShiftName }
-    }
-    if (assignedShiftName === 'Break Shift') {
-      return { startTime: '10:00', endTime: '22:00', shiftName: assignedShiftName }
+      return {
+        startTime: '13:00',
+        endTime: '23:00',
+        shiftName: 'Afternoon Shift'
+      }
     }
 
-    // Final fallback
+    // Individual employee shift timing takes precedence (default 09:00, NEVER 08:00)
     return {
-      startTime: emp?.morningTime || '09:00',
-      endTime: emp?.eveningTime || '18:00',
-      shiftName: assignedShiftName
+      startTime: individualMorning || '09:00',
+      endTime: individualEvening || '18:00',
+      shiftName: assignedShiftName || 'Default'
     }
   } catch {
     return {
-      startTime: emp?.morningTime || '09:00',
-      endTime: emp?.eveningTime || '18:00',
+      startTime: (emp?.morningTime && String(emp.morningTime).trim()) || '09:00',
+      endTime: (emp?.eveningTime && String(emp.eveningTime).trim()) || '18:00',
       shiftName: 'Default'
     }
   }
@@ -259,7 +234,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'employeeId required' }, { status: 400 })
     }
 
-    const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
+    const employees = await getAllEmployees()
     const targetEmpId = employeeId.trim().toUpperCase()
     const emp = employees.find(e => 
       (e.id && e.id.trim().toUpperCase() === targetEmpId) || 
@@ -286,18 +261,24 @@ export async function GET(req: NextRequest) {
       return false
     })
 
+    const checkedIn = !!(record && record.punchIn)
+    const checkedOut = !!(record && record.punchOut)
+    const isLate = checkedIn && !!(record?.isLate || record?.status === 'LATE')
+    const lateMinutes = isLate ? (record?.lateMinutes || 0) : 0
+    const effectiveStatus = !checkedIn ? 'ABSENT' : (record?.status || 'PRESENT')
+
     return NextResponse.json({
-      checkedIn: !!(record && record.punchIn),
-      checkedOut: !!(record && record.punchOut),
-      punchInTime: record?.punchIn || null,
-      punchOutTime: record?.punchOut || null,
-      totalMinutes: record?.totalMinutes || null,
-      status: record ? record.status : 'ABSENT',
-      isLate: !!(record?.isLate || record?.status === 'LATE'),
-      lateMinutes: record?.lateMinutes || 0,
-      punchInMode: record?.punchInMode || null,
-      punchOutMode: record?.punchOutMode || null,
-      record: record || null
+      checkedIn,
+      checkedOut,
+      punchInTime: checkedIn ? record?.punchIn : null,
+      punchOutTime: checkedOut ? record?.punchOut : null,
+      totalMinutes: checkedOut ? record?.totalMinutes : null,
+      status: effectiveStatus,
+      isLate,
+      lateMinutes,
+      punchInMode: checkedIn ? record?.punchInMode : null,
+      punchOutMode: checkedOut ? record?.punchOutMode : null,
+      record: checkedIn ? record : null
     })
   } catch (err: any) {
     return NextResponse.json({ error: 'Failed to check status' }, { status: 500 })
@@ -311,6 +292,7 @@ export async function POST(req: NextRequest) {
       employeeId,
       action,
       punchMode = 'KIOSK', // 'KIOSK' | 'MOBILE_GEOFENCE'
+      punchedBy, // 'SECURITY' | employee ID (e.g. 'GG-1003') | 'ADMIN'
       lat,
       lng,
       accuracy,
@@ -320,10 +302,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'employeeId and action required' }, { status: 400 })
     }
 
-    const employees = readJson<any[]>(EMPLOYEES_FILE, LOCAL_EMPLOYEES_FILE, [])
-    const emp = employees.find(e => e.id === employeeId || e.employeeId === employeeId)
+    const employees = await getAllEmployees()
+    const emp = employees.find(e => 
+      (e.id && e.id.trim().toUpperCase() === employeeId.trim().toUpperCase()) || 
+      (e.employeeId && e.employeeId.trim().toUpperCase() === employeeId.trim().toUpperCase())
+    )
     const normalizedEmpId = emp ? (emp.employeeId || emp.id) : employeeId
     const employeeName = emp ? `${emp.firstName || ''} ${emp.lastName || ''}`.trim() : (body.employeeName || normalizedEmpId)
+
+    // Active mode: If punched by employee -> employeeId, if security guard -> 'SECURITY', if admin -> 'ADMIN'
+    let effectiveMode = 'SECURITY'
+    if (punchedBy) {
+      const pUpper = String(punchedBy).trim().toUpperCase()
+      if (pUpper === 'SECURITY' || pUpper.includes('GUARD') || pUpper.includes('SEC')) {
+        effectiveMode = 'SECURITY'
+      } else if (pUpper === 'ADMIN' || pUpper === 'MANAGER' || pUpper === 'HR') {
+        effectiveMode = 'ADMIN'
+      } else {
+        effectiveMode = punchedBy.trim()
+      }
+    } else if (punchMode === 'MOBILE_GEOFENCE') {
+      effectiveMode = normalizedEmpId
+    } else if (punchMode === 'KIOSK') {
+      effectiveMode = 'SECURITY'
+    } else {
+      effectiveMode = punchMode || 'SECURITY'
+    }
     // Check if employee has been deactivated
     if (emp && emp.status && emp.status !== 'ACTIVE') {
       return NextResponse.json(
@@ -353,29 +357,29 @@ export async function POST(req: NextRequest) {
     let minDistance = 0
     let nearestHotel = 'Hotel Grand Godwin'
 
-    // GEOFENCE VALIDATION for Mobile Punch (Default 80m in-premises, applicable to all users)
-    if (punchMode === 'MOBILE_GEOFENCE') {
-      const { enabled: geofenceEnabled, locations: hotelLocations, radius: defaultRadius } = getGeofenceConfig()
-      const isTestStaff = normalizedEmpId?.toLowerCase() === 'test-001' || 
-                          normalizedEmpId?.toLowerCase() === 'test.staff' || 
-                          normalizedEmpId?.toLowerCase().includes('test') ||
-                          normalizedEmpId?.toLowerCase().includes('samrat') ||
-                          employeeName?.toLowerCase().includes('test') ||
-                          employeeName?.toLowerCase().includes('samrat');
+    // GEOFENCE VALIDATION: Mandatory for ALL employees, ONLY Admin and Security Guard are exempt
+    const { enabled: geofenceEnabled, locations: hotelLocations, radius: defaultRadius } = getGeofenceConfig()
 
-      // Security Guards are exempt from geofencing — they work at entry/exit points
-      const isSecurityGuard =
-        emp?.role?.toLowerCase().includes('security') ||
-        emp?.assignedRole?.toLowerCase().includes('security') ||
-        emp?.designation?.toLowerCase().includes('guard') ||
-        emp?.designation?.toLowerCase().includes('security') ||
-        (typeof emp?.department === 'string' && emp?.department?.toLowerCase().includes('security')) ||
-        emp?.department?.name?.toLowerCase().includes('security') ||
-        emp?.departmentId === 'dept-4' ||
-        emp?.departmentId === 'dept-11' ||
-        emp?.dept?.toLowerCase().includes('security')
+    const isSecurityGuard =
+      effectiveMode === 'SECURITY' ||
+      emp?.role?.toLowerCase().includes('security') ||
+      emp?.assignedRole?.toLowerCase().includes('security') ||
+      emp?.designation?.toLowerCase().includes('guard') ||
+      emp?.designation?.toLowerCase().includes('security') ||
+      (typeof emp?.department === 'string' && emp?.department?.toLowerCase().includes('security')) ||
+      emp?.department?.name?.toLowerCase().includes('security') ||
+      emp?.departmentId === 'dept-4' ||
+      emp?.departmentId === 'dept-11' ||
+      emp?.dept?.toLowerCase().includes('security')
 
-      if (geofenceEnabled && !isTestStaff && !isSecurityGuard) {
+    const isAdmin =
+      effectiveMode === 'ADMIN' ||
+      emp?.role?.toLowerCase().includes('admin') ||
+      emp?.assignedRole?.toLowerCase().includes('admin')
+
+    const isExempt = isSecurityGuard || isAdmin
+
+    if (geofenceEnabled && !isExempt) {
         if (typeof lat !== 'number' || typeof lng !== 'number') {
           return NextResponse.json(
             { error: `📍 GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within ${defaultRadius || 80}m of hotel premises.` },
@@ -448,7 +452,6 @@ export async function POST(req: NextRequest) {
           )
         }
       }
-    }
 
     const now = new Date()
     const nowIso = now.toISOString()
@@ -492,7 +495,69 @@ export async function POST(req: NextRequest) {
 
     if (action === 'IN') {
       if (existingIndex !== -1 && allAttendance[existingIndex].punchIn) {
-        return NextResponse.json({ error: 'Already punched in today' }, { status: 400 })
+        const existRec = allAttendance[existingIndex]
+        let formattedInTime = ''
+        try {
+          if (existRec.punchIn) {
+            formattedInTime = new Intl.DateTimeFormat('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            }).format(new Date(String(existRec.punchIn)))
+          }
+        } catch {
+          formattedInTime = existRec.punchIn || ''
+        }
+
+        const rawInMode = (existRec.punchInMode || '').trim()
+        const whoIn = (rawInMode === 'SECURITY' || rawInMode === 'KIOSK')
+          ? 'Security Guard'
+          : rawInMode === 'ADMIN'
+          ? 'Admin'
+          : (rawInMode && rawInMode !== 'WEB' && rawInMode !== 'MOBILE_GEOFENCE' && rawInMode !== 'MANUAL')
+          ? `Employee (${rawInMode})`
+          : 'Staff'
+
+        if (existRec.punchOut) {
+          let formattedOutTime = ''
+          try {
+            formattedOutTime = new Intl.DateTimeFormat('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            }).format(new Date(String(existRec.punchOut)))
+          } catch {
+            formattedOutTime = existRec.punchOut || ''
+          }
+          const rawOutMode = (existRec.punchOutMode || '').trim()
+          const whoOut = (rawOutMode === 'SECURITY' || rawOutMode === 'KIOSK')
+            ? 'Security Guard'
+            : rawOutMode === 'ADMIN'
+            ? 'Admin'
+            : 'Staff'
+
+          return NextResponse.json({
+            error: `Aapka aaj ka Punch-In (${whoIn} dwara ${formattedInTime}) aur Check-Out (${whoOut} dwara ${formattedOutTime}) dono already complete ho chuka hai. Dobara punch nahi lag sakta.`,
+            alreadyPunched: true,
+            alreadyPunchedIn: true,
+            alreadyPunchedOut: true,
+            whoPunched: whoIn,
+            punchInTime: formattedInTime,
+            punchOutTime: formattedOutTime,
+            record: existRec
+          }, { status: 400 })
+        }
+
+        return NextResponse.json({
+          error: `Aapka Punch-In already ${whoIn} dwara ${formattedInTime} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`,
+          alreadyPunched: true,
+          alreadyPunchedIn: true,
+          whoPunched: whoIn,
+          punchInTime: formattedInTime,
+          record: existRec
+        }, { status: 400 })
       }
 
       // AUTO-LATE FLAGGING: Use roster-assigned shift for today (falls back to default shift time)
@@ -506,6 +571,11 @@ export async function POST(req: NextRequest) {
       const isLate = lateMinutes > graceMinutes
       const attendanceStatus = isLate ? 'LATE' : 'PRESENT'
 
+      const formattedLate = formatDurationHoursMinutes(lateMinutes)
+      const lateNoticeHindi = isLate
+        ? `Aaj aap apne scheduled time (${shiftStartTime}) se ${formattedLate} late hain.`
+        : null
+
       const newRecord = {
         id: `att-${Date.now()}`,
         employeeId: normalizedEmpId,
@@ -515,11 +585,12 @@ export async function POST(req: NextRequest) {
         status: attendanceStatus,
         isLate,
         lateMinutes: isLate ? lateMinutes : 0,
-        punchInMode: punchMode,
+        punchInMode: effectiveMode,
         punchInCoordinates: punchMode === 'MOBILE_GEOFENCE' ? { lat, lng, distanceMeters: minDistance } : null,
         totalMinutes: null,
         shiftName: activeShiftName,
-        remarks: isLate ? `Late arrival by ${formatDurationHoursMinutes(lateMinutes)} (+${lateMinutes}m) [${activeShiftName}]` : `Present [${activeShiftName}]`
+        scheduledTime: shiftStartTime,
+        remarks: isLate ? `Late arrival by ${formattedLate} (+${lateMinutes}m) [${activeShiftName}]` : `Present [${activeShiftName}]`
       }
 
       saveAttendanceRecord(newRecord)
@@ -531,7 +602,7 @@ export async function POST(req: NextRequest) {
         employeeId: normalizedEmpId,
         employeeName,
         action: 'IN',
-        punchMode,
+        punchMode: effectiveMode,
         status: attendanceStatus,
         shiftScheduled: shiftStartTime,
         shiftName: activeShiftName,
@@ -551,27 +622,61 @@ export async function POST(req: NextRequest) {
         status: attendanceStatus,
         isLate,
         lateMinutes: isLate ? lateMinutes : 0,
+        scheduledTime: shiftStartTime,
         shiftName: activeShiftName,
+        lateNotice: lateNoticeHindi,
         message: attendanceStatus === 'LATE' 
-          ? `Punch-In Recorded (Marked Late: ${formatDurationHoursMinutes(lateMinutes)} late - Past ${shiftStartTime} + ${graceMinutes}m grace) [${activeShiftName}]`
+          ? `Punch-In Recorded (Marked Late: Aaj aap apne scheduled time ${shiftStartTime} se ${formattedLate} late hain) [${activeShiftName}]`
           : `Punch-In Recorded (On-Time / Present) [${activeShiftName}]`
       })
 
     } else if (action === 'OUT') {
       if (existingIndex === -1 || !allAttendance[existingIndex].punchIn) {
-        return NextResponse.json({ error: 'No punch-in found for today' }, { status: 400 })
+        return NextResponse.json({ error: 'No punch-in found for today. Pehle Punch-In hona zaroori hai.' }, { status: 400 })
       }
       if (allAttendance[existingIndex].punchOut) {
-        return NextResponse.json({ error: 'Already punched out today' }, { status: 400 })
+        const existRec = allAttendance[existingIndex]
+        let formattedOutTime = ''
+        try {
+          if (existRec.punchOut) {
+            formattedOutTime = new Intl.DateTimeFormat('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            }).format(new Date(String(existRec.punchOut)))
+          }
+        } catch {
+          formattedOutTime = existRec.punchOut || ''
+        }
+
+        const rawOutMode = (existRec.punchOutMode || '').trim()
+        const whoOut = (rawOutMode === 'SECURITY' || rawOutMode === 'KIOSK')
+          ? 'Security Guard'
+          : rawOutMode === 'ADMIN'
+          ? 'Admin'
+          : (rawOutMode && rawOutMode !== 'WEB' && rawOutMode !== 'MOBILE_GEOFENCE' && rawOutMode !== 'MANUAL')
+          ? `Employee (${rawOutMode})`
+          : 'Staff'
+
+        return NextResponse.json({
+          error: `Aapka Check-Out already ${whoOut} dwara ${formattedOutTime} par record kiya ja chuka hai. Dobara check-out nahi kiya ja sakta.`,
+          alreadyPunched: true,
+          alreadyPunchedOut: true,
+          whoPunched: whoOut,
+          punchOutTime: formattedOutTime,
+          record: existRec
+        }, { status: 400 })
       }
 
       const punchInTime = new Date(allAttendance[existingIndex].punchIn).getTime()
       const punchOutTime = now.getTime()
       const totalMinutes = Math.max(0, Math.floor((punchOutTime - punchInTime) / 60000))
 
-      // Compute early departure against roster-scheduled shift end time
+      // Compute early departure against employee's INDIVIDUAL evening time
       const rosterShiftOut = getRosterShiftTimes(emp, dateStr)
-      const shiftEndTime = rosterShiftOut.endTime
+      const empEndTime = (emp?.eveningTime && String(emp.eveningTime).trim()) || rosterShiftOut.endTime || '18:00'
+      const shiftEndTime = empEndTime
       const activeShiftNameOut = rosterShiftOut.shiftName
       const shiftOutMinutes = parseTimeToISTMinutes(shiftEndTime)
       const punchOutMinutes = parseTimeToISTMinutes(nowIso)
@@ -593,11 +698,12 @@ export async function POST(req: NextRequest) {
 
       allAttendance[existingIndex].status = finalStatus
       allAttendance[existingIndex].punchOut = nowIso
-      allAttendance[existingIndex].punchOutMode = punchMode
+      allAttendance[existingIndex].punchOutMode = effectiveMode
       allAttendance[existingIndex].punchOutCoordinates = punchMode === 'MOBILE_GEOFENCE' ? { lat, lng, distanceMeters: minDistance } : null
       allAttendance[existingIndex].totalMinutes = totalMinutes
       allAttendance[existingIndex].isEarlyOut = isEarlyOut
       allAttendance[existingIndex].earlyOutMinutes = isEarlyOut ? earlyOutMinutes : 0
+      allAttendance[existingIndex].scheduledOutTime = shiftEndTime
       if (!allAttendance[existingIndex].shiftName) {
         allAttendance[existingIndex].shiftName = activeShiftNameOut
       }
@@ -611,9 +717,10 @@ export async function POST(req: NextRequest) {
         employeeId: normalizedEmpId,
         employeeName,
         action: 'OUT',
-        punchMode,
+        punchMode: effectiveMode,
         status: finalStatus,
         totalMinutes,
+        shiftScheduledOut: shiftEndTime,
         shiftName: activeShiftNameOut,
         earlyOutMinutes: isEarlyOut ? earlyOutMinutes : 0,
         lat: lat || null,
@@ -625,17 +732,16 @@ export async function POST(req: NextRequest) {
         note: totalMinutes <= 300
           ? `Marked HALF_DAY: ${totalMinutes}m worked (<= 5 hours) [${activeShiftNameOut}]`
           : isEarlyOut
-            ? `Early Out: departed -${earlyOutMinutes}m before shift end [${activeShiftNameOut}: ${shiftEndTime}]`
+            ? `Early Out: departed -${earlyOutMinutes}m before scheduled departure [${activeShiftNameOut}: ${shiftEndTime}]`
             : undefined
       })
 
       const hoursWorked = Math.floor(totalMinutes / 60)
       const minsWorked = totalMinutes % 60
-      const statusNote = totalMinutes <= 300
-        ? ' — Marked as Half Day (≤ 5 hours)'
-        : isEarlyOut
-          ? ` — Early Departure (-${formatDurationHoursMinutes(earlyOutMinutes)})`
-          : ''
+      const earlyDurationText = isEarlyOut ? formatDurationHoursMinutes(earlyOutMinutes) : ''
+      const earlyNoticeHindi = isEarlyOut
+        ? `Aaj aap apne scheduled departure time (${shiftEndTime}) se ${earlyDurationText} pehle checkout kar rahe hain.`
+        : null
 
       return NextResponse.json({
         success: true,
@@ -645,7 +751,11 @@ export async function POST(req: NextRequest) {
         isHalfDay: totalMinutes <= 300,
         isEarlyOut,
         earlyOutMinutes: isEarlyOut ? earlyOutMinutes : 0,
-        message: `Punch-Out Recorded (${hoursWorked}h ${minsWorked}m worked${statusNote})`
+        scheduledOutTime: shiftEndTime,
+        earlyNotice: earlyNoticeHindi,
+        message: isEarlyOut
+          ? `Punch-Out Recorded: Aaj aap apne scheduled departure time (${shiftEndTime}) se ${earlyDurationText} pehle checkout kar rahe hain.`
+          : `Punch-Out Recorded (${hoursWorked}h ${minsWorked}m worked)`
       })
     }
 

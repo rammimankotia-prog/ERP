@@ -116,37 +116,71 @@ export async function GET(req: NextRequest) {
         return false
       })
 
-      let status = record ? (record.status || 'PRESENT') : 'ABSENT'
-
-      // Late arrival check
+      // STRICT RULE: You cannot mark late which is absent!
+      // An employee without a punchIn is ABSENT (or ON_LEAVE), NEVER LATE or PRESENT.
+      let status = 'ABSENT'
       let isLate = false
       let lateMinutes = 0
+      let isEarlyOut = false
+      let earlyOutMinutes = 0
+
       if (record && record.punchIn) {
-        const shiftInMinutes = parseTimeToISTMinutes(emp.morningTime || '09:00')
+        // Employee has arrived and punched in: Evaluate punctuality strictly against individual morningTime (default 09:00, NEVER 08:00)
+        const empStartTime = (emp.morningTime && String(emp.morningTime).trim()) || '09:00'
+        const shiftInMinutes = parseTimeToISTMinutes(empStartTime)
         const punchInMinutes = parseTimeToISTMinutes(record.punchIn)
-        lateMinutes = record.lateMinutes !== undefined ? record.lateMinutes : Math.max(0, punchInMinutes - shiftInMinutes)
-        isLate = record.isLate === true || record.status === 'LATE' || lateMinutes > 15
-        if (isLate && status === 'PRESENT') {
-          status = 'LATE'
+        const diffMinutes = Math.max(0, punchInMinutes - shiftInMinutes)
+        const graceMinutes = 15
+
+        isLate = diffMinutes > graceMinutes
+        lateMinutes = isLate ? diffMinutes : 0
+        status = isLate ? 'LATE' : 'PRESENT'
+
+        // Half-day check: worked <= 5 hours
+        if (record.punchOut) {
+          let totalMins = record.totalMinutes
+          if (totalMins === undefined || totalMins === null) {
+            try {
+              totalMins = Math.floor(
+                (new Date(record.punchOut).getTime() - new Date(record.punchIn).getTime()) / 60000
+              )
+            } catch {}
+          }
+          if (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300) {
+            status = 'HALF_DAY'
+          }
+
+          // Early departure check: Calculate against employee's individual eveningTime
+          const empEndTime = (emp.eveningTime && String(emp.eveningTime).trim()) || '18:00'
+          const shiftOutMinutes = parseTimeToISTMinutes(empEndTime)
+          const punchOutMinutes = parseTimeToISTMinutes(record.punchOut)
+          const diffEarly = Math.max(0, shiftOutMinutes - punchOutMinutes)
+          isEarlyOut = diffEarly > 15
+          earlyOutMinutes = isEarlyOut ? diffEarly : 0
         }
-        // If punchIn exists, it can NEVER be ABSENT
-        if (status === 'ABSENT') {
-          status = isLate ? 'LATE' : 'PRESENT'
-        }
+      } else {
+        // NO PUNCH-IN: Employee is ABSENT or ON_LEAVE. Strictly NEVER LATE and NEVER PRESENT.
+        const isApprovedLeave = record && (record.status === 'ON_LEAVE' || record.status === 'LEAVE')
+        status = isApprovedLeave ? 'ON_LEAVE' : 'ABSENT'
+        isLate = false
+        lateMinutes = 0
+        isEarlyOut = false
+        earlyOutMinutes = 0
       }
 
-      // Half-day check: worked <= 5 hours
-      if (record && record.punchIn && record.punchOut) {
-        let totalMins = record.totalMinutes
-        if (totalMins === undefined || totalMins === null) {
-          try {
-            totalMins = Math.floor(
-              (new Date(record.punchOut).getTime() - new Date(record.punchIn).getTime()) / 60000
-            )
-          } catch {}
-        }
-        if (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300) {
-          status = 'HALF_DAY'
+      // Format punchInMode: 'SECURITY' for Guard, employeeId (e.g. GG-1003) for self, 'ADMIN' for admin
+      let displayPunchMode: string | null = null
+      if (record && record.punchIn) {
+        const rawMode = (record.punchInMode || 'SECURITY').trim()
+        const mUpper = rawMode.toUpperCase()
+        if (mUpper === 'KIOSK' || mUpper === 'SECURITY' || mUpper.includes('GUARD') || mUpper.includes('SEC')) {
+          displayPunchMode = 'SECURITY'
+        } else if (mUpper === 'ADMIN' || mUpper === 'MANAGER' || mUpper === 'HR') {
+          displayPunchMode = 'ADMIN'
+        } else if (mUpper === 'SELF' || mUpper === 'MOBILE_GEOFENCE' || mUpper === 'WEB' || mUpper === 'GEO') {
+          displayPunchMode = emp.employeeId || emp.id
+        } else {
+          displayPunchMode = rawMode || emp.employeeId || emp.id
         }
       }
 
@@ -158,10 +192,14 @@ export async function GET(req: NextRequest) {
         status,
         isLate,
         lateMinutes,
-        punchIn: record ? record.punchIn : null,
-        punchOut: record ? record.punchOut : null,
-        totalMinutes: record ? record.totalMinutes : null,
-        punchInMode: record ? (record.punchInMode || 'KIOSK') : null,
+        isEarlyOut,
+        earlyOutMinutes,
+        scheduledTime: (emp.morningTime && String(emp.morningTime).trim()) || '09:00',
+        scheduledOutTime: (emp.eveningTime && String(emp.eveningTime).trim()) || '18:00',
+        punchIn: record && record.punchIn ? record.punchIn : null,
+        punchOut: record && record.punchIn && record.punchOut ? record.punchOut : null,
+        totalMinutes: record && record.punchIn && record.totalMinutes !== undefined ? record.totalMinutes : null,
+        punchInMode: displayPunchMode,
       }
     })
 

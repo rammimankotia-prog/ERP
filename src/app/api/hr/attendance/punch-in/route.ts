@@ -91,15 +91,62 @@ export async function POST(req: NextRequest) {
       where: { employeeId_date: { employeeId, date: today } }
     })
     if (existing?.punchIn) {
-      return NextResponse.json({ error: 'Already punched in today', log: existing }, { status: 409 })
+      let inTimeStr = ''
+      try {
+        inTimeStr = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(existing.punchIn))
+      } catch {
+        inTimeStr = String(existing.punchIn)
+      }
+      const rawMode = String(existing.punchInMode || '')
+      const who = (rawMode === 'SECURITY' || rawMode === 'KIOSK') ? 'Security Guard' : rawMode === 'ADMIN' ? 'Admin' : 'Staff / Security'
+      return NextResponse.json({
+        error: `Aapka Punch-In already ${who} dwara ${inTimeStr} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`,
+        message: `Aapka Punch-In already ${who} dwara ${inTimeStr} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`,
+        alreadyPunched: true,
+        alreadyPunchedIn: true,
+        whoPunched: who,
+        punchInTime: inTimeStr,
+        log: existing
+      }, { status: 409 })
     }
 
-    // Geo-fence validation: enforce 80m boundary if lat/lng are provided
-    const isTestStaff = employeeId?.toLowerCase() === 'test-001' || 
-                        employeeId?.toLowerCase() === 'test.staff' ||
-                        employeeId?.toLowerCase().includes('test') ||
-                        employeeId?.toLowerCase().includes('samrat');
-    if (!isTestStaff && lat !== undefined && lng !== undefined) {
+    // Find employee to check role, department, and individual morningTime
+    const dbEmp = await prisma.employee.findFirst({
+      where: { OR: [{ id: employeeId }, { employeeId }] }
+    }).catch(() => null)
+
+    const empAny = dbEmp as any
+    const empRole = (empAny?.role || '').toLowerCase()
+    const empDept = (empAny?.department?.name || (typeof empAny?.department === 'string' ? empAny.department : '') || empAny?.departmentId || '').toLowerCase()
+    const empDesig = (dbEmp?.designation || '').toLowerCase()
+    const mUpper = String(mode || '').toUpperCase()
+
+    const isSecurity =
+      mUpper === 'SECURITY' ||
+      mUpper.includes('GUARD') ||
+      empRole.includes('security') ||
+      empDept.includes('security') ||
+      empDesig.includes('security') ||
+      empDesig.includes('guard') ||
+      employeeId.toLowerCase().startsWith('sec-')
+
+    const isAdmin =
+      mUpper === 'ADMIN' ||
+      empRole === 'admin' ||
+      empRole === 'master admin' ||
+      empRole.includes('admin')
+
+    const isExempt = isSecurity || isAdmin
+
+    // Geo-fence validation: STRICTLY MANDATORY for all employees (except Admin and Security)
+    if (!isExempt) {
+      if (typeof lat !== 'number' || typeof lng !== 'number') {
+        return NextResponse.json({
+          error: 'GPS_REQUIRED',
+          message: '📍 GPS Location is mandatory! Please turn ON GPS / Location on your device to punch within 80m of hotel premises.'
+        }, { status: 400 })
+      }
+
       if (typeof accuracy === 'number' && accuracy > 350) {
         return NextResponse.json({
           error: 'GEO_SIGNAL_WEAK',
@@ -111,7 +158,7 @@ export async function POST(req: NextRequest) {
       if (!fenceResult.allowed) {
         return NextResponse.json({
           error: 'GEO_FENCE_VIOLATION',
-          message: `📍 Outside hotel premises! You are ${fenceResult.distance}m from ${fenceResult.name}. Punch-in is restricted within ${fenceResult.radius}m.`,
+          message: `📍 Outside hotel premises! You are ${fenceResult.distance}m from ${fenceResult.name}. Punch-in is strictly restricted within ${fenceResult.radius}m of hotel premises.`,
           distanceMeters: fenceResult.distance,
           effectiveDistance: fenceResult.effectiveDistance,
           allowedRadius: fenceResult.radius
@@ -130,9 +177,8 @@ export async function POST(req: NextRequest) {
     }).catch(() => null)
 
     const now = new Date()
-    const status = assignment?.shift
-      ? getAttendanceStatus(now, assignment.shift.startTime, assignment.shift.graceMinutes)
-      : 'PRESENT'
+    const scheduledStartTime = dbEmp?.morningTime || assignment?.shift?.startTime || '09:00'
+    const status = getAttendanceStatus(now, scheduledStartTime, assignment?.shift?.graceMinutes || 15)
 
     const log = await prisma.attendanceLog.upsert({
       where: { employeeId_date: { employeeId, date: today } },

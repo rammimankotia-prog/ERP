@@ -21,25 +21,29 @@ export const TEST_STAFF_IDENTIFIERS = [
 ];
 
 export function isTestStaffAccount(identifier?: string | null): boolean {
-  if (!identifier) return false;
-  const clean = identifier.trim().toLowerCase();
-  return (
-    TEST_STAFF_IDENTIFIERS.includes(clean) ||
-    clean.includes('test') ||
-    clean.includes('demo') ||
-    clean.includes('samrat')
-  );
+  return false;
 }
 
-export function isExemptAccount(identifier?: string | null): boolean {
-  if (!identifier) return false;
-  const clean = identifier.trim().toLowerCase();
-  return (
-    isTestStaffAccount(clean) ||
-    clean.includes('sec') ||
-    clean.includes('guard') ||
-    clean.includes('security')
-  );
+export function isExemptAccount(identifier?: string | null, role?: string | null): boolean {
+  if (!identifier && !role) return false;
+  const cleanId = (identifier || '').trim().toLowerCase();
+  const cleanRole = (role || '').trim().toLowerCase();
+
+  // ONLY Admin and Security Guard are exempt
+  const isAdmin =
+    cleanId === 'admin' ||
+    cleanRole === 'admin' ||
+    cleanRole === 'master admin' ||
+    cleanRole.includes('admin');
+
+  const isSecurity =
+    cleanId === 'security' ||
+    cleanId === 'guard' ||
+    cleanId.startsWith('sec-') ||
+    cleanRole.includes('security') ||
+    cleanRole.includes('guard');
+
+  return isAdmin || isSecurity;
 }
 
 // ===== Correct Haversine distance formula =====
@@ -63,6 +67,46 @@ export function getDistanceMeters(
   return R * c;
 }
 
+export function isWithinAnyHotelFence(
+  lat: number,
+  lng: number,
+  accuracy?: number
+): { allowed: boolean; distance: number; effectiveDistance: number; name: string; radius: number } {
+  let minDist = Infinity;
+  let minEffectiveDist = Infinity;
+  let nearestName = '';
+  let nearestRadius = ALLOWED_RADIUS_METERS;
+  const acc = typeof accuracy === 'number' && accuracy > 0 ? accuracy : 0;
+
+  for (const loc of HOTEL_CAMPUS_LOCATIONS) {
+    const d = getDistanceMeters(lat, lng, loc.lat, loc.lng);
+    const effectiveDist = Math.max(0, d - acc);
+    if (effectiveDist < minEffectiveDist) {
+      minDist = Math.round(d);
+      minEffectiveDist = Math.round(effectiveDist);
+      nearestName = loc.name;
+      nearestRadius = loc.radiusMeters || ALLOWED_RADIUS_METERS;
+    }
+    if (effectiveDist <= (loc.radiusMeters || ALLOWED_RADIUS_METERS)) {
+      return {
+        allowed: true,
+        distance: Math.round(d),
+        effectiveDistance: Math.round(effectiveDist),
+        name: loc.name,
+        radius: loc.radiusMeters || ALLOWED_RADIUS_METERS,
+      };
+    }
+  }
+
+  return {
+    allowed: false,
+    distance: minDist,
+    effectiveDistance: minEffectiveDist,
+    name: nearestName,
+    radius: nearestRadius,
+  };
+}
+
 export interface StaffLocationSuccess {
   allowed: boolean;
   distance: string;
@@ -73,18 +117,18 @@ export interface StaffLocationSuccess {
 }
 
 // ===== Robust location fetch supporting both properties, progressive GPS locking, and indoor tolerance =====
-export function verifyStaffLocation(identifier?: string): Promise<StaffLocationSuccess> {
+export function verifyStaffLocation(identifier?: string, role?: string): Promise<StaffLocationSuccess> {
   return new Promise((resolve, reject) => {
-    // 1. If this is a designated test user, remote tester, or Security Guard, bypass location requirement
-    if (identifier && isExemptAccount(identifier)) {
-      console.log('🛡️ Security Guard / Test account detected: Bypassing geofence.');
+    // 1. If this is an Admin or Security Guard, bypass location requirement
+    if (isExemptAccount(identifier, role)) {
+      console.log('🛡️ Admin / Security Guard detected: Bypassing geofence.');
       resolve({
         allowed: true,
         distance: '0',
         latitude: HOTEL_LAT,
         longitude: HOTEL_LNG,
         accuracy: 5,
-        nearestHotel: 'Hotel Grand Godwin (Exempt Mode)',
+        nearestHotel: 'Hotel Grand Godwin (Authorized Exempt Mode)',
       });
       return;
     }

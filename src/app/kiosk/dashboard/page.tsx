@@ -652,8 +652,10 @@ export default function KioskDashboard() {
         >
           <OneTapPunchInterface
             employee={employee}
-            onBack={handleLogout}
+            mode="MOBILE_GEOFENCE"
+            punchedBy={employee?.employeeId || employee?.id}
             showLeaveAndHistory={true}
+            onBack={handleLogout}
             onSuccess={() => {
               setHasPunchedIn(true);
             }}

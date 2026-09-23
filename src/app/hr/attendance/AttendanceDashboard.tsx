@@ -12,6 +12,10 @@ type TeamAttendanceLog = {
   status: string
   isLate?: boolean
   lateMinutes?: number
+  isEarlyOut?: boolean
+  earlyOutMinutes?: number
+  scheduledTime?: string
+  scheduledOutTime?: string
   totalMinutes: number | null
   punchInMode: string | null
 }
@@ -31,6 +35,88 @@ const MODE_ICON: Record<string, string> = {
   BIOMETRIC: '👆',
 }
 
+function renderPunchModeBadge(mode: string | null, employeeId?: string) {
+  if (!mode) return <span style={{ color: 'var(--text-muted)' }}>—</span>
+  const mUpper = mode.trim().toUpperCase()
+
+  // Punched by security guard at gate kiosk
+  if (mUpper === 'SECURITY' || mUpper === 'KIOSK' || mUpper.includes('GUARD') || mUpper.includes('SEC')) {
+    return (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.35rem',
+          padding: '3px 8px',
+          borderRadius: '6px',
+          fontSize: '0.76rem',
+          fontWeight: 700,
+          backgroundColor: 'rgba(59, 130, 246, 0.12)',
+          color: '#2563eb',
+          border: '1px solid rgba(59, 130, 246, 0.28)',
+          whiteSpace: 'nowrap',
+        }}
+        title="Punched by On-Duty Security Guard at Gate Kiosk"
+      >
+        <span>🛡️</span>
+        <span>Security</span>
+      </span>
+    )
+  }
+
+  // Punched by admin / management
+  if (mUpper === 'ADMIN' || mUpper === 'MANAGER' || mUpper === 'HR') {
+    return (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.35rem',
+          padding: '3px 8px',
+          borderRadius: '6px',
+          fontSize: '0.76rem',
+          fontWeight: 700,
+          backgroundColor: 'rgba(168, 85, 247, 0.12)',
+          color: '#9333ea',
+          border: '1px solid rgba(168, 85, 247, 0.28)',
+          whiteSpace: 'nowrap',
+        }}
+        title="Punched by HR / Admin"
+      >
+        <span>⚡</span>
+        <span>Admin</span>
+      </span>
+    )
+  }
+
+  // Self punched by employee (Employee ID like GG-1003)
+  const displayId = (mUpper === 'MOBILE_GEOFENCE' || mUpper === 'WEB' || mUpper === 'GEO' || mUpper === 'SELF')
+    ? (employeeId || mode)
+    : mode
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.35rem',
+        padding: '3px 8px',
+        borderRadius: '6px',
+        fontSize: '0.76rem',
+        fontWeight: 700,
+        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+        color: '#059669',
+        border: '1px solid rgba(16, 185, 129, 0.28)',
+        whiteSpace: 'nowrap',
+      }}
+      title={`Self-Punched by Employee (${displayId})`}
+    >
+      <span>👤</span>
+      <span>{displayId}</span>
+    </span>
+  )
+}
+
 function formatTime(iso: string | null) {
   if (!iso) return '—'
   return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
@@ -41,6 +127,40 @@ function formatMinutes(mins: number | null) {
   const h = Math.floor(mins / 60)
   const m = mins % 60
   return `${h}h ${m}m`
+}
+
+function parseTimeToMinutes(timeOrIso: string | null | undefined): number {
+  if (!timeOrIso) return 0
+  const trimmed = timeOrIso.trim()
+  const ampmMatch = trimmed.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i)
+  if (ampmMatch) {
+    let h = parseInt(ampmMatch[1], 10)
+    const m = parseInt(ampmMatch[2], 10)
+    const isPm = ampmMatch[3].toLowerCase() === 'pm'
+    if (isPm && h < 12) h += 12
+    if (!isPm && h === 12) h = 0
+    return h * 60 + m
+  }
+  const time24Match = trimmed.match(/^(\d{1,2}):(\d{2})$/)
+  if (time24Match) {
+    const h = parseInt(time24Match[1], 10)
+    const m = parseInt(time24Match[2], 10)
+    return h * 60 + m
+  }
+  try {
+    const d = new Date(trimmed)
+    if (!isNaN(d.getTime())) {
+      const istStr = d.toLocaleTimeString('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+      const [hStr, mStr] = istStr.split(':')
+      return (parseInt(hStr, 10) || 0) * 60 + (parseInt(mStr, 10) || 0)
+    }
+  } catch {}
+  return 0
 }
 
 function getTodayDateStr(): string {
@@ -105,8 +225,25 @@ export default function AttendanceDashboard() {
     try {
       const res = await fetch(`/api/hr/attendance?date=${selectedDate}`)
       if (res.ok) {
-        const data = await res.json()
-        const serverLogs: TeamAttendanceLog[] = data.logs || []
+        const rawLogs: TeamAttendanceLog[] = data.logs || []
+        const serverLogs: TeamAttendanceLog[] = rawLogs.map((l: TeamAttendanceLog) => {
+          if (l.punchIn && l.punchIn !== '—' && l.punchIn !== '-') {
+            const schedTime = (l.scheduledTime && String(l.scheduledTime).trim()) || '09:00'
+            const schedMins = parseTimeToMinutes(schedTime)
+            const punchMins = parseTimeToMinutes(l.punchIn)
+            const diffMins = Math.max(0, punchMins - schedMins)
+            const isLate = diffMins > 15
+            const lateMinutes = isLate ? diffMins : 0
+            const status = isLate ? 'LATE' : (l.status === 'HALF_DAY' ? 'HALF_DAY' : 'PRESENT')
+            return {
+              ...l,
+              isLate,
+              lateMinutes,
+              status
+            }
+          }
+          return l
+        })
 
         // Intelligent client-side reconciliation with local cache
         let finalLogs = serverLogs
@@ -180,10 +317,15 @@ export default function AttendanceDashboard() {
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
+      const hasPunchIn = !!log.punchIn && log.punchIn !== '—' && log.punchIn !== '-'
+      const effectiveStatus = !hasPunchIn 
+        ? (log.status === 'ON_LEAVE' ? 'ON_LEAVE' : 'ABSENT')
+        : log.status
+
       if (departmentFilter !== 'ALL' && log.department !== departmentFilter) return false
       if (statusFilter !== 'ALL') {
-        if (statusFilter === 'PRESENT' && !['PRESENT', 'LATE', 'HALF_DAY'].includes(log.status)) return false
-        else if (statusFilter !== 'PRESENT' && log.status !== statusFilter) return false
+        if (statusFilter === 'PRESENT' && !['PRESENT', 'LATE', 'HALF_DAY'].includes(effectiveStatus)) return false
+        else if (statusFilter !== 'PRESENT' && effectiveStatus !== statusFilter) return false
       }
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
@@ -206,18 +348,32 @@ export default function AttendanceDashboard() {
   const handleExportCSV = () => {
     if (filteredLogs.length === 0) return
     const headers = ['Sr No', 'Employee ID', 'Employee Name', 'Department', 'Designation', 'Status', 'Punch In', 'Punch Out', 'Total Hours', 'Punch Mode']
-    const rows = filteredLogs.map((l, idx) => [
-      idx + 1,
-      `"${l.employeeId}"`,
-      `"${l.employeeName.replace(/"/g, '""')}"`,
-      `"${l.department.replace(/"/g, '""')}"`,
-      `"${(l.designation || '').replace(/"/g, '""')}"`,
-      `"${l.status}"`,
-      `"${formatTime(l.punchIn)}"`,
-      `"${formatTime(l.punchOut)}"`,
-      `"${formatMinutes(l.totalMinutes)}"`,
-      `"${l.punchInMode || ''}"`,
-    ])
+    const rows = filteredLogs.map((l, idx) => {
+      const hasPunchIn = !!l.punchIn && l.punchIn !== '—' && l.punchIn !== '-'
+      const effectiveStatus = !hasPunchIn 
+        ? (l.status === 'ON_LEAVE' ? 'ON_LEAVE' : 'ABSENT')
+        : l.status
+
+      let modeText = hasPunchIn ? (l.punchInMode || '') : '—'
+      if (hasPunchIn && modeText) {
+        const mU = modeText.toUpperCase().trim()
+        if (mU === 'SECURITY' || mU === 'KIOSK' || mU.includes('GUARD')) modeText = 'Security'
+        else if (mU === 'ADMIN') modeText = 'Admin'
+        else if (mU === 'MOBILE_GEOFENCE' || mU === 'WEB' || mU === 'GEO' || mU === 'SELF') modeText = l.employeeId
+      }
+      return [
+        idx + 1,
+        `"${l.employeeId}"`,
+        `"${l.employeeName.replace(/"/g, '""')}"`,
+        `"${l.department.replace(/"/g, '""')}"`,
+        `"${(l.designation || '').replace(/"/g, '""')}"`,
+        `"${effectiveStatus}"`,
+        `"${formatTime(l.punchIn)}"`,
+        `"${formatTime(l.punchOut)}"`,
+        `"${formatMinutes(l.totalMinutes)}"`,
+        `"${modeText}"`,
+      ]
+    })
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -273,13 +429,16 @@ export default function AttendanceDashboard() {
     })
   }
 
-  // Stats
+  // Stats - STRICT: You cannot mark late which is absent!
+  // Only employees with an actual punchIn can be PRESENT, LATE, or HALF_DAY.
+  const hasValidPunchIn = (l: TeamAttendanceLog) => !!l.punchIn && l.punchIn !== '—' && l.punchIn !== '-'
+
   const totalEmployees = logs.length
-  const halfDayCount = logs.filter(l => l.status === 'HALF_DAY').length
-  const presentCount = logs.filter(l => ['PRESENT', 'LATE', 'HALF_DAY'].includes(l.status)).length
-  const absentCount = logs.filter(l => l.status === 'ABSENT').length
-  const lateCount = logs.filter(l => l.status === 'LATE').length
   const onLeaveCount = logs.filter(l => l.status === 'ON_LEAVE').length
+  const absentCount = logs.filter(l => (!hasValidPunchIn(l) && l.status !== 'ON_LEAVE') || l.status === 'ABSENT').length
+  const presentCount = logs.filter(l => hasValidPunchIn(l) && l.status !== 'ABSENT').length
+  const lateCount = logs.filter(l => hasValidPunchIn(l) && (l.status === 'LATE' || l.isLate)).length
+  const halfDayCount = logs.filter(l => hasValidPunchIn(l) && l.status === 'HALF_DAY').length
 
   const cardStyle = {
     backgroundColor: 'var(--bg-card, #fff)',
@@ -650,8 +809,27 @@ export default function AttendanceDashboard() {
                   </td>
                 </tr>
               ) : filteredLogs.map((log, idx) => {
-                const isCurrentlyIn = !!log.punchIn && !log.punchOut
-                const isCompleted = !!log.punchIn && !!log.punchOut
+                const hasPunchIn = !!log.punchIn && log.punchIn !== '—' && log.punchIn !== '-'
+                
+                // Punctuality strictly calculated against individual scheduled shift timing (default 09:00, NEVER 08:00)
+                let computedLateMinutes = log.lateMinutes || 0
+                let isLate = hasPunchIn && (log.status === 'LATE' || !!log.isLate)
+
+                if (hasPunchIn && log.punchIn) {
+                  const schedTime = (log.scheduledTime && String(log.scheduledTime).trim()) || '09:00'
+                  const schedMins = parseTimeToMinutes(schedTime)
+                  const punchMins = parseTimeToMinutes(log.punchIn)
+                  const diffMins = Math.max(0, punchMins - schedMins)
+                  const dynIsLate = diffMins > 15
+                  computedLateMinutes = dynIsLate ? diffMins : 0
+                  isLate = dynIsLate
+                }
+
+                const effectiveStatus = !hasPunchIn 
+                  ? (log.status === 'ON_LEAVE' ? 'ON_LEAVE' : 'ABSENT')
+                  : (isLate ? 'LATE' : (log.status === 'HALF_DAY' ? 'HALF_DAY' : 'PRESENT'))
+                const isCurrentlyIn = hasPunchIn && !log.punchOut
+                const isCompleted = hasPunchIn && !!log.punchOut
                 return (
                   <tr key={log.employeeId} style={{ borderTop: '1px solid var(--border)' }}>
                     {/* Index for Printout */}
@@ -675,24 +853,29 @@ export default function AttendanceDashboard() {
                         borderRadius: '999px', 
                         fontSize: '0.75rem', 
                         fontWeight: 700,
-                        backgroundColor: `${STATUS_COLOR[log.status] || '#64748b'}22`, 
-                        color: STATUS_COLOR[log.status] || '#64748b' 
+                        backgroundColor: `${STATUS_COLOR[effectiveStatus] || '#64748b'}22`, 
+                        color: STATUS_COLOR[effectiveStatus] || '#64748b' 
                       }}>
-                        {log.status === 'LATE' ? '⚠️ LATE' : log.status}
+                        {effectiveStatus === 'LATE' ? '⚠️ LATE' : effectiveStatus}
                       </span>
                     </td>
 
-                    <td style={{ padding: '0.85rem 1.25rem', color: (log.isLate || log.status === 'LATE') ? '#f59e0b' : 'var(--success)', fontWeight: 600 }}>
+                    <td style={{ padding: '0.85rem 1.25rem', color: isLate ? '#f59e0b' : (hasPunchIn ? 'var(--success)' : 'var(--text-muted)'), fontWeight: 600 }}>
                       {formatTime(log.punchIn)}
-                      {(log.isLate || log.status === 'LATE') && log.lateMinutes ? (
+                      {isLate && computedLateMinutes ? (
                         <span style={{ display: 'block', fontSize: '0.7rem', color: '#f59e0b', fontWeight: 600 }}>
-                          +{log.lateMinutes >= 60 ? `${Math.floor(log.lateMinutes / 60)}h ${log.lateMinutes % 60}m` : `${log.lateMinutes}m`} late
+                          +{computedLateMinutes >= 60 ? `${Math.floor(computedLateMinutes / 60)}h ${computedLateMinutes % 60}m` : `${computedLateMinutes}m`} late
                         </span>
                       ) : null}
                     </td>
 
-                    <td style={{ padding: '0.85rem 1.25rem', color: log.punchOut ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 600 }}>
+                    <td style={{ padding: '0.85rem 1.25rem', color: log.punchOut ? (log.isEarlyOut ? '#f59e0b' : 'var(--text-main)') : 'var(--text-muted)', fontWeight: 600 }}>
                       {formatTime(log.punchOut)}
+                      {log.isEarlyOut && log.earlyOutMinutes ? (
+                        <span style={{ display: 'block', fontSize: '0.7rem', color: '#f59e0b', fontWeight: 600 }}>
+                          -{log.earlyOutMinutes >= 60 ? `${Math.floor(log.earlyOutMinutes / 60)}h ${log.earlyOutMinutes % 60}m` : `${log.earlyOutMinutes}m`} early
+                        </span>
+                      ) : null}
                     </td>
 
                     <td style={{ padding: '0.85rem 1.25rem', color: 'var(--text-main)', fontWeight: 600 }}>
@@ -700,11 +883,17 @@ export default function AttendanceDashboard() {
                     </td>
 
                     <td style={{ padding: '0.85rem 1.25rem' }}>
-                      <span className="no-print" style={{ fontSize: '1rem' }} title={log.punchInMode || 'Unknown'}>
-                        {log.punchInMode ? MODE_ICON[log.punchInMode] : '—'}
+                      <span className="no-print">
+                        {renderPunchModeBadge(hasPunchIn ? log.punchInMode : null, log.employeeId)}
                       </span>
                       <span className="print-only" style={{ fontSize: '7.5pt', fontWeight: 600 }}>
-                        {log.punchInMode || '—'}
+                        {!hasPunchIn
+                          ? '—'
+                          : (log.punchInMode === 'SECURITY' || log.punchInMode === 'KIOSK'
+                            ? 'Security'
+                            : log.punchInMode === 'ADMIN'
+                            ? 'Admin'
+                            : log.punchInMode || log.employeeId || '—')}
                       </span>
                     </td>
 
@@ -837,6 +1026,7 @@ export default function AttendanceDashboard() {
           >
             <OneTapPunchInterface
               employee={activePunchEmployee}
+              punchedBy="ADMIN"
               onBack={() => {
                 setActivePunchEmployee(null)
                 fetchTeamAttendance(date)

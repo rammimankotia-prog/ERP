@@ -61,6 +61,8 @@ export async function GET() {
           checkedOut: !!(todayRecord && todayRecord.punchOut),
           punchInTime: todayRecord?.punchIn || null,
           punchOutTime: todayRecord?.punchOut || null,
+          punchInMode: todayRecord?.punchInMode || null,
+          punchOutMode: todayRecord?.punchOutMode || null,
         }
       })
 

@@ -224,14 +224,11 @@ export async function GET(req: NextRequest) {
         const punchInIso = attendanceRecord.punchIn
         const punchOutIso = attendanceRecord.punchOut || null
 
-        // Accurate IST minutes calculation
+        // Accurate IST minutes calculation relative to employee morningTime
         const punchInMinutes = parseTimeToISTMinutes(punchInIso)
         const computedLateMins = Math.max(0, punchInMinutes - shiftInMins)
-        const isLateComputed = computedLateMins > 15
-        const isLate = isLateComputed || attendanceRecord.isLate === true || attendanceRecord.status === 'LATE'
-        const lateMins = attendanceRecord.lateMinutes && attendanceRecord.lateMinutes > 0
-          ? attendanceRecord.lateMinutes
-          : computedLateMins
+        const isLate = computedLateMins > 15
+        const lateMins = isLate ? computedLateMins : 0
 
         let earlyOutMins = 0
         let isEarlyOut = false

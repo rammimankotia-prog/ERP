@@ -75,6 +75,10 @@ export function getMergedShifts(): ShiftRecord[] {
 
   const mergeShift = (s: any) => {
     if (!s || !s.id) return
+    // Guard: Morning Shift standard start time is 09:00, NEVER 08:00
+    if (s.name === 'Morning Shift' && s.startTime === '08:00') {
+      s.startTime = '09:00'
+    }
     const key = String(s.id).trim()
     const existing = map.get(key)
 

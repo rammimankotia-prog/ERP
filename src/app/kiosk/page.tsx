@@ -644,6 +644,7 @@ export default function KioskPage() {
             <OneTapPunchInterface
               employee={selectedEmployee}
               mode="KIOSK"
+              punchedBy="SECURITY"
               showLeaveAndHistory={false}
               onBack={() => {
                 setSelectedEmployee(null);
@@ -1105,7 +1106,11 @@ export default function KioskPage() {
                               color: onShift ? '#10b981' : shiftDone ? '#64748b' : '#3b82f6',
                             }}
                           >
-                            {onShift ? '🟢 On Shift' : shiftDone ? '🔴 Completed' : '⚪ Ready'}
+                            {onShift
+                              ? (emp.punchInMode === 'SECURITY' || emp.punchInMode === 'KIOSK' ? '🛡️ In (Security)' : '🟢 On Shift')
+                              : shiftDone
+                              ? (emp.punchOutMode === 'SECURITY' || emp.punchOutMode === 'KIOSK' ? '🛡️ Out (Security)' : '🔴 Completed')
+                              : '⚪ Ready'}
                           </span>
                         </div>
                       </div>
