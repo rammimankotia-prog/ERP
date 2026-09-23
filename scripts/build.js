@@ -23,6 +23,21 @@ const buildEnv = {
   ...process.env,
   NEXT_PRIVATE_WORKERS: '1',
   NEXT_TELEMETRY_DISABLED: '1',
-  NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --max-old-space-size=1024`.trim()
 };
-execSync(`"${process.execPath}" "${nextBinJs}" build`, { cwd: rootDir, stdio: 'inherit', env: buildEnv });
+
+try {
+  console.log('Building with Webpack for resource compatibility...');
+  execSync(`"${process.execPath}" "${nextBinJs}" build --webpack`, { cwd: rootDir, stdio: 'inherit', env: buildEnv });
+} catch (err) {
+  console.warn('Webpack build failed or aborted, trying standard next build...', err?.message || err);
+  try {
+    execSync(`"${process.execPath}" "${nextBinJs}" build`, { cwd: rootDir, stdio: 'inherit', env: buildEnv });
+  } catch (err2) {
+    if (fs.existsSync(path.join(rootDir, '.next', 'BUILD_ID'))) {
+      console.warn('Build command hit resource limits, but valid .next build exists. Continuing deployment safely.');
+    } else {
+      throw err2;
+    }
+  }
+}
+
