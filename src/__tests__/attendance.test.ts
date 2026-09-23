@@ -403,3 +403,42 @@ describe('Individual Employee Shift Late Hours Calculation (Respects Employee mo
   })
 })
 
+describe('Early Departure & Dynamic Shift Change Calculation', () => {
+  function computeDeparture(punchOutStr: string, employeeEveningTime: string) {
+    const parseToMins = (t: string) => {
+      const match = t.match(/^(\d{1,2}):(\d{2})$/)
+      if (!match) return 0
+      return parseInt(match[1], 10) * 60 + parseInt(match[2], 10)
+    }
+    const schedOutMins = parseToMins(employeeEveningTime || '18:00')
+    const punchOutMins = parseToMins(punchOutStr)
+    const earlyMins = Math.max(0, schedOutMins - punchOutMins)
+    const isEarlyOut = earlyMins > 15
+    return { isEarlyOut, earlyOutMinutes: isEarlyOut ? earlyMins : 0 }
+  }
+
+  test('✅ Shift 18:00, Punch Out 17:30 -> 30 mins early (>15m grace)', () => {
+    const res = computeDeparture('17:30', '18:00')
+    expect(res.isEarlyOut).toBe(true)
+    expect(res.earlyOutMinutes).toBe(30)
+  })
+
+  test('✅ Shift 18:00, Punch Out 17:50 -> within 15 min grace (NOT early out)', () => {
+    const res = computeDeparture('17:50', '18:00')
+    expect(res.isEarlyOut).toBe(false)
+    expect(res.earlyOutMinutes).toBe(0)
+  })
+
+  test('✅ Updated Shift Time: Employee shift changed to 19:00, Punch Out 18:30 -> 30 mins early', () => {
+    const res = computeDeparture('18:30', '19:00')
+    expect(res.isEarlyOut).toBe(true)
+    expect(res.earlyOutMinutes).toBe(30)
+  })
+
+  test('✅ Afternoon Shift 23:00, Punch Out 22:50 -> within 15 min grace (NOT early out)', () => {
+    const res = computeDeparture('22:50', '23:00')
+    expect(res.isEarlyOut).toBe(false)
+    expect(res.earlyOutMinutes).toBe(0)
+  })
+})
+

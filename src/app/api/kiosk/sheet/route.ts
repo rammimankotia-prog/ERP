@@ -356,17 +356,35 @@ export async function GET(req: NextRequest) {
         }
 
         const empIndividualTime = (emp.morningTime && String(emp.morningTime).trim()) || '09:00'
+        const empEndTime = (emp.eveningTime && String(emp.eveningTime).trim()) || '18:00'
         const shiftInMinutes = parseTimeToISTMinutes(empIndividualTime)
+        const shiftOutMinutes = parseTimeToISTMinutes(empEndTime)
         const punchInMinutes = attRecord.punchIn ? parseTimeToISTMinutes(attRecord.punchIn) : null
+        const punchOutMinutes = attRecord.punchOut ? parseTimeToISTMinutes(attRecord.punchOut) : null
+
         const lateMinutes = punchInMinutes !== null ? Math.max(0, punchInMinutes - shiftInMinutes) : 0
         const isLate = punchInMinutes !== null && lateMinutes > 15
+
+        let earlyOutMinutes = 0
+        if (punchOutMinutes !== null) {
+          if (shiftOutMinutes < shiftInMinutes) {
+            const effShiftOut = shiftOutMinutes + 1440
+            const effPunchOut = punchOutMinutes < shiftInMinutes ? punchOutMinutes + 1440 : punchOutMinutes
+            earlyOutMinutes = Math.max(0, effShiftOut - effPunchOut)
+          } else {
+            earlyOutMinutes = Math.max(0, shiftOutMinutes - punchOutMinutes)
+          }
+        }
+        const isEarlyOut = punchOutMinutes !== null && earlyOutMinutes > 15
         const isHalfDay = attRecord.status === 'HALF_DAY' || (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300 && !!attRecord.punchOut)
         const displayStatus = !attRecord.punchIn
           ? 'ABSENT'
-          : (isHalfDay ? 'HALF_DAY' : (isLate ? 'LATE' : (attRecord.status === 'LATE' ? 'PRESENT' : (attRecord.status || 'PRESENT'))))
-        const badgeText = !attRecord.punchIn ? 'A' : (isHalfDay ? '½ DAY' : (isLate ? 'LATE' : 'P'))
+          : (isHalfDay ? 'HALF_DAY' : (isLate && isEarlyOut ? 'LATE_AND_EARLY' : (isLate ? 'LATE' : (isEarlyOut ? 'EARLY_OUT' : (attRecord.status || 'PRESENT')))))
+        const badgeText = !attRecord.punchIn ? 'A' : (isHalfDay ? '½ DAY' : (isLate ? 'LATE' : (isEarlyOut ? 'EARLY' : 'P')))
 
         const offDayNote = isConfiguredOff ? ` [🏖️ Scheduled Off Day (${dayName})]` : ''
+        const earlyPart = isEarlyOut ? ` • Early Out (-${earlyOutMinutes}m)` : ''
+        const latePart = isLate ? ` • Late (+${lateMinutes}m)` : ''
 
         dailyCells[dayNum] = {
           status: displayStatus,
@@ -377,16 +395,22 @@ export async function GET(req: NextRequest) {
           punchOutRaw: attRecord.punchOut,
           isLate,
           lateMinutes: isLate ? lateMinutes : 0,
+          isEarlyOut,
+          earlyOutMinutes: isEarlyOut ? earlyOutMinutes : 0,
           isHalfDay,
           totalMinutes: totalMins,
           isNonAmended: false,
           isOffDay: isConfiguredOff,
           leaveReason: null,
           title: isHalfDay
-            ? `🟣 Half Day (${typeof totalMins === 'number' ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m ≤ 5h` : '≤ 5 hours'})${isLate ? ` • Late (+${lateMinutes}m)` : ''}${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ''}`
-            : isLate
-              ? `⚠️ Late Arrival (+${lateMinutes}m)${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`
-              : `🟢 Present${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`,
+            ? `🟣 Half Day (${typeof totalMins === 'number' ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m ≤ 5h` : '≤ 5 hours'})${latePart}${earlyPart}${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ''}`
+            : isLate && isEarlyOut
+              ? `⚠️ Late Arrival (+${lateMinutes}m) & Early Out (-${earlyOutMinutes}m)${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`
+              : isLate
+                ? `⚠️ Late Arrival (+${lateMinutes}m)${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`
+                : isEarlyOut
+                  ? `🚪 Early Departure (-${earlyOutMinutes}m)${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`
+                  : `🟢 Present${offDayNote} | In: ${inFormatted}${outFormatted ? ` | Out: ${outFormatted}` : ' (On Duty)'}`,
         }
         return
       }

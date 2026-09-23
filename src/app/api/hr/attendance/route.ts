@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
         lateMinutes = isLate ? diffMinutes : 0
         status = isLate ? 'LATE' : 'PRESENT'
 
-        // Half-day check: worked <= 5 hours
+        // Half-day and Early-out check
         if (record.punchOut) {
           let totalMins = record.totalMinutes
           if (totalMins === undefined || totalMins === null) {
@@ -146,17 +146,31 @@ export async function GET(req: NextRequest) {
               )
             } catch {}
           }
-          if (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300) {
-            status = 'HALF_DAY'
-          }
 
           // Early departure check: Calculate against employee's individual eveningTime
           const empEndTime = (emp.eveningTime && String(emp.eveningTime).trim()) || '18:00'
           const shiftOutMinutes = parseTimeToISTMinutes(empEndTime)
           const punchOutMinutes = parseTimeToISTMinutes(record.punchOut)
-          const diffEarly = Math.max(0, shiftOutMinutes - punchOutMinutes)
+          let diffEarly = 0
+          if (shiftOutMinutes < shiftInMinutes) {
+            const effShiftOut = shiftOutMinutes + 1440
+            const effPunchOut = punchOutMinutes < shiftInMinutes ? punchOutMinutes + 1440 : punchOutMinutes
+            diffEarly = Math.max(0, effShiftOut - effPunchOut)
+          } else {
+            diffEarly = Math.max(0, shiftOutMinutes - punchOutMinutes)
+          }
           isEarlyOut = diffEarly > 15
           earlyOutMinutes = isEarlyOut ? diffEarly : 0
+
+          if (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300) {
+            status = 'HALF_DAY'
+          } else if (isLate && isEarlyOut) {
+            status = 'LATE_AND_EARLY'
+          } else if (isLate) {
+            status = 'LATE'
+          } else if (isEarlyOut) {
+            status = 'EARLY_OUT'
+          }
         }
       } else {
         // NO PUNCH-IN: Employee is ABSENT or ON_LEAVE. Strictly NEVER LATE and NEVER PRESENT.

@@ -192,19 +192,43 @@ function getRosterShiftTimes(emp: any, dateStr: string): { startTime: string; en
     // Day number key (as stored in ShiftsManager — numeric)
     const assignedShiftName: string = empRoster[dayNum] || empRoster[String(dayNum)] || ''
 
-    // If explicitly scheduled for Night Shift or Afternoon Shift, honor those specific timings
-    if (assignedShiftName === 'Night Shift') {
-      return {
-        startTime: '20:00',
-        endTime: '08:00',
-        shiftName: 'Night Shift'
+    if (assignedShiftName) {
+      try {
+        const { getMergedShifts } = require('@/lib/shiftStorage')
+        const allShifts = getMergedShifts()
+        const matched = allShifts.find((s: any) =>
+          (s.name && s.name.trim().toLowerCase() === assignedShiftName.trim().toLowerCase()) ||
+          (s.id && s.id.trim().toLowerCase() === assignedShiftName.trim().toLowerCase())
+        )
+        if (matched) {
+          return {
+            startTime: matched.startTime || '09:00',
+            endTime: matched.endTime || '18:00',
+            shiftName: matched.name || assignedShiftName
+          }
+        }
+      } catch {}
+
+      if (assignedShiftName === 'Night Shift') {
+        return {
+          startTime: '20:00',
+          endTime: '08:00',
+          shiftName: 'Night Shift'
+        }
       }
-    }
-    if (assignedShiftName === 'Afternoon Shift') {
-      return {
-        startTime: '13:00',
-        endTime: '23:00',
-        shiftName: 'Afternoon Shift'
+      if (assignedShiftName === 'Afternoon Shift') {
+        return {
+          startTime: '13:00',
+          endTime: '23:00',
+          shiftName: 'Afternoon Shift'
+        }
+      }
+      if (assignedShiftName === 'Break Shift') {
+        return {
+          startTime: '10:00',
+          endTime: '22:00',
+          shiftName: 'Break Shift'
+        }
       }
     }
 
@@ -673,14 +697,24 @@ export async function POST(req: NextRequest) {
       const punchOutTime = now.getTime()
       const totalMinutes = Math.max(0, Math.floor((punchOutTime - punchInTime) / 60000))
 
-      // Compute early departure against employee's INDIVIDUAL evening time
+      // Compute early departure against employee's active shift time
       const rosterShiftOut = getRosterShiftTimes(emp, dateStr)
-      const empEndTime = (emp?.eveningTime && String(emp.eveningTime).trim()) || rosterShiftOut.endTime || '18:00'
-      const shiftEndTime = empEndTime
+      const shiftEndTime = rosterShiftOut.endTime || (emp?.eveningTime && String(emp.eveningTime).trim()) || '18:00'
+      const shiftStartTimeOut = rosterShiftOut.startTime || (emp?.morningTime && String(emp.morningTime).trim()) || '09:00'
       const activeShiftNameOut = rosterShiftOut.shiftName
       const shiftOutMinutes = parseTimeToISTMinutes(shiftEndTime)
+      const shiftInMinutes = parseTimeToISTMinutes(shiftStartTimeOut)
       const punchOutMinutes = parseTimeToISTMinutes(nowIso)
-      const earlyOutMinutes = Math.max(0, shiftOutMinutes - punchOutMinutes)
+
+      let earlyOutMinutes = 0
+      if (shiftOutMinutes < shiftInMinutes) {
+        // Cross-midnight shift (e.g. 20:00 to 08:00)
+        const effShiftOut = shiftOutMinutes + 1440
+        const effPunchOut = punchOutMinutes < shiftInMinutes ? punchOutMinutes + 1440 : punchOutMinutes
+        earlyOutMinutes = Math.max(0, effShiftOut - effPunchOut)
+      } else {
+        earlyOutMinutes = Math.max(0, shiftOutMinutes - punchOutMinutes)
+      }
       const isEarlyOut = earlyOutMinutes > 15
 
       // Half-Day Policy: If total hours worked is <= 5 hours (300 mins), mark as HALF_DAY

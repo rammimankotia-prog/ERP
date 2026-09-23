@@ -23,6 +23,8 @@ interface CellData {
   punchIn?: string | null
   punchOut?: string | null
   isLate?: boolean
+  isEarlyOut?: boolean
+  earlyOutMinutes?: number
   isHalfDay?: boolean
   totalMinutes?: number | null
   title?: string
@@ -1079,9 +1081,15 @@ export default function GuardAttendanceSheet({
                           )
                         }
 
-                        // 4. PRESENT / LATE
-                        if (cell.status === 'PRESENT' || cell.status === 'LATE') {
-                          const isLate = cell.isLate || cell.status === 'LATE'
+                        // 4. PRESENT / LATE / EARLY OUT
+                        if (cell.status === 'PRESENT' || cell.status === 'LATE' || cell.status === 'EARLY_OUT' || cell.status === 'LATE_AND_EARLY') {
+                          const isLate = cell.isLate || cell.status === 'LATE' || cell.status === 'LATE_AND_EARLY'
+                          const isEarly = cell.isEarlyOut || cell.status === 'EARLY_OUT' || cell.status === 'LATE_AND_EARLY'
+                          const badgeLabel = cell.badgeText || (isLate && isEarly ? 'L/E' : isLate ? 'LATE' : isEarly ? 'EARLY' : 'P')
+                          const badgeBg = isLate && isEarly ? 'rgba(239, 68, 68, 0.15)' : isLate ? 'rgba(245, 158, 11, 0.15)' : isEarly ? 'rgba(249, 115, 22, 0.15)' : 'rgba(16, 185, 129, 0.15)'
+                          const badgeColor = isLate && isEarly ? '#ef4444' : isLate ? '#d97706' : isEarly ? '#ea580c' : '#10b981'
+                          const badgeBorder = isLate && isEarly ? '1px solid rgba(239, 68, 68, 0.3)' : isLate ? '1px solid rgba(245, 158, 11, 0.3)' : isEarly ? '1px solid rgba(249, 115, 22, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)'
+
                           return (
                             <td
                               key={day.dayNumber}
@@ -1098,14 +1106,14 @@ export default function GuardAttendanceSheet({
                                   style={{
                                     padding: '2px 5px',
                                     borderRadius: '5px',
-                                    backgroundColor: isLate ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                                    color: isLate ? '#d97706' : '#10b981',
-                                    border: isLate ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+                                    backgroundColor: badgeBg,
+                                    color: badgeColor,
+                                    border: badgeBorder,
                                     fontWeight: 800,
-                                    fontSize: '0.68rem',
+                                    fontSize: '0.66rem',
                                   }}
                                 >
-                                  {isLate ? 'LATE' : 'P'}
+                                  {badgeLabel}
                                 </span>
                                 {cell.punchIn && (
                                   <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontWeight: 600 }}>
