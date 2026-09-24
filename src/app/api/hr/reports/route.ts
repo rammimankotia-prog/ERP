@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { getMergedAttendance } from '@/lib/attendanceStorage'
 import { getAllEmployees } from '@/lib/employeeData'
+import { getEmployeeRosterShift } from '@/lib/shiftStorage'
 
 export const dynamic = 'force-dynamic'
 
@@ -159,12 +160,6 @@ export async function GET(req: NextRequest) {
   const allRecords: ReportRecord[] = []
 
   employees.forEach(emp => {
-    const shiftIn = emp.morningTime || '09:00'
-    const shiftOut = emp.eveningTime || '18:00'
-    const shiftInMins = parseTimeToMinutes(shiftIn)
-    const shiftOutMins = parseTimeToMinutes(shiftOut)
-    const scheduledTotalMins = shiftOutMins > shiftInMins ? shiftOutMins - shiftInMins : (1440 - shiftInMins) + shiftOutMins
-
     dateList.forEach(dateStr => {
       const d = new Date(dateStr + 'T12:00:00')
       const dayIndex = d.getDay() // 0=Sun, 6=Sat
@@ -176,6 +171,16 @@ export async function GET(req: NextRequest) {
         : ['Sunday']
       const isOffDay = empOffDays.some((od: string) => od.toLowerCase() === dayName.toLowerCase())
       const isWeekend = isSunday || isSaturday || isOffDay
+
+      // Per-date roster shift — handles night shift, duty swaps etc.
+      const rosterShift = getEmployeeRosterShift(emp, dateStr)
+      const shiftIn = rosterShift.startTime || emp.morningTime || '09:00'
+      const shiftOut = rosterShift.endTime || emp.eveningTime || '18:00'
+      const shiftInMins = parseTimeToMinutes(shiftIn)
+      const shiftOutMins = parseTimeToMinutes(shiftOut)
+      const scheduledTotalMins = shiftOutMins > shiftInMins
+        ? shiftOutMins - shiftInMins
+        : (1440 - shiftInMins) + shiftOutMins // overnight/night shifts
 
       // Check real approved leave
       const approvedLeave = allLeaves.find(l =>

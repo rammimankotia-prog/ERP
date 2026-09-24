@@ -120,17 +120,15 @@ export default function AttendanceReports() {
   const [viewTab, setViewTab] = useState<'SUMMARY' | 'DETAILED'>('SUMMARY')
   const [selectedException, setSelectedException] = useState<ExceptionFilter>('ALL')
 
-  // Date controls
-  const [selectedYear, setSelectedYear] = useState(2026)
-  const [selectedMonth, setSelectedMonth] = useState(8) // 8 = September (0-indexed)
+  // Date controls — always initialized from REAL current date
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth()) // 0-indexed
   const [customFrom, setCustomFrom] = useState(() => {
-    const d = new Date(2026, 8, 1)
-    return d.toISOString().split('T')[0]
+    // Default custom range: first day of current month to today
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    return formatLocalDate(firstOfMonth)
   })
-  const [customTo, setCustomTo] = useState(() => {
-    const d = new Date(2026, 8, 9)
-    return d.toISOString().split('T')[0]
-  })
+  const [customTo, setCustomTo] = useState(() => formatLocalDate(now))
   const [weekOffset, setWeekOffset] = useState(0) // 0 = current week, -1 = last week
 
   // Filters
@@ -208,12 +206,12 @@ export default function AttendanceReports() {
     return () => document.removeEventListener('fullscreenchange', handleFsChange)
   }, [])
 
-  // Compute active date range based on mode
+  // Compute active date range based on mode — uses REAL current date as anchor
   const activeRange = useMemo(() => {
     if (mode === 'WEEKLY') {
-      const targetDate = new Date(2026, 8, 9) // Current demo anchor date: 9 Sep 2026
-      targetDate.setDate(targetDate.getDate() + (weekOffset * 7))
-      return getWeekRange(targetDate)
+      const today = new Date()
+      today.setDate(today.getDate() + (weekOffset * 7))
+      return getWeekRange(today)
     } else if (mode === 'MONTHLY') {
       return getMonthRange(selectedYear, selectedMonth)
     } else {
@@ -599,6 +597,7 @@ export default function AttendanceReports() {
                 style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
                 onClick={() => setWeekOffset(p => p + 1)}
                 disabled={weekOffset >= 0}
+                title={weekOffset >= 0 ? 'Cannot navigate to future weeks' : 'Go to next week'}
               >
                 Next Week ▶
               </button>
@@ -634,7 +633,7 @@ export default function AttendanceReports() {
                 value={selectedYear}
                 onChange={e => setSelectedYear(Number(e.target.value))}
               >
-                {[2026, 2025, 2024].map(y => (
+                {Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => new Date().getFullYear() - i).map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>
