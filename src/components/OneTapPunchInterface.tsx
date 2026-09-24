@@ -18,6 +18,13 @@ export interface EmployeeInfo {
   shiftDisplay?: string;
   isNightShift?: boolean;
   isOff?: boolean;
+  isShiftSwapped?: boolean;
+  shiftChangeNotice?: string | null;
+  shiftInstruction?: string | null;
+  dayShiftStart?: string;
+  dayShiftEnd?: string;
+  nightShiftStart?: string;
+  nightShiftEnd?: string;
   branch?: string;
   checkedIn?: boolean;
   checkedOut?: boolean;
@@ -812,6 +819,37 @@ export default function OneTapPunchInterface({
             );
           })()}
         </div>
+
+        {/* Roster Shift Swap Instruction Banner for Kiosk Guard & Staff */}
+        {(employee.shiftInstruction || employee.shiftChangeNotice || employee.isShiftSwapped || employee.morningTime === '20:00') && (
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              padding: '0.65rem 0.95rem',
+              borderRadius: '10px',
+              backgroundColor: isLight ? '#f5f3ff' : 'rgba(139, 92, 246, 0.15)',
+              border: isLight ? '1.5px solid #c4b5fd' : '1.5px solid rgba(139, 92, 246, 0.45)',
+              color: isLight ? '#5b21b6' : '#d8b4fe',
+              fontSize: '0.84rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.55rem',
+              boxShadow: '0 2px 8px rgba(109, 40, 217, 0.1)',
+            }}
+          >
+            <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>📢</span>
+            <div style={{ flex: 1, textAlign: 'left' }}>
+              <div style={{ fontWeight: 800, fontSize: '0.86rem', color: isLight ? '#4c1d95' : '#e9d5ff' }}>
+                Duty Roster Shift Notice (ड्यूटी रोस्टर निर्देश)
+              </div>
+              <div style={{ fontSize: '0.8rem', marginTop: '1px', opacity: 0.95 }}>
+                {employee.shiftInstruction || employee.shiftChangeNotice || (employee.morningTime === '20:00' ? 'Duty roster mein Night Shift assign hui hai. Aane ka samay raat 8:00 PM (8 PM – 8 AM) hai.' : 'Duty roster ke anusaar shift timings update ho gayi hai.')}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Live Attendance Status Badge */}
         <div

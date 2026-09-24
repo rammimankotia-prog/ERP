@@ -1152,6 +1152,30 @@ export default function KioskPage() {
                               : '⚪ Ready'}
                           </span>
                         </div>
+
+                        {/* Shift Swapped Notice Badge */}
+                        {(emp.shiftChangeNotice || emp.isShiftSwapped) && (
+                          <div
+                            style={{
+                              marginTop: '0.3rem',
+                              fontSize: '0.67rem',
+                              fontWeight: 700,
+                              color: isLight ? '#6d28d9' : '#c084fc',
+                              backgroundColor: isLight ? '#ede9fe' : 'rgba(139, 92, 246, 0.2)',
+                              border: isLight ? '1px solid #c4b5fd' : '1px solid rgba(139, 92, 246, 0.35)',
+                              borderRadius: '5px',
+                              padding: '2px 7px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              width: 'fit-content',
+                            }}
+                            title={emp.shiftInstruction || emp.shiftChangeNotice || 'Shift changed in roster'}
+                          >
+                            <span>📢</span>
+                            <span>{emp.shiftChangeNotice || (emp.isNightShift ? '🌙 Night Shift Swapped (8 PM – 8 AM)' : '☀️ Day Shift Swapped')}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Tap Arrow */}

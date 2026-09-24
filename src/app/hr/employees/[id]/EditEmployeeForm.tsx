@@ -45,6 +45,10 @@ export default function EditEmployeeForm({
 
   const [selectedShift, setSelectedShift] = useState<'MORNING' | 'AFTERNOON' | 'BREAK' | 'NIGHT'>(initialShift)
   const [swapShiftEligible, setSwapShiftEligible] = useState<boolean>(employee.swapShiftEligible === true)
+  const [dayShiftStart, setDayShiftStart] = useState(employee.dayShiftStart || employee.morningTime || '09:00')
+  const [dayShiftEnd, setDayShiftEnd] = useState(employee.dayShiftEnd || employee.eveningTime || '18:00')
+  const [nightShiftStart, setNightShiftStart] = useState(employee.nightShiftStart || '20:00')
+  const [nightShiftEnd, setNightShiftEnd] = useState(employee.nightShiftEnd || '08:00')
   const [morningTime, setMorningTime] = useState(employee.morningTime || '09:00')
   const [eveningTime, setEveningTime] = useState(employee.eveningTime || '18:00')
   const [breakStart, setBreakStart] = useState('14:00')
@@ -142,6 +146,10 @@ export default function EditEmployeeForm({
         morningTime: morningTime || (formData.get('morningTime') as string) || '09:00',
         eveningTime: eveningTime || (formData.get('eveningTime') as string) || '18:00',
         swapShiftEligible,
+        dayShiftStart: swapShiftEligible ? dayShiftStart : (morningTime || '09:00'),
+        dayShiftEnd: swapShiftEligible ? dayShiftEnd : (eveningTime || '18:00'),
+        nightShiftStart: swapShiftEligible ? nightShiftStart : '20:00',
+        nightShiftEnd: swapShiftEligible ? nightShiftEnd : '08:00',
         offDays: offDays.length > 0 ? offDays : ['Sunday'],
         doj: dojStr ? new Date(dojStr).toISOString() : new Date().toISOString(),
         dob: dobStr ? new Date(dobStr).toISOString() : undefined,
@@ -1406,6 +1414,135 @@ export default function EditEmployeeForm({
               </p>
             </div>
           </label>
+
+          {/* Dual Shift Hours Configuration (When Swap Shift is Enabled) */}
+          {swapShiftEligible && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '1.25rem',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(139, 92, 246, 0.05)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#8b5cf6', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <span>⚙️</span>
+                <span>Dual Shift Rotational Timings (दोनों शिफ्ट का समय सेट करें)</span>
+              </div>
+              <p style={{ margin: '0 0 1rem 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Set customized working hours for both shifts. When rotated in the duty roster, the security kiosk will automatically adjust reporting times and notify guards.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                {/* ☀️ Day Shift Configuration */}
+                <div
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--bg-main)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#10b981', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span>☀️ Day Shift (दिन की शिफ्ट)</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>
+                        Arrival (In-Time)
+                      </label>
+                      <input
+                        type="time"
+                        value={dayShiftStart}
+                        onChange={e => setDayShiftStart(e.target.value)}
+                        className="form-input"
+                        style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>
+                        Departure (Out-Time)
+                      </label>
+                      <input
+                        type="time"
+                        value={dayShiftEnd}
+                        onChange={e => setDayShiftEnd(e.target.value)}
+                        className="form-input"
+                        style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'block' }}>
+                    Standard Day Shift: 08:00 or 09:00 to 18:00 / 20:00
+                  </span>
+                </div>
+
+                {/* 🌙 Night Shift Configuration */}
+                <div
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--bg-main)',
+                    border: '1px solid rgba(139, 92, 246, 0.4)',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#8b5cf6', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span>🌙 Night Shift (रात की शिफ्ट)</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>
+                        Evening Arrival (In-Time)
+                      </label>
+                      <input
+                        type="time"
+                        value={nightShiftStart}
+                        onChange={e => setNightShiftStart(e.target.value)}
+                        className="form-input"
+                        style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>
+                        Morning Departure (Out)
+                      </label>
+                      <input
+                        type="time"
+                        value={nightShiftEnd}
+                        onChange={e => setNightShiftEnd(e.target.value)}
+                        className="form-input"
+                        style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: '#8b5cf6', marginTop: '0.5rem', display: 'block', fontWeight: 600 }}>
+                    Standard Night Shift: 08:00 PM to 08:00 AM (20:00 – 08:00)
+                  </span>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: '0.85rem',
+                  padding: '0.55rem 0.85rem',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                  fontSize: '0.76rem',
+                  color: 'var(--text-main)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                }}
+              >
+                <span>🔔</span>
+                <span>
+                  <strong>Kiosk Instruction:</strong> Duty roster mein swap karte hi security kiosk par automated instruction dispatch hogi aur arrival time updated show hoga.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Info note */}
           {!swapShiftEligible && (

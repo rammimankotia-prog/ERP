@@ -237,6 +237,9 @@ export function getEmployeeRosterShift(
   formatted12H: string
   isNightShift: boolean
   isOff: boolean
+  isShiftSwapped: boolean
+  shiftChangeNotice: string | null
+  shiftInstruction: string | null
 } {
   try {
     const todayIST = dateStr || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
@@ -262,12 +265,99 @@ export function getEmployeeRosterShift(
     const empRoster = (empId && roster[empId]) || (empCode && roster[empCode]) || {}
     const assignedShiftName: string = empRoster[dayNum] || empRoster[String(dayNum)] || ''
 
+    // Base profile timings
+    const baseDayStart = emp?.dayShiftStart || emp?.morningTime || '09:00'
+    const baseDayEnd = emp?.dayShiftEnd || emp?.eveningTime || '18:00'
+    const baseNightStart = emp?.nightShiftStart || '20:00'
+    const baseNightEnd = emp?.nightShiftEnd || '08:00'
+    const isProfileDefaultNight = baseDayStart === '20:00' || baseDayStart.startsWith('2') || baseDayEnd === '08:00'
+
     if (assignedShiftName) {
       const allShifts = getMergedShifts()
       const matched = allShifts.find((s: any) =>
         (s.name && s.name.trim().toLowerCase() === assignedShiftName.trim().toLowerCase()) ||
         (s.id && s.id.trim().toLowerCase() === assignedShiftName.trim().toLowerCase())
       )
+
+      if (assignedShiftName === 'Night Shift' || (matched && (matched.type === 'NIGHT' || matched.name.toLowerCase().includes('night')))) {
+        const sTime = emp?.nightShiftStart || matched?.startTime || '20:00'
+        const eTime = emp?.nightShiftEnd || matched?.endTime || '08:00'
+        const isSwapped = !isProfileDefaultNight || emp?.swapShiftEligible === true
+        return {
+          startTime: sTime,
+          endTime: eTime,
+          shiftName: 'Night Shift',
+          formatted12H: formatShiftTimingLabel(sTime, eTime, 'Night Shift'),
+          isNightShift: true,
+          isOff: false,
+          isShiftSwapped: isSwapped,
+          shiftChangeNotice: isSwapped ? `🌙 Swapped to Night Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})` : null,
+          shiftInstruction: isSwapped ? `Shift changed to Night Duty (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)}). Reporting time is ${formatTime12Hour(sTime)}.` : null,
+        }
+      }
+
+      if (assignedShiftName === 'Morning Shift') {
+        const sTime = emp?.dayShiftStart || (matched?.startTime) || '09:00'
+        const eTime = emp?.dayShiftEnd || (matched?.endTime) || '18:00'
+        const isSwapped = isProfileDefaultNight
+        return {
+          startTime: sTime,
+          endTime: eTime,
+          shiftName: 'Morning Shift',
+          formatted12H: formatShiftTimingLabel(sTime, eTime, 'Morning Shift'),
+          isNightShift: false,
+          isOff: false,
+          isShiftSwapped: isSwapped,
+          shiftChangeNotice: isSwapped ? `☀️ Swapped to Day Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})` : null,
+          shiftInstruction: isSwapped ? `Shift changed to Day Duty (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)}). Reporting time is ${formatTime12Hour(sTime)}.` : null,
+        }
+      }
+
+      if (assignedShiftName === 'Afternoon Shift') {
+        const sTime = matched?.startTime || '13:00'
+        const eTime = matched?.endTime || '23:00'
+        return {
+          startTime: sTime,
+          endTime: eTime,
+          shiftName: 'Afternoon Shift',
+          formatted12H: formatShiftTimingLabel(sTime, eTime, 'Afternoon Shift'),
+          isNightShift: false,
+          isOff: false,
+          isShiftSwapped: true,
+          shiftChangeNotice: `🌆 Swapped to Afternoon Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})`,
+          shiftInstruction: `Shift changed to Afternoon Duty. Reporting time is ${formatTime12Hour(sTime)}.`,
+        }
+      }
+
+      if (assignedShiftName === 'Break Shift') {
+        const sTime = matched?.startTime || '10:00'
+        const eTime = matched?.endTime || '22:00'
+        return {
+          startTime: sTime,
+          endTime: eTime,
+          shiftName: 'Break Shift',
+          formatted12H: formatShiftTimingLabel(sTime, eTime, 'Break Shift'),
+          isNightShift: false,
+          isOff: false,
+          isShiftSwapped: true,
+          shiftChangeNotice: `☕ Swapped to Break Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})`,
+          shiftInstruction: `Shift changed to Break Shift duty. Reporting time is ${formatTime12Hour(sTime)}.`,
+        }
+      }
+
+      if (assignedShiftName === 'OFF') {
+        return {
+          startTime: 'OFF',
+          endTime: 'OFF',
+          shiftName: 'Weekly Off',
+          formatted12H: '🏖️ Weekly Off',
+          isNightShift: false,
+          isOff: true,
+          isShiftSwapped: false,
+          shiftChangeNotice: '🏖️ Weekly Off Today',
+          shiftInstruction: 'Today is scheduled as Weekly Off in duty roster.',
+        }
+      }
 
       if (matched) {
         const sTime = matched.startTime || '09:00'
@@ -280,68 +370,16 @@ export function getEmployeeRosterShift(
           formatted12H: formatShiftTimingLabel(sTime, eTime, matched.name || assignedShiftName),
           isNightShift: isNight,
           isOff: false,
-        }
-      }
-
-      if (assignedShiftName === 'Night Shift') {
-        return {
-          startTime: '20:00',
-          endTime: '08:00',
-          shiftName: 'Night Shift',
-          formatted12H: '8 PM to 8 AM (Night Shift)',
-          isNightShift: true,
-          isOff: false,
-        }
-      }
-
-      if (assignedShiftName === 'Morning Shift') {
-        return {
-          startTime: '09:00',
-          endTime: '18:00',
-          shiftName: 'Morning Shift',
-          formatted12H: '9 AM to 6 PM (Morning Shift)',
-          isNightShift: false,
-          isOff: false,
-        }
-      }
-
-      if (assignedShiftName === 'Afternoon Shift') {
-        return {
-          startTime: '13:00',
-          endTime: '23:00',
-          shiftName: 'Afternoon Shift',
-          formatted12H: '1 PM to 11 PM (Afternoon Shift)',
-          isNightShift: false,
-          isOff: false,
-        }
-      }
-
-      if (assignedShiftName === 'Break Shift') {
-        return {
-          startTime: '10:00',
-          endTime: '22:00',
-          shiftName: 'Break Shift',
-          formatted12H: '10 AM to 10 PM (Break Shift)',
-          isNightShift: false,
-          isOff: false,
-        }
-      }
-
-      if (assignedShiftName === 'OFF') {
-        return {
-          startTime: 'OFF',
-          endTime: 'OFF',
-          shiftName: 'Weekly Off',
-          formatted12H: '🏖️ Weekly Off',
-          isNightShift: false,
-          isOff: true,
+          isShiftSwapped: false,
+          shiftChangeNotice: null,
+          shiftInstruction: null,
         }
       }
     }
 
-    // Fall back to employee individual morningTime / eveningTime
-    const sTime = (emp?.morningTime && String(emp.morningTime).trim()) || '09:00'
-    const eTime = (emp?.eveningTime && String(emp.eveningTime).trim()) || '18:00'
+    // Fall back to employee individual configured timings
+    const sTime = (emp?.morningTime && String(emp.morningTime).trim()) || baseDayStart
+    const eTime = (emp?.eveningTime && String(emp.eveningTime).trim()) || baseDayEnd
     const isNight = sTime === '20:00' || eTime === '08:00' || sTime === '22:00' || sTime.startsWith('2')
     const fallbackShiftName = isNight
       ? 'Night Shift'
@@ -358,6 +396,9 @@ export function getEmployeeRosterShift(
       formatted12H: formatShiftTimingLabel(sTime, eTime, fallbackShiftName),
       isNightShift: isNight,
       isOff: false,
+      isShiftSwapped: false,
+      shiftChangeNotice: null,
+      shiftInstruction: null,
     }
   } catch {
     const sTime = (emp?.morningTime && String(emp.morningTime).trim()) || '09:00'
@@ -371,6 +412,9 @@ export function getEmployeeRosterShift(
       formatted12H: formatShiftTimingLabel(sTime, eTime, fallbackShiftName),
       isNightShift: isNight,
       isOff: false,
+      isShiftSwapped: false,
+      shiftChangeNotice: null,
+      shiftInstruction: null,
     }
   }
 }
