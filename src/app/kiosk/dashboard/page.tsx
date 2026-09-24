@@ -634,10 +634,11 @@ export default function KioskDashboard() {
           display: 'flex',
           flex: 1,
           justifyContent: 'center',
-          alignItems: 'center',
-          overflow: 'auto',
-          padding: 'clamp(0.5rem, 2vw, 1.5rem)',
+          alignItems: 'flex-start',
+          overflowY: 'auto',
+          padding: 'clamp(0.35rem, 2vw, 1rem) clamp(0.35rem, 2vw, 1rem) max(1.25rem, env(safe-area-inset-bottom))',
           width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         <div

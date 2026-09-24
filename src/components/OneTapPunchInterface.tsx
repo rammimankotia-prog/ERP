@@ -88,6 +88,39 @@ export default function OneTapPunchInterface({
     return () => clearInterval(timer);
   }, []);
 
+  // Dynamic Time-of-day greeting (☀️ Good Morning / 🌤️ Good Afternoon / 🌆 Good Evening / 🌙 Good Night)
+  const timeGreeting = useMemo(() => {
+    const hr = currentTime.getHours();
+    if (hr >= 4 && hr < 12) return { text: 'Good Morning', icon: '☀️', hindi: 'शुभ प्रभात' };
+    if (hr >= 12 && hr < 17) return { text: 'Good Afternoon', icon: '🌤️', hindi: 'शुभ दोपहर' };
+    if (hr >= 17 && hr < 22) return { text: 'Good Evening', icon: '🌆', hindi: 'शुभ संध्या' };
+    return { text: 'Good Night', icon: '🌙', hindi: 'शुभ रात्रि' };
+  }, [currentTime]);
+
+  // Dynamic Live Duty Duration Elapsed Counter
+  const dutyElapsed = useMemo(() => {
+    if (!checkedIn || checkedOut || !punchInTime) return null;
+    try {
+      const parts = punchInTime.trim().split(':');
+      if (parts.length >= 2) {
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(h) && !isNaN(m)) {
+          const inDate = new Date(currentTime);
+          inDate.setHours(h, m, 0, 0);
+          if (inDate.getTime() > currentTime.getTime()) {
+            inDate.setDate(inDate.getDate() - 1);
+          }
+          const diffMs = Math.max(0, currentTime.getTime() - inDate.getTime());
+          const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+          const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          return `${diffHrs}h ${diffMins}m on duty`;
+        }
+      }
+    } catch {}
+    return null;
+  }, [checkedIn, checkedOut, punchInTime, currentTime]);
+
   // Web Audio chime for instant tactile/auditory feedback on one-tap punch
   const playChime = useCallback((type: 'IN' | 'OUT') => {
     try {
@@ -632,28 +665,56 @@ export default function OneTapPunchInterface({
           }}
         />
 
-        {/* Employee Photo / Avatar */}
-        <div style={{ position: 'relative', marginTop: '0.25rem' }}>
+        {/* Time-of-Day Greeting Badge (for Self-Service Dashboard on mobile / desktop) */}
+        {showLeaveAndHistory && (
+          <div
+            style={{
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              color: isLight ? '#1d4ed8' : '#93c5fd',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: isLight ? 'rgba(37, 99, 235, 0.08)' : 'rgba(37, 99, 235, 0.2)',
+              padding: '2px 10px',
+              borderRadius: '99px',
+              border: isLight ? '1px solid rgba(37, 99, 235, 0.22)' : '1px solid rgba(37, 99, 235, 0.4)',
+              marginTop: '0.1rem',
+            }}
+          >
+            <span>{timeGreeting.icon}</span>
+            <span>{timeGreeting.text} ({timeGreeting.hindi})</span>
+          </div>
+        )}
+
+        {/* Employee Photo / Animated Initials Avatar */}
+        <div style={{ position: 'relative', marginTop: '0.2rem' }}>
           {employee.photo ? (
             <img
               src={employee.photo}
               alt={`${employee.firstName} ${employee.lastName}`}
+              className="avatar-animated-circle"
               style={{
-                width: '84px',
-                height: '84px',
+                width: '86px',
+                height: '86px',
                 borderRadius: '50%',
                 objectFit: 'cover',
-                border: checkedIn && !checkedOut ? '3px solid #10b981' : '3px solid #3b82f6',
+                border: checkedIn && !checkedOut ? '3.5px solid #10b981' : '3.5px solid #3b82f6',
                 boxShadow: checkedIn && !checkedOut
-                  ? '0 0 16px rgba(16, 185, 129, 0.4)'
-                  : '0 6px 16px rgba(0,0,0,0.15)',
+                  ? '0 0 16px rgba(16, 185, 129, 0.45)'
+                  : '0 6px 18px rgba(0,0,0,0.18)',
+                animation: checkedIn && !checkedOut
+                  ? 'avatarFloat 3.5s ease-in-out infinite, avatarHaloRing 2.6s infinite'
+                  : 'avatarFloat 3.5s ease-in-out infinite, avatarHaloRingBlue 2.6s infinite',
+                transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
               }}
             />
           ) : (
             <div
+              className="avatar-animated-circle"
               style={{
-                width: '84px',
-                height: '84px',
+                width: '86px',
+                height: '86px',
                 borderRadius: '50%',
                 background: checkedIn && !checkedOut
                   ? 'linear-gradient(135deg, #10b981 0%, #047857 100%)'
@@ -662,15 +723,23 @@ export default function OneTapPunchInterface({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '2rem',
+                fontSize: '2.1rem',
                 fontWeight: 900,
-                border: checkedIn && !checkedOut ? '3px solid #10b981' : '3px solid rgba(255,255,255,0.2)',
+                border: checkedIn && !checkedOut ? '3.5px solid #34d399' : '3.5px solid rgba(255,255,255,0.4)',
                 boxShadow: checkedIn && !checkedOut
-                  ? '0 0 16px rgba(16, 185, 129, 0.45)'
-                  : '0 8px 20px rgba(37, 99, 235, 0.35)',
+                  ? '0 0 20px rgba(16, 185, 129, 0.5)'
+                  : '0 8px 22px rgba(37, 99, 235, 0.4)',
+                animation: checkedIn && !checkedOut
+                  ? 'avatarFloat 3.5s ease-in-out infinite, avatarHaloRing 2.6s infinite'
+                  : 'avatarFloat 3.5s ease-in-out infinite, avatarHaloRingBlue 2.6s infinite',
+                cursor: 'pointer',
+                userSelect: 'none',
+                transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
               }}
             >
-              {getInitials(employee.firstName, employee.lastName)}
+              <span style={{ animation: 'avatarShimmerText 3.5s ease-in-out infinite', display: 'inline-block' }}>
+                {getInitials(employee.firstName, employee.lastName)}
+              </span>
             </div>
           )}
 
@@ -946,96 +1015,93 @@ export default function OneTapPunchInterface({
             style={{
               width: '100%',
               maxWidth: '480px',
-              padding: '0.55rem 1rem',
-              borderRadius: '10px',
+              padding: '0.65rem 0.95rem',
+              borderRadius: '12px',
               backgroundColor: loadingStatus
                 ? (isLight ? '#f8fafc' : '#0f172a')
                 : checkedIn
                 ? (isLight ? '#ecfdf5' : 'rgba(16, 185, 129, 0.15)')
                 : (isLight ? '#eff6ff' : 'rgba(59, 130, 246, 0.15)'),
               border: loadingStatus
-                ? (isLight ? '1px solid #cbd5e1' : '1px solid #334155')
+                ? (isLight ? '1.5px solid #cbd5e1' : '1.5px solid #334155')
                 : checkedIn
-                ? (isLight ? '1px solid #a7f3d0' : '1px solid rgba(16, 185, 129, 0.4)')
-                : (isLight ? '1px solid #bfdbfe' : '1px solid rgba(59, 130, 246, 0.35)'),
+                ? (isLight ? '1.5px solid #a7f3d0' : '1.5px solid rgba(16, 185, 129, 0.4)')
+                : (isLight ? '1.5px solid #bfdbfe' : '1.5px solid rgba(59, 130, 246, 0.35)'),
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '0.4rem',
+              flexDirection: 'column',
+              gap: '0.35rem',
+              boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.03)' : '0 2px 8px rgba(0,0,0,0.2)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', textAlign: 'left' }}>
-              <span style={{ fontSize: '1.05rem' }}>
-                {loadingStatus ? '⏳' : checkedIn ? '🟢' : '⚪'}
-              </span>
-              <div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: isLight ? '#0f172a' : '#f8fafc' }}>
-                  {loadingStatus
-                    ? 'Checking Live Status...'
-                    : checkedIn
-                    ? (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
-                      ? '🛡️ Checked-In by Security Guard (On Shift)'
-                      : 'Currently Checked-In (On Shift)'
-                    : 'Not Checked-In Today'}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', textAlign: 'left' }}>
+                <span style={{ fontSize: '1.1rem' }}>
+                  {loadingStatus ? '⏳' : checkedIn ? '🟢' : '⚪'}
+                </span>
+                <div>
+                  <div style={{ fontSize: '0.84rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc' }}>
+                    {loadingStatus
+                      ? 'Checking Live Status...'
+                      : checkedIn
+                      ? (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
+                        ? '🛡️ On Duty (Checked-In by Security)'
+                        : 'Currently On Duty (Shift Active)'
+                      : 'Not Checked-In Today'}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: isLight ? '#475569' : '#cbd5e1', marginTop: '1px' }}>
+                    {checkedIn && punchInTime ? (
+                      <span>
+                        In: <strong>{formatTimeStr(punchInTime)}</strong>
+                        {(punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
+                          <span style={{ marginLeft: '4px', color: '#10b981', fontWeight: 700 }}>[🛡️ Security]</span>
+                        )}
+                        {dutyElapsed && (
+                          <span style={{ marginLeft: '6px', fontWeight: 700, color: isLight ? '#059669' : '#34d399' }}>
+                            • ⏱️ {dutyElapsed}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span>Ready to record Arrival punch</span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.72rem', color: isLight ? '#475569' : '#cbd5e1' }}>
-                  {checkedIn && punchInTime && (
-                    <span>
-                      Checked In: <strong>{formatTimeStr(punchInTime)}</strong>
-                      {(punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
-                        <span style={{ marginLeft: '4px', color: '#10b981', fontWeight: 700 }}>[🛡️ Security]</span>
-                      )}
-                    </span>
-                  )}
-                  {!checkedIn && <span>Ready to record Arrival punch</span>}
-                </div>
+              </div>
+
+              <div
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  padding: '3px 8px',
+                  borderRadius: '99px',
+                  backgroundColor: checkedIn ? '#10b981' : '#3b82f6',
+                  color: 'white',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {checkedIn ? 'ON SHIFT' : 'READY'}
               </div>
             </div>
 
-            <div
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                padding: '2px 7px',
-                borderRadius: '99px',
-                backgroundColor: checkedIn ? '#10b981' : '#3b82f6',
-                color: 'white',
-                letterSpacing: '0.04em',
-              }}
-            >
-              {checkedIn ? 'ON SHIFT' : 'READY'}
-            </div>
-          </div>
-        )}
-
-        {/* Security Guard Punch Notice (Informed Notice for Employee on Mobile/Dashboard) */}
-        {punchMode !== 'KIOSK' && checkedIn && !checkedOut && (punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              padding: '0.65rem 0.95rem',
-              borderRadius: '10px',
-              backgroundColor: isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.12)',
-              border: isLight ? '1.5px solid #86efac' : '1.5px solid rgba(16, 185, 129, 0.4)',
-              color: isLight ? '#166534' : '#86efac',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.55rem',
-              lineHeight: 1.35,
-              textAlign: 'left',
-              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.1)',
-            }}
-          >
-            <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>🛡️</span>
-            <div>
-              <div style={{ fontWeight: 800 }}>Security Guard ne Punch-In kar diya hai ({formatTimeStr(punchInTime)})</div>
-              <div style={{ fontSize: '0.74rem', opacity: 0.9, marginTop: '2px' }}>
-                Aapka arrival punch lag chuka hai. Dobara punch karne ki zaroorat nahi hai. Shift complete hone par hi Check-Out karein.
+            {/* Concise note if checked in by security */}
+            {checkedIn && (punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
+              <div
+                style={{
+                  paddingTop: '0.35rem',
+                  borderTop: isLight ? '1px dashed #a7f3d0' : '1px dashed rgba(16, 185, 129, 0.3)',
+                  fontSize: '0.73rem',
+                  color: isLight ? '#166534' : '#86efac',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  textAlign: 'left',
+                  lineHeight: 1.3,
+                }}
+              >
+                <span>🛡️</span>
+                <span>Security Guard dwara punch record hua hai. Shift complete hone par hi Check-Out karein.</span>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
@@ -1189,11 +1255,12 @@ export default function OneTapPunchInterface({
       {/* Secondary Actions (Request Leave, My Attendance & Log Out) - ONLY for self-service staff logged in with email & password */}
       {showLeaveAndHistory && (
         <div
+          className="mobile-self-actions"
           style={{
             display: 'flex',
-            gap: '0.65rem',
+            gap: '0.5rem',
             justifyContent: 'center',
-            marginTop: '0.5rem',
+            marginTop: '0.35rem',
             flexWrap: 'wrap',
             width: '100%',
             maxWidth: '520px',
@@ -1202,22 +1269,23 @@ export default function OneTapPunchInterface({
           <button
             type="button"
             onClick={openLeaveModal}
+            className="self-action-btn"
             style={{
-              flex: '1 1 135px',
-              padding: '0.65rem 1rem',
-              borderRadius: '10px',
-              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+              flex: '1 1 120px',
+              padding: '0.62rem 0.85rem',
+              borderRadius: '12px',
+              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #334155',
               background: isLight ? '#ffffff' : '#1e293b',
               color: isLight ? '#0f172a' : '#f8fafc',
               fontWeight: 700,
-              fontSize: '0.86rem',
+              fontSize: '0.84rem',
               cursor: 'pointer',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.45rem',
-              boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.06)' : '0 2px 6px rgba(0,0,0,0.3)',
-              transition: 'all 0.15s',
+              gap: '0.4rem',
+              boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.04)' : '0 2px 8px rgba(0,0,0,0.25)',
+              transition: 'all 0.15s ease',
               whiteSpace: 'nowrap',
             }}
           >
@@ -1226,22 +1294,23 @@ export default function OneTapPunchInterface({
           <button
             type="button"
             onClick={handleFetchHistory}
+            className="self-action-btn"
             style={{
-              flex: '1 1 135px',
-              padding: '0.65rem 1rem',
-              borderRadius: '10px',
-              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+              flex: '1 1 120px',
+              padding: '0.62rem 0.85rem',
+              borderRadius: '12px',
+              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #334155',
               background: isLight ? '#ffffff' : '#1e293b',
               color: isLight ? '#0f172a' : '#f8fafc',
               fontWeight: 700,
-              fontSize: '0.86rem',
+              fontSize: '0.84rem',
               cursor: 'pointer',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.45rem',
-              boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.06)' : '0 2px 6px rgba(0,0,0,0.3)',
-              transition: 'all 0.15s',
+              gap: '0.4rem',
+              boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.04)' : '0 2px 8px rgba(0,0,0,0.25)',
+              transition: 'all 0.15s ease',
               whiteSpace: 'nowrap',
             }}
           >
@@ -1250,22 +1319,23 @@ export default function OneTapPunchInterface({
           <button
             type="button"
             onClick={onBack}
+            className="self-action-btn"
             style={{
-              flex: '1 1 110px',
-              padding: '0.65rem 1rem',
-              borderRadius: '10px',
+              flex: '1 1 95px',
+              padding: '0.62rem 0.85rem',
+              borderRadius: '12px',
               border: '1.5px solid rgba(239, 68, 68, 0.35)',
               background: isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)',
               color: '#dc2626',
               fontWeight: 700,
-              fontSize: '0.86rem',
+              fontSize: '0.84rem',
               cursor: 'pointer',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.45rem',
-              boxShadow: isLight ? '0 2px 6px rgba(239, 68, 68, 0.1)' : '0 2px 6px rgba(0,0,0,0.3)',
-              transition: 'all 0.15s',
+              gap: '0.4rem',
+              boxShadow: isLight ? '0 2px 6px rgba(239, 68, 68, 0.08)' : '0 2px 8px rgba(0,0,0,0.25)',
+              transition: 'all 0.15s ease',
               whiteSpace: 'nowrap',
             }}
             title="Sign out of your account"
@@ -1857,6 +1927,62 @@ export default function OneTapPunchInterface({
 
 
       <style jsx>{`
+        @keyframes avatarFloat {
+          0%, 100% {
+            transform: translateY(0px) scale(1);
+          }
+          50% {
+            transform: translateY(-4px) scale(1.025);
+          }
+        }
+        @keyframes avatarHaloRing {
+          0% {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.65), 0 8px 24px rgba(16, 185, 129, 0.35);
+          }
+          70% {
+            box-shadow: 0 0 0 14px rgba(16, 185, 129, 0), 0 12px 28px rgba(16, 185, 129, 0.45);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), 0 8px 24px rgba(16, 185, 129, 0.35);
+          }
+        }
+        @keyframes avatarHaloRingBlue {
+          0% {
+            box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.65), 0 8px 24px rgba(37, 99, 235, 0.35);
+          }
+          70% {
+            box-shadow: 0 0 0 14px rgba(37, 99, 235, 0), 0 12px 28px rgba(37, 99, 235, 0.45);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(37, 99, 235, 0), 0 8px 24px rgba(37, 99, 235, 0.35);
+          }
+        }
+        @keyframes avatarShimmerText {
+          0%, 100% {
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+            letter-spacing: 0.03em;
+          }
+          50% {
+            filter: drop-shadow(0 2px 10px rgba(255,255,255,0.7));
+            letter-spacing: 0.07em;
+          }
+        }
+        .avatar-animated-circle {
+          will-change: transform, box-shadow;
+        }
+        .avatar-animated-circle:hover {
+          transform: translateY(-5px) scale(1.05) !important;
+        }
+        .avatar-animated-circle:active {
+          transform: scale(0.96) !important;
+        }
+        .self-action-btn:hover {
+          transform: translateY(-2px);
+          border-color: var(--primary) !important;
+        }
+        .self-action-btn:active {
+          transform: scale(0.96);
+        }
         @keyframes pulseGlow {
           0%, 100% {
             box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
@@ -1884,10 +2010,23 @@ export default function OneTapPunchInterface({
           }
         }
         .punch-btn:hover:not(:disabled) {
-          transform: scale(1.04) translateY(-2px) !important;
+          transform: scale(1.03) translateY(-2px) !important;
         }
         .punch-btn:active:not(:disabled) {
           transform: scale(0.98) !important;
+        }
+
+        /* Mobile Responsive adjustments for iPhone & Android */
+        @media (max-width: 640px) {
+          .mobile-self-actions {
+            flex-direction: row !important;
+            gap: 0.4rem !important;
+          }
+          .mobile-self-actions button {
+            padding: 0.55rem 0.65rem !important;
+            font-size: 0.78rem !important;
+            border-radius: 10px !important;
+          }
         }
       `}</style>
     </div>
