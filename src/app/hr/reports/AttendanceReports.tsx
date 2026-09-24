@@ -759,7 +759,11 @@ export default function AttendanceReports() {
             </label>
             <select
               className="form-input"
-              value={employeeFilter}
+              value={
+                employeeFilter === 'ALL'
+                  ? 'ALL'
+                  : (liveEmployees.find(e => e.id === employeeFilter || e.employeeId === employeeFilter)?.id || employeeFilter)
+              }
               onChange={e => setEmployeeFilter(e.target.value)}
             >
               <option value="ALL">👥 All Employees (Entire Team)</option>
@@ -1016,17 +1020,74 @@ export default function AttendanceReports() {
             gap: '0.75rem'
           }}
         >
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-main)', fontWeight: 700 }}>
-              {mode === 'WEEKLY' ? 'Weekly' : mode === 'MONTHLY' ? 'Monthly' : 'Custom'} Attendance Ledger
-            </h3>
-            <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Showing records from <strong>{formatDateDisplay(activeRange.from)}</strong> to <strong>{formatDateDisplay(activeRange.to)}</strong>
-              {employeeFilter !== 'ALL' && ' (Filtered for individual employee)'}
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {/* Prominent Back Button when in Detailed view or filtered */}
+            {(viewTab === 'DETAILED' || employeeFilter !== 'ALL') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEmployeeFilter('ALL')
+                  setViewTab('SUMMARY')
+                }}
+                className="btn btn-outline no-print"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.45rem 0.9rem',
+                  fontSize: '0.825rem',
+                  fontWeight: 700,
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  color: '#2563eb',
+                  borderColor: 'rgba(59, 130, 246, 0.35)',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+                title="Go back to full employee summary matrix and reset employee filter"
+              >
+                ← Back to Summary Matrix
+              </button>
+            )}
+
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-main)', fontWeight: 700 }}>
+                {mode === 'WEEKLY' ? 'Weekly' : mode === 'MONTHLY' ? 'Monthly' : 'Custom'} Attendance Ledger
+              </h3>
+              <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Showing records from <strong>{formatDateDisplay(activeRange.from)}</strong> to <strong>{formatDateDisplay(activeRange.to)}</strong>
+                {employeeFilter !== 'ALL' && (
+                  <span style={{ color: 'var(--primary)', fontWeight: 600, marginLeft: '0.35rem' }}>
+                    • Filtered: {employeeLabel}
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
 
-          <div className="no-print" style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="no-print" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {employeeFilter !== 'ALL' && (
+              <button
+                type="button"
+                onClick={() => setEmployeeFilter('ALL')}
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#ef4444',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}
+                title="Clear individual employee filter to view all employees"
+              >
+                ✕ Clear Filter (All Staff)
+              </button>
+            )}
+
             <button
               onClick={() => setViewTab('SUMMARY')}
               style={{
@@ -1059,6 +1120,75 @@ export default function AttendanceReports() {
             </button>
           </div>
         </div>
+
+        {/* Filtered Employee Active Scope Banner */}
+        {employeeFilter !== 'ALL' && (
+          <div
+            className="no-print"
+            style={{
+              margin: '0.85rem 1.5rem 0',
+              padding: '0.75rem 1.15rem',
+              backgroundColor: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1.25rem' }}>👤</span>
+              <div>
+                <span style={{ fontSize: '0.875rem', color: 'var(--text-main)' }}>
+                  Viewing detailed attendance for: <strong style={{ color: 'var(--primary)' }}>{employeeLabel}</strong>
+                </span>
+                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                  Showing {filteredRecords.length} daily logs • Click below to return to the full staff matrix
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmployeeFilter('ALL')
+                  setViewTab('SUMMARY')
+                }}
+                className="btn btn-primary"
+                style={{
+                  padding: '0.35rem 0.85rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ← Back to Summary Matrix
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmployeeFilter('ALL')}
+                className="btn btn-outline"
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  cursor: 'pointer'
+                }}
+                title="Keep detailed log view, but view records for all staff"
+              >
+                ✕ Close / View All Staff
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Loading Indicator */}
         {loading && (
@@ -1277,7 +1407,8 @@ export default function AttendanceReports() {
 
         {/* TAB 2: DETAILED DAILY ATTENDANCE LOG */}
         {!loading && viewTab === 'DETAILED' && (
-          <div className="table-scroll-container">
+          <>
+            <div className="table-scroll-container">
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', minWidth: '950px' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-main)', borderBottom: '1px solid var(--border)' }}>
@@ -1552,7 +1683,66 @@ export default function AttendanceReports() {
               </tbody>
             </table>
           </div>
-        )}
+
+          {/* Bottom Navigation & Close Bar */}
+          <div
+            className="no-print"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '0.85rem 1.25rem',
+              borderTop: '1px solid var(--border)',
+              backgroundColor: 'var(--bg-main)',
+              flexWrap: 'wrap',
+              gap: '0.75rem'
+            }}
+          >
+            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmployeeFilter('ALL')
+                  setViewTab('SUMMARY')
+                }}
+                className="btn btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.45rem 1rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                ← Back to Employee Summary Matrix
+              </button>
+              {employeeFilter !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setEmployeeFilter('ALL')}
+                  className="btn btn-outline"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.45rem 0.85rem',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer'
+                  }}
+                  title="Clear individual employee filter to view all employees' logs"
+                >
+                  ✕ View All Staff Logs
+                </button>
+              )}
+            </div>
+            <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)' }}>
+              Showing <strong>{filteredRecords.length}</strong> daily log entries
+            </span>
+          </div>
+        </>
+      )}
 
         {/* Print-Only Official Footer */}
         <div
