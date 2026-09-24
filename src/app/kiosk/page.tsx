@@ -1098,6 +1098,45 @@ export default function KioskPage() {
                             {emp.employeeId}
                           </span>
 
+                          {/* Shift timing badge (Shows 8 PM to 8 AM for Night Shift) */}
+                          {(emp.morningTime || emp.eveningTime || emp.shiftDisplay) && (
+                            <span
+                              className="kiosk-emp-shift-tag"
+                              style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 800,
+                                padding: '1px 7px',
+                                borderRadius: '4px',
+                                background: (emp.morningTime === '20:00' || emp.shiftName === 'Night Shift' || emp.isNightShift)
+                                  ? (isLight ? '#ede9fe' : 'rgba(139, 92, 246, 0.22)')
+                                  : (emp.morningTime === '10:00' && emp.eveningTime === '22:00')
+                                  ? (isLight ? '#e0f2fe' : 'rgba(14, 165, 233, 0.22)')
+                                  : (isLight ? '#fef3c7' : 'rgba(245, 158, 11, 0.15)'),
+                                color: (emp.morningTime === '20:00' || emp.shiftName === 'Night Shift' || emp.isNightShift)
+                                  ? '#7c3aed'
+                                  : (emp.morningTime === '10:00' && emp.eveningTime === '22:00')
+                                  ? '#0284c7'
+                                  : '#d97706',
+                                border: (emp.morningTime === '20:00' || emp.shiftName === 'Night Shift' || emp.isNightShift)
+                                  ? '1px solid rgba(124, 58, 237, 0.35)'
+                                  : '1px solid rgba(217, 119, 6, 0.25)',
+                                whiteSpace: 'nowrap',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.2rem',
+                              }}
+                              title={emp.shiftDisplay || `${emp.morningTime} – ${emp.eveningTime}`}
+                            >
+                              {(emp.morningTime === '20:00' || emp.shiftName === 'Night Shift' || emp.isNightShift)
+                                ? '🌙 8 PM – 8 AM'
+                                : (emp.morningTime === '10:00' && emp.eveningTime === '22:00')
+                                ? '☕ 10 AM – 10 PM'
+                                : (emp.morningTime === '13:00')
+                                ? '🌆 1 PM – 11 PM'
+                                : `☀️ ${emp.morningTime || '09:00'} – ${emp.eveningTime || '18:00'}`}
+                            </span>
+                          )}
+
                           <span
                             className="kiosk-emp-status"
                             style={{

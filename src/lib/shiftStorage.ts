@@ -187,3 +187,191 @@ export function deleteShift(id: string): ShiftRecord[] {
   saveAllShifts(shifts)
   return shifts
 }
+
+/**
+ * Format a 24-hour time string ("20:00", "08:00") to 12-hour AM/PM ("8 PM", "8 AM", "8:30 AM")
+ */
+export function formatTime12Hour(time24: string): string {
+  if (!time24 || typeof time24 !== 'string') return ''
+  const trimmed = time24.trim()
+  if (trimmed.toUpperCase() === 'OFF') return 'Weekly Off'
+  const parts = trimmed.split(':')
+  if (parts.length < 2) return trimmed
+  const h = parseInt(parts[0], 10)
+  const m = parts[1]
+  if (isNaN(h)) return trimmed
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  const mClean = m.padStart(2, '0')
+  return mClean === '00' ? `${h12} ${ampm}` : `${h12}:${mClean} ${ampm}`
+}
+
+/**
+ * Returns human-friendly shift timing label, e.g. "8 PM to 8 AM (Night Shift)" or "9 AM to 6 PM (Morning Shift)"
+ */
+export function formatShiftTimingLabel(startTime: string, endTime: string, shiftName?: string): string {
+  if (!startTime || !endTime || startTime === 'OFF' || endTime === 'OFF' || shiftName === 'Weekly Off' || shiftName === 'OFF') {
+    return '🏖️ Weekly Off'
+  }
+  const start12 = formatTime12Hour(startTime)
+  const end12 = formatTime12Hour(endTime)
+  const timeSpan = `${start12} to ${end12}` // e.g. "8 PM to 8 AM"
+  const label = shiftName && !shiftName.toLowerCase().includes('default') && !shiftName.toLowerCase().includes('fixed')
+    ? ` (${shiftName})`
+    : ''
+  return `${timeSpan}${label}`
+}
+
+/**
+ * Resolve an employee's exact shift for a given date (defaults to today in IST).
+ * Inspects monthly roster first (where shifts may be swapped or rotated).
+ * Falls back to the employee's configured profile morningTime / eveningTime.
+ */
+export function getEmployeeRosterShift(
+  emp: any,
+  dateStr?: string
+): {
+  startTime: string
+  endTime: string
+  shiftName: string
+  formatted12H: string
+  isNightShift: boolean
+  isOff: boolean
+} {
+  try {
+    const todayIST = dateStr || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+    const [yStr, mStr, dStr] = todayIST.split('-')
+    const year = parseInt(yStr, 10)
+    const month = parseInt(mStr, 10) - 1 // 0-indexed month (0 = Jan, 8 = Sep)
+    const dayNum = parseInt(dStr, 10)
+
+    const allDirs = getAllDataDirs()
+    let roster: Record<string, Record<string, string>> = {}
+
+    for (const dir of allDirs) {
+      const rosterFile = path.join(dir, `hr_roster_${year}_${month}.json`)
+      const data = safeReadJsonFile<Record<string, Record<string, string>>>(rosterFile, {})
+      if (data && Object.keys(data).length > 0) {
+        roster = data
+        break
+      }
+    }
+
+    const empId = emp?.id
+    const empCode = emp?.employeeId
+    const empRoster = (empId && roster[empId]) || (empCode && roster[empCode]) || {}
+    const assignedShiftName: string = empRoster[dayNum] || empRoster[String(dayNum)] || ''
+
+    if (assignedShiftName) {
+      const allShifts = getMergedShifts()
+      const matched = allShifts.find((s: any) =>
+        (s.name && s.name.trim().toLowerCase() === assignedShiftName.trim().toLowerCase()) ||
+        (s.id && s.id.trim().toLowerCase() === assignedShiftName.trim().toLowerCase())
+      )
+
+      if (matched) {
+        const sTime = matched.startTime || '09:00'
+        const eTime = matched.endTime || '18:00'
+        const isNight = matched.type === 'NIGHT' || sTime === '20:00' || matched.name.toLowerCase().includes('night')
+        return {
+          startTime: sTime,
+          endTime: eTime,
+          shiftName: matched.name || assignedShiftName,
+          formatted12H: formatShiftTimingLabel(sTime, eTime, matched.name || assignedShiftName),
+          isNightShift: isNight,
+          isOff: false,
+        }
+      }
+
+      if (assignedShiftName === 'Night Shift') {
+        return {
+          startTime: '20:00',
+          endTime: '08:00',
+          shiftName: 'Night Shift',
+          formatted12H: '8 PM to 8 AM (Night Shift)',
+          isNightShift: true,
+          isOff: false,
+        }
+      }
+
+      if (assignedShiftName === 'Morning Shift') {
+        return {
+          startTime: '09:00',
+          endTime: '18:00',
+          shiftName: 'Morning Shift',
+          formatted12H: '9 AM to 6 PM (Morning Shift)',
+          isNightShift: false,
+          isOff: false,
+        }
+      }
+
+      if (assignedShiftName === 'Afternoon Shift') {
+        return {
+          startTime: '13:00',
+          endTime: '23:00',
+          shiftName: 'Afternoon Shift',
+          formatted12H: '1 PM to 11 PM (Afternoon Shift)',
+          isNightShift: false,
+          isOff: false,
+        }
+      }
+
+      if (assignedShiftName === 'Break Shift') {
+        return {
+          startTime: '10:00',
+          endTime: '22:00',
+          shiftName: 'Break Shift',
+          formatted12H: '10 AM to 10 PM (Break Shift)',
+          isNightShift: false,
+          isOff: false,
+        }
+      }
+
+      if (assignedShiftName === 'OFF') {
+        return {
+          startTime: 'OFF',
+          endTime: 'OFF',
+          shiftName: 'Weekly Off',
+          formatted12H: '🏖️ Weekly Off',
+          isNightShift: false,
+          isOff: true,
+        }
+      }
+    }
+
+    // Fall back to employee individual morningTime / eveningTime
+    const sTime = (emp?.morningTime && String(emp.morningTime).trim()) || '09:00'
+    const eTime = (emp?.eveningTime && String(emp.eveningTime).trim()) || '18:00'
+    const isNight = sTime === '20:00' || eTime === '08:00' || sTime === '22:00' || sTime.startsWith('2')
+    const fallbackShiftName = isNight
+      ? 'Night Shift'
+      : sTime === '13:00'
+      ? 'Afternoon Shift'
+      : sTime === '10:00' && eTime === '22:00'
+      ? 'Break Shift'
+      : 'Morning Shift'
+
+    return {
+      startTime: sTime,
+      endTime: eTime,
+      shiftName: fallbackShiftName,
+      formatted12H: formatShiftTimingLabel(sTime, eTime, fallbackShiftName),
+      isNightShift: isNight,
+      isOff: false,
+    }
+  } catch {
+    const sTime = (emp?.morningTime && String(emp.morningTime).trim()) || '09:00'
+    const eTime = (emp?.eveningTime && String(emp.eveningTime).trim()) || '18:00'
+    const isNight = sTime === '20:00' || eTime === '08:00'
+    const fallbackShiftName = isNight ? 'Night Shift' : 'Morning Shift'
+    return {
+      startTime: sTime,
+      endTime: eTime,
+      shiftName: fallbackShiftName,
+      formatted12H: formatShiftTimingLabel(sTime, eTime, fallbackShiftName),
+      isNightShift: isNight,
+      isOff: false,
+    }
+  }
+}
+

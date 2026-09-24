@@ -225,6 +225,18 @@ export default function ShiftsManager() {
   const [branchFilter, setBranchFilter] = useState<string>('ALL')
   const [deptFilter, setDeptFilter] = useState<string>('ALL')
 
+  // Employee Name / ID Search Filter
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState<string>('')
+
+  // Calendar / Date-wise Inspector State
+  const [calendarDate, setCalendarDate] = useState<string>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const [highlightedDay, setHighlightedDay] = useState<number | null>(() => new Date().getDate())
+  const [showFromCurrentDate, setShowFromCurrentDate] = useState<boolean>(false)
+  const [showDateInspector, setShowDateInspector] = useState<boolean>(true)
+
   // Calendar / Week State
   const [selectedMonday, setSelectedMonday] = useState<Date>(() => getMonday(new Date()))
 
@@ -852,9 +864,98 @@ export default function ShiftsManager() {
         }
       }
 
-      return branchMatch && deptMatch
+      // Employee Name / ID / Designation Search filter
+      let nameMatch = true
+      if (employeeSearchQuery.trim()) {
+        const q = employeeSearchQuery.toLowerCase().trim()
+        nameMatch =
+          emp.name.toLowerCase().includes(q) ||
+          emp.code.toLowerCase().includes(q) ||
+          emp.designation.toLowerCase().includes(q) ||
+          emp.dept.toLowerCase().includes(q)
+      }
+
+      return branchMatch && deptMatch && nameMatch
     })
-  }, [employeesList, branchFilter, deptFilter])
+  }, [employeesList, branchFilter, deptFilter, employeeSearchQuery])
+
+  // Today Date Reference
+  const today = new Date()
+  const todayDay = today.getDate()
+  const todayMonth = today.getMonth()
+  const todayYear = today.getFullYear()
+
+  // Visible days in monthly view (optionally filtered from selected date onwards)
+  const visibleDaysArray = useMemo(() => {
+    if (showFromCurrentDate && highlightedDay) {
+      return daysArray.filter(d => d >= highlightedDay)
+    }
+    return daysArray
+  }, [daysArray, showFromCurrentDate, highlightedDay])
+
+  // Calendar Date Pick Handler
+  const handleCalendarDateChange = (newDateStr: string) => {
+    if (!newDateStr) return
+    const parts = newDateStr.split('-')
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10)
+      const m = parseInt(parts[1], 10) - 1 // 0-indexed
+      const d = parseInt(parts[2], 10)
+      setCalendarDate(newDateStr)
+      setHighlightedDay(d)
+      if (y !== selectedYear || m !== selectedMonth) {
+        handleMonthChange(m, y)
+      }
+      const pickedObj = new Date(y, m, d)
+      setSelectedMonday(getMonday(pickedObj))
+      setMessage(`📅 Date selected: ${d} ${MONTH_NAMES[m]} ${y}. Inspecting shifts date-wise.`)
+    }
+  }
+
+  // Jump to Current Date Handler
+  const handleJumpToCurrentDate = () => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth()
+    const d = now.getDate()
+    const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    setCalendarDate(dateStr)
+    setHighlightedDay(d)
+    if (y !== selectedYear || m !== selectedMonth) {
+      handleMonthChange(m, y)
+    }
+    setSelectedMonday(getMonday(now))
+    setMessage(`📍 Jumped to Today: ${d} ${MONTH_NAMES[m]} ${y}`)
+  }
+
+  // Date-wise Duty Inspector Stats for Selected Day
+  const dateDutyStats = useMemo(() => {
+    const targetDay = highlightedDay || todayDay
+    const morning: EmployeeItem[] = []
+    const afternoon: EmployeeItem[] = []
+    const breakShift: EmployeeItem[] = []
+    const night: EmployeeItem[] = []
+    const off: EmployeeItem[] = []
+
+    filteredEmployees.forEach(emp => {
+      const shift = monthlyRoster[emp.id]?.[targetDay] || 'Morning Shift'
+      if (shift === 'Night Shift') night.push(emp)
+      else if (shift === 'Afternoon Shift') afternoon.push(emp)
+      else if (shift === 'Break Shift') breakShift.push(emp)
+      else if (shift === 'Morning Shift') morning.push(emp)
+      else off.push(emp)
+    })
+
+    return {
+      day: targetDay,
+      morning,
+      afternoon,
+      breakShift,
+      night,
+      off,
+      totalDuty: morning.length + afternoon.length + breakShift.length + night.length
+    }
+  }, [filteredEmployees, monthlyRoster, highlightedDay, todayDay])
 
   // Monthly CSV Export
   const handleDownloadMonthlyCSV = () => {
@@ -954,10 +1055,6 @@ export default function ShiftsManager() {
 
   // Generate 7 days for current week view
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const today = new Date()
-  const todayDay = today.getDate()
-  const todayMonth = today.getMonth()
-  const todayYear = today.getFullYear()
 
   const weekDays = dayNames.map((dayName, idx) => {
     const d = new Date(selectedMonday)
@@ -1496,12 +1593,51 @@ export default function ShiftsManager() {
                 </select>
               </div>
 
+              {/* Employee Name Filter Input */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <span style={{ position: 'absolute', left: '10px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>🔍</span>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Filter employee name / ID..."
+                  value={employeeSearchQuery}
+                  onChange={e => setEmployeeSearchQuery(e.target.value)}
+                  style={{
+                    paddingLeft: '30px',
+                    paddingRight: employeeSearchQuery ? '26px' : '10px',
+                    width: '230px',
+                    height: '35px',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    borderRadius: '8px',
+                  }}
+                />
+                {employeeSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setEmployeeSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '8px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.82rem',
+                      color: 'var(--text-muted)',
+                    }}
+                    title="Clear employee search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
               {/* Clear Filters button */}
-              {(branchFilter !== 'ALL' || deptFilter !== 'ALL') && (
+              {(branchFilter !== 'ALL' || deptFilter !== 'ALL' || employeeSearchQuery) && (
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => { setBranchFilter('ALL'); setDeptFilter('ALL'); }}
+                  onClick={() => { setBranchFilter('ALL'); setDeptFilter('ALL'); setEmployeeSearchQuery(''); }}
                   style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', color: '#ef4444', borderColor: '#fca5a5' }}
                   title="Clear all filters"
                 >
@@ -1647,6 +1783,46 @@ export default function ShiftsManager() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                {/* Calendar Date-Wise Picker */}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', backgroundColor: 'rgba(99, 102, 241, 0.08)', padding: '0.2rem 0.5rem', borderRadius: '8px', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#6366f1' }}>📅 Check Date:</span>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={calendarDate}
+                    onChange={e => handleCalendarDateChange(e.target.value)}
+                    style={{ padding: '0.25rem 0.4rem', fontSize: '0.8rem', fontWeight: 600, width: '135px', height: '32px', cursor: 'pointer' }}
+                    title="Select a specific date to inspect duties date-wise"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleJumpToCurrentDate}
+                    style={{ padding: '0.25rem 0.6rem', fontSize: '0.78rem', height: '32px', whiteSpace: 'nowrap' }}
+                    title="Jump to today's current date"
+                  >
+                    📍 Today
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => setShowFromCurrentDate(!showFromCurrentDate)}
+                    style={{
+                      padding: '0.25rem 0.6rem',
+                      fontSize: '0.78rem',
+                      height: '32px',
+                      whiteSpace: 'nowrap',
+                      backgroundColor: showFromCurrentDate ? 'rgba(99, 102, 241, 0.15)' : undefined,
+                      borderColor: showFromCurrentDate ? '#6366f1' : undefined,
+                      color: showFromCurrentDate ? '#6366f1' : undefined,
+                      fontWeight: showFromCurrentDate ? 700 : 500,
+                    }}
+                    title={showFromCurrentDate ? "Showing days from selected date onwards (Click to show all days)" : "Filter table to only show days from selected date onwards"}
+                  >
+                    {showFromCurrentDate ? '⏩ From Date: ON' : '⏩ From Date'}
+                  </button>
+                </div>
+
                 <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-muted)' }}>Month:</span>
                 <button
                   type="button"
@@ -1659,7 +1835,7 @@ export default function ShiftsManager() {
 
                 <select
                   className="form-input"
-                  style={{ width: '135px', padding: '0.35rem 0.6rem', fontSize: '0.85rem' }}
+                  style={{ width: '130px', padding: '0.35rem 0.5rem', fontSize: '0.85rem' }}
                   value={selectedMonth}
                   onChange={e => handleMonthChange(Number(e.target.value), selectedYear)}
                 >
@@ -1670,7 +1846,7 @@ export default function ShiftsManager() {
 
                 <select
                   className="form-input"
-                  style={{ width: '95px', padding: '0.35rem 0.6rem', fontSize: '0.85rem' }}
+                  style={{ width: '90px', padding: '0.35rem 0.5rem', fontSize: '0.85rem' }}
                   value={selectedYear}
                   onChange={e => handleMonthChange(selectedMonth, Number(e.target.value))}
                 >
@@ -1780,6 +1956,117 @@ export default function ShiftsManager() {
               </div>
             </div>
 
+            {/* Date-Wise Duty Inspector for Selected Date */}
+            {highlightedDay && (
+              <div
+                style={{
+                  padding: '0.65rem 1.5rem',
+                  backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                  borderBottom: '1px solid rgba(99, 102, 241, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                  fontSize: '0.8rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 800, color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <span>📅</span>
+                    <span>Date-Wise Duty Inspector: <b>{highlightedDay} {MONTH_NAMES[selectedMonth]} {selectedYear}</b></span>
+                    {highlightedDay === todayDay && selectedMonth === todayMonth && selectedYear === todayYear && (
+                      <span style={{ backgroundColor: '#10b981', color: '#fff', fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                        TODAY
+                      </span>
+                    )}
+                  </span>
+
+                  <span style={{ color: 'var(--text-muted)' }}>|</span>
+
+                  {/* Duty breakdown chips */}
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                      color: '#8b5cf6',
+                      fontWeight: 700,
+                      border: '1px solid rgba(139, 92, 246, 0.3)',
+                    }}
+                    title={dateDutyStats.night.map(e => e.name).join(', ') || 'No staff'}
+                  >
+                    🌙 Night (8 PM – 8 AM): <b>{dateDutyStats.night.length}</b> staff
+                    {dateDutyStats.night.length > 0 && (
+                      <span style={{ opacity: 0.85, fontSize: '0.72rem', marginLeft: '4px' }}>
+                        ({dateDutyStats.night.map(e => e.name.split(' ')[0]).slice(0, 3).join(', ')}{dateDutyStats.night.length > 3 ? '...' : ''})
+                      </span>
+                    )}
+                  </span>
+
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                      color: '#10b981',
+                      fontWeight: 700,
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                    }}
+                    title={dateDutyStats.morning.map(e => e.name).join(', ') || 'No staff'}
+                  >
+                    ☀️ Morning: <b>{dateDutyStats.morning.length}</b>
+                  </span>
+
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                      color: '#f59e0b',
+                      fontWeight: 700,
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                    }}
+                    title={dateDutyStats.afternoon.map(e => e.name).join(', ') || 'No staff'}
+                  >
+                    🌆 Afternoon: <b>{dateDutyStats.afternoon.length}</b>
+                  </span>
+
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(14, 165, 233, 0.12)',
+                      color: '#0ea5e9',
+                      fontWeight: 700,
+                      border: '1px solid rgba(14, 165, 233, 0.25)',
+                    }}
+                    title={dateDutyStats.breakShift.map(e => e.name).join(', ') || 'No staff'}
+                  >
+                    ☕ Break: <b>{dateDutyStats.breakShift.length}</b>
+                  </span>
+
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(244, 63, 94, 0.12)',
+                      color: '#f43f5e',
+                      fontWeight: 700,
+                      border: '1px solid rgba(244, 63, 94, 0.25)',
+                    }}
+                    title={dateDutyStats.off.map(e => e.name).join(', ') || 'No staff'}
+                  >
+                    🏖️ Off: <b>{dateDutyStats.off.length}</b>
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <span>Total Active on Duty: <b style={{ color: 'var(--text-main)' }}>{dateDutyStats.totalDuty}</b></span>
+                </div>
+              </div>
+            )}
+
             {/* Monthly Calendar Matrix Table */}
             <div className="table-scroll-container" style={{ overflowX: 'auto', maxHeight: isRosterFullscreen ? 'calc(100vh - 180px)' : '750px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '1050px' }}>
@@ -1807,8 +2094,8 @@ export default function ShiftsManager() {
                       Employee ({filteredEmployees.length})
                     </th>
 
-                    {/* Day Columns 1 to 30/31 */}
-                    {daysArray.map(dayNum => {
+                    {/* Day Columns 1 to 30/31 (or filtered from selected/current date) */}
+                    {visibleDaysArray.map(dayNum => {
                       const d = new Date(selectedYear, selectedMonth, dayNum)
                       const dayOfWeekNum = d.getDay()
                       const dayOfWeekName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeekNum]
@@ -1816,8 +2103,11 @@ export default function ShiftsManager() {
                       const isSat = dayOfWeekNum === 6
                       const isToday =
                         d.getDate() === todayDay && d.getMonth() === todayMonth && d.getFullYear() === todayYear
+                      const isSelected = highlightedDay === dayNum
 
-                      const headerBg = isToday
+                      const headerBg = isSelected
+                        ? 'rgba(99, 102, 241, 0.22)'
+                        : isToday
                         ? 'rgba(14, 165, 233, 0.18)'
                         : isSat
                         ? 'rgba(245, 158, 11, 0.12)'
@@ -1825,7 +2115,9 @@ export default function ShiftsManager() {
                         ? 'rgba(244, 63, 94, 0.12)'
                         : undefined
 
-                      const headerTextColor = isToday
+                      const headerTextColor = isSelected
+                        ? '#818cf8'
+                        : isToday
                         ? '#38bdf8'
                         : isSat
                         ? '#f59e0b'
@@ -1836,24 +2128,37 @@ export default function ShiftsManager() {
                       return (
                         <th
                           key={dayNum}
+                          onClick={() => {
+                            setHighlightedDay(dayNum)
+                            const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
+                            setCalendarDate(dateStr)
+                          }}
+                          title={`Click to inspect staff duties on ${dayNum} ${MONTH_NAMES[selectedMonth]} ${selectedYear}`}
                           style={{
                             padding: '0.5rem 0.35rem',
                             textAlign: 'center',
                             minWidth: '38px',
                             backgroundColor: headerBg,
                             color: headerTextColor,
-                            borderBottom: isToday ? '2px solid #0ea5e9' : '2px solid var(--border)',
-                            borderLeft: isSat ? '1px dashed rgba(245, 158, 11, 0.3)' : isSun ? '1px dashed rgba(244, 63, 94, 0.3)' : '1px solid var(--border)',
+                            cursor: 'pointer',
+                            borderBottom: isSelected ? '3px solid #6366f1' : isToday ? '2px solid #0ea5e9' : '2px solid var(--border)',
+                            borderLeft: isSelected ? '2px solid #6366f1' : isSat ? '1px dashed rgba(245, 158, 11, 0.3)' : isSun ? '1px dashed rgba(244, 63, 94, 0.3)' : '1px solid var(--border)',
+                            borderRight: isSelected ? '2px solid #6366f1' : undefined,
+                            transition: 'all 0.15s ease',
                           }}
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem' }}>
                             <span style={{ fontWeight: 800, fontSize: '0.85rem' }}>{dayNum.toString().padStart(2, '0')}</span>
                             <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>{dayOfWeekName}</span>
-                            {isToday && (
+                            {isToday ? (
                               <span style={{ fontSize: '0.55rem', backgroundColor: '#0ea5e9', color: '#fff', padding: '1px 3px', borderRadius: '3px', fontWeight: 800 }}>
                                 NOW
                               </span>
-                            )}
+                            ) : isSelected ? (
+                              <span style={{ fontSize: '0.55rem', backgroundColor: '#6366f1', color: '#fff', padding: '1px 3px', borderRadius: '3px', fontWeight: 800 }}>
+                                CHECK
+                              </span>
+                            ) : null}
                           </div>
                         </th>
                       )
@@ -2007,8 +2312,8 @@ export default function ShiftsManager() {
                           </div>
                         </td>
 
-                        {/* Days Shift Cells */}
-                        {daysArray.map(dayNum => {
+                        {/* Days Shift Cells (all days or filtered from selected/current date) */}
+                        {visibleDaysArray.map(dayNum => {
                           const assignment = empRoster[dayNum] || 'Morning Shift'
                           const d = new Date(selectedYear, selectedMonth, dayNum)
                           const dayOfWeekNum = d.getDay()
@@ -2016,6 +2321,7 @@ export default function ShiftsManager() {
                           const isSat = dayOfWeekNum === 6
                           const isToday =
                             d.getDate() === todayDay && d.getMonth() === todayMonth && d.getFullYear() === todayYear
+                          const isSelectedDate = dayNum === highlightedDay
 
                           // Badge styling
                           let badgeBg = 'rgba(16, 185, 129, 0.18)'
@@ -2110,6 +2416,8 @@ export default function ShiftsManager() {
                                 textAlign: 'center',
                                 backgroundColor: isDragOver
                                   ? 'rgba(99, 102, 241, 0.25)'
+                                  : isSelectedDate
+                                  ? 'rgba(99, 102, 241, 0.12)'
                                   : isToday
                                   ? 'rgba(14, 165, 233, 0.05)'
                                   : isSat
@@ -2119,7 +2427,8 @@ export default function ShiftsManager() {
                                   : undefined,
                                 outline: isDragOver ? '2px dashed #6366f1' : undefined,
                                 outlineOffset: isDragOver ? '-2px' : undefined,
-                                borderLeft: isSat ? '1px dashed rgba(245, 158, 11, 0.15)' : isSun ? '1px dashed rgba(244, 63, 94, 0.15)' : '1px solid var(--border)',
+                                borderLeft: isSelectedDate ? '2px solid rgba(99, 102, 241, 0.4)' : isSat ? '1px dashed rgba(245, 158, 11, 0.15)' : isSun ? '1px dashed rgba(244, 63, 94, 0.15)' : '1px solid var(--border)',
+                                borderRight: isSelectedDate ? '2px solid rgba(99, 102, 241, 0.4)' : undefined,
                                 transition: 'background-color 0.15s ease',
                               }}
                             >
@@ -2319,6 +2628,40 @@ export default function ShiftsManager() {
                     <option value="Food & Beverage">Food & Beverage (Cafe)</option>
                     <option value="Accounts">Accounts</option>
                   </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Staff:</span>
+                  <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Filter staff name / ID..."
+                      value={employeeSearchQuery}
+                      onChange={e => setEmployeeSearchQuery(e.target.value)}
+                      style={{ width: '175px', padding: '0.35rem 1.6rem 0.35rem 0.6rem', fontSize: '0.8rem' }}
+                    />
+                    {employeeSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setEmployeeSearchQuery('')}
+                        style={{
+                          position: 'absolute',
+                          right: '6px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.85rem',
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                        title="Clear filter"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <button

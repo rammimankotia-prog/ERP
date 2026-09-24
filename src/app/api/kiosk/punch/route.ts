@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { getMergedAttendance, saveAttendanceRecord } from '@/lib/attendanceStorage'
-import { getMergedShifts } from '@/lib/shiftStorage'
+import { getMergedShifts, getEmployeeRosterShift } from '@/lib/shiftStorage'
 import { getAllEmployees } from '@/lib/employeeData'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
@@ -153,97 +153,25 @@ function logAudit(entry: any) {
 /**
  * getRosterShiftTimes:
  * Reads the employee's monthly roster for today's date and returns the
- * actual shift startTime + endTime from hr_shifts.json.
+ * actual shift startTime + endTime from hr_shifts.json (e.g. 20:00 to 08:00 / 8 PM to 8 AM for Night Shift).
  * Falls back to employee's default morningTime/eveningTime if roster not found.
  */
-function getRosterShiftTimes(emp: any, dateStr: string): { startTime: string; endTime: string; shiftName: string } {
-  try {
-    const individualMorning = emp?.morningTime && String(emp.morningTime).trim() ? String(emp.morningTime).trim() : null
-    const individualEvening = emp?.eveningTime && String(emp.eveningTime).trim() ? String(emp.eveningTime).trim() : null
-
-    // Parse date
-    const [yearStr, monthStr, dayStr] = dateStr.split('-')
-    const year = parseInt(yearStr, 10)
-    const month = parseInt(monthStr, 10) - 1 // 0-indexed
-    const dayNum = parseInt(dayStr, 10)
-
-    // Read roster for this year-month
-    const rosterFile = path.join(DATA_DIR, `hr_roster_${year}_${month}.json`)
-    const localRosterFile = path.join(process.cwd(), 'data', `hr_roster_${year}_${month}.json`)
-    let roster: Record<string, Record<string, string>> = {}
-    for (const f of [rosterFile, localRosterFile]) {
-      try {
-        if (fs.existsSync(f)) {
-          const raw = fs.readFileSync(f, 'utf-8')
-          const parsed = JSON.parse(raw)
-          if (parsed && Object.keys(parsed).length > 0) {
-            roster = parsed
-            break
-          }
-        }
-      } catch {}
-    }
-
-    // Find employee in roster by id or employeeId
-    const empId = emp?.id
-    const empCode = emp?.employeeId
-    const empRoster = (empId && roster[empId]) || (empCode && roster[empCode]) || {}
-
-    // Day number key (as stored in ShiftsManager — numeric)
-    const assignedShiftName: string = empRoster[dayNum] || empRoster[String(dayNum)] || ''
-
-    if (assignedShiftName) {
-      try {
-        const { getMergedShifts } = require('@/lib/shiftStorage')
-        const allShifts = getMergedShifts()
-        const matched = allShifts.find((s: any) =>
-          (s.name && s.name.trim().toLowerCase() === assignedShiftName.trim().toLowerCase()) ||
-          (s.id && s.id.trim().toLowerCase() === assignedShiftName.trim().toLowerCase())
-        )
-        if (matched) {
-          return {
-            startTime: matched.startTime || '09:00',
-            endTime: matched.endTime || '18:00',
-            shiftName: matched.name || assignedShiftName
-          }
-        }
-      } catch {}
-
-      if (assignedShiftName === 'Night Shift') {
-        return {
-          startTime: '20:00',
-          endTime: '08:00',
-          shiftName: 'Night Shift'
-        }
-      }
-      if (assignedShiftName === 'Afternoon Shift') {
-        return {
-          startTime: '13:00',
-          endTime: '23:00',
-          shiftName: 'Afternoon Shift'
-        }
-      }
-      if (assignedShiftName === 'Break Shift') {
-        return {
-          startTime: '10:00',
-          endTime: '22:00',
-          shiftName: 'Break Shift'
-        }
-      }
-    }
-
-    // Individual employee shift timing takes precedence (default 09:00, NEVER 08:00)
-    return {
-      startTime: individualMorning || '09:00',
-      endTime: individualEvening || '18:00',
-      shiftName: assignedShiftName || 'Default'
-    }
-  } catch {
-    return {
-      startTime: (emp?.morningTime && String(emp.morningTime).trim()) || '09:00',
-      endTime: (emp?.eveningTime && String(emp.eveningTime).trim()) || '18:00',
-      shiftName: 'Default'
-    }
+function getRosterShiftTimes(emp: any, dateStr: string): {
+  startTime: string
+  endTime: string
+  shiftName: string
+  shiftDisplay: string
+  isNightShift: boolean
+  isOff: boolean
+} {
+  const res = getEmployeeRosterShift(emp, dateStr)
+  return {
+    startTime: res.startTime,
+    endTime: res.endTime,
+    shiftName: res.shiftName,
+    shiftDisplay: res.formatted12H,
+    isNightShift: res.isNightShift,
+    isOff: res.isOff,
   }
 }
 
@@ -291,6 +219,9 @@ export async function GET(req: NextRequest) {
     const lateMinutes = isLate ? (record?.lateMinutes || 0) : 0
     const effectiveStatus = !checkedIn ? 'ABSENT' : (record?.status || 'PRESENT')
 
+    // Dynamic shift info for dateStr
+    const rosterShift = getRosterShiftTimes(emp, dateStr)
+
     return NextResponse.json({
       checkedIn,
       checkedOut,
@@ -302,7 +233,13 @@ export async function GET(req: NextRequest) {
       lateMinutes,
       punchInMode: checkedIn ? record?.punchInMode : null,
       punchOutMode: checkedOut ? record?.punchOutMode : null,
-      record: checkedIn ? record : null
+      record: checkedIn ? record : null,
+      shiftStartTime: rosterShift.startTime,
+      shiftEndTime: rosterShift.endTime,
+      shiftName: rosterShift.shiftName,
+      shiftDisplay: rosterShift.shiftDisplay,
+      isNightShift: rosterShift.isNightShift,
+      isOff: rosterShift.isOff,
     })
   } catch (err: any) {
     return NextResponse.json({ error: 'Failed to check status' }, { status: 500 })

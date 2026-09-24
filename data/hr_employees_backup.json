@@ -11,8 +11,7 @@
     "designation": "Manager",
     "department": {
       "id": "dept-1",
-      "name": "Management",
-      "branchId": "branch-gg"
+      "name": "Management"
     },
     "departmentId": "dept-1",
     "branch": {
@@ -21,8 +20,8 @@
       "prefix": "GG"
     },
     "branchId": "branch-gg",
-    "morningTime": "09:00",
-    "eveningTime": "18:00",
+    "morningTime": "10:00",
+    "eveningTime": "20:00",
     "offDays": [
       "Sunday"
     ],
@@ -31,7 +30,9 @@
     "baseSalary": 50000,
     "doj": "2026-09-17T00:00:00.000Z",
     "createdAt": "2026-09-17T00:00:00.000Z",
-    "updatedAt": "2026-09-16T11:30:00.000Z"
+    "updatedAt": "2026-09-23T10:03:16.128Z",
+    "password": "Jaimatadi@24",
+    "swapShiftEligible": false
   },
   {
     "id": "GG-1002",
@@ -66,5 +67,772 @@
     "doj": "2026-09-20T00:00:00.000Z",
     "createdAt": "2026-09-20T00:00:00.000Z",
     "updatedAt": "2026-09-20T00:00:00.000Z"
+  },
+  {
+    "id": "emp-1789635127747",
+    "employeeId": "GG-1003",
+    "firstName": "Sweta",
+    "lastName": "Mishra",
+    "email": "swetamishra94371@gmail.com",
+    "password": "Godwin#5758",
+    "contactNo": "9310368571",
+    "branchId": "branch-gg",
+    "departmentId": "dept-5",
+    "designation": "Accounts Executive",
+    "morningTime": "09:30",
+    "eveningTime": "18:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "doj": "2026-09-17",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Female",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-5",
+      "name": "Accounts"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-21T05:23:10.580Z",
+    "updatedAt": "2026-09-21T05:23:10.580Z"
+  },
+  {
+    "id": "emp-1789635225097",
+    "employeeId": "GG-1004",
+    "firstName": "Chitra",
+    "lastName": "Dorbi",
+    "email": "dorbichitra@gmail.com",
+    "password": "Godwin#5850",
+    "contactNo": "8810522089",
+    "branchId": "branch-gg",
+    "departmentId": "dept-5",
+    "designation": "Accounts Executive",
+    "morningTime": "09:30",
+    "eveningTime": "18:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "doj": "2026-09-17",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Female",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-5",
+      "name": "Accounts"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-21T05:23:10.587Z",
+    "updatedAt": "2026-09-21T05:23:10.587Z"
+  },
+  {
+    "id": "emp-1789653191012",
+    "employeeId": "GG-1008",
+    "firstName": "Azad",
+    "lastName": "Singh",
+    "email": "iamazadkumarsingh@gmail.com",
+    "password": "Godwin#9822",
+    "contactNo": "9873522482",
+    "branchId": "branch-gg",
+    "departmentId": "dept-3",
+    "designation": "Manager",
+    "morningTime": "08:30",
+    "eveningTime": "18:30",
+    "offDays": [
+      "Sunday"
+    ],
+    "doj": "2026-09-17T00:00:00.000Z",
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-3",
+      "name": "Housekeeping"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-17T13:53:11.012Z",
+    "updatedAt": "2026-09-22T13:07:33.056Z",
+    "swapShiftEligible": false
+  },
+  {
+    "id": "emp-1789893028693",
+    "employeeId": "GG-1009",
+    "firstName": "Anish",
+    "lastName": "Thapa",
+    "email": "ironmaniam252@gmail.com",
+    "password": "Anish@1234",
+    "contactNo": "9773632845",
+    "branchId": "branch-gg",
+    "departmentId": "dept-2",
+    "designation": "Manager",
+    "morningTime": "08:00",
+    "eveningTime": "20:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": true,
+    "doj": "2026-09-20",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-2",
+      "name": "Front Office"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-21T05:23:10.621Z",
+    "updatedAt": "2026-09-21T05:23:10.621Z"
+  },
+  {
+    "id": "emp-1789639406658",
+    "employeeId": "GD-1001",
+    "firstName": "Ruth",
+    "lastName": "Kithan",
+    "email": "ruthkithan03@gmail.com",
+    "password": "Godwin#5267",
+    "contactNo": "8131062264",
+    "branchId": "branch-gd",
+    "departmentId": "dept-9",
+    "designation": "Manager",
+    "morningTime": "08:00",
+    "eveningTime": "20:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "doj": "2026-09-17",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Female",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gd",
+      "name": "Hotel Godwin Deluxe",
+      "prefix": "GD"
+    },
+    "department": {
+      "id": "dept-9",
+      "name": "Front Office"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-21T05:23:10.627Z",
+    "updatedAt": "2026-09-21T05:23:10.627Z"
+  },
+  {
+    "id": "emp-1789903455620",
+    "employeeId": "GG-1011",
+    "firstName": "Bhooshan",
+    "lastName": "Verma",
+    "email": "Bhooshan@godwinhotels.com",
+    "password": "Godwin#8987",
+    "contactNo": "8860081997",
+    "branchId": "branch-gg",
+    "departmentId": "dept-5",
+    "designation": "Manager",
+    "morningTime": "10:00",
+    "eveningTime": "19:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": false,
+    "doj": "2026-09-20",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-5",
+      "name": "Accounts"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-21T05:23:10.632Z",
+    "updatedAt": "2026-09-21T05:23:10.632Z"
+  },
+  {
+    "id": "emp-1789910834647",
+    "employeeId": "GG-1013",
+    "firstName": "Heena",
+    "lastName": "Tuli",
+    "email": "heenatuli7@gmail.com",
+    "password": "Godwin#8265",
+    "contactNo": "8448662044",
+    "branchId": "branch-gg",
+    "departmentId": "dept-6",
+    "designation": "Manager",
+    "morningTime": "08:30",
+    "eveningTime": "18:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": false,
+    "doj": "2026-09-20",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-6",
+      "name": "Reservation"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-21T05:23:10.638Z",
+    "updatedAt": "2026-09-21T05:23:10.638Z"
+  },
+  {
+    "id": "emp-1789904259423",
+    "employeeId": "IG-1001",
+    "firstName": "Umesh",
+    "lastName": "Thapa",
+    "email": "umuthapa91@gmail.com",
+    "password": "Godwin#4430",
+    "contactNo": "9810582168",
+    "branchId": "branch-ig",
+    "departmentId": "dept-14",
+    "designation": "Manager",
+    "morningTime": "13:00",
+    "eveningTime": "23:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": true,
+    "doj": "2026-09-20",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-ig",
+      "name": "Indian Grill",
+      "prefix": "IG"
+    },
+    "department": {
+      "id": "dept-14",
+      "name": "Kitchen & Culinary"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-21T05:23:10.644Z",
+    "updatedAt": "2026-09-21T05:23:10.644Z"
+  },
+  {
+    "id": "emp-1789903868684",
+    "employeeId": "GG-1012",
+    "firstName": "Dhananjay",
+    "lastName": "Singh",
+    "email": "8376dhananjay@gmail.com",
+    "password": "singh1989",
+    "contactNo": "8376990449",
+    "branchId": "branch-gg",
+    "departmentId": "dept-3",
+    "designation": "Supervisor",
+    "morningTime": "08:00",
+    "eveningTime": "20:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": false,
+    "doj": "2026-09-20",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-3",
+      "name": "Housekeeping"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-21T05:23:10.651Z",
+    "updatedAt": "2026-09-21T13:09:19.089Z"
+  },
+  {
+    "id": "emp-1789913302830",
+    "employeeId": "IG-1002",
+    "firstName": "Balbeer",
+    "lastName": "Singh",
+    "email": "kumarbalbir126@gmail.com",
+    "password": "Godwin#6560",
+    "contactNo": "8595393291",
+    "branchId": "branch-ig",
+    "departmentId": "dept-14",
+    "designation": "Manager",
+    "morningTime": "09:00",
+    "eveningTime": "18:59",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": false,
+    "doj": "2026-09-20",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-ig",
+      "name": "Indian Grill",
+      "prefix": "IG"
+    },
+    "department": {
+      "id": "dept-14",
+      "name": "Kitchen & Culinary"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-21T05:23:10.657Z",
+    "updatedAt": "2026-09-23T14:26:14.866Z"
+  },
+  {
+    "id": "emp-1789639298580",
+    "employeeId": "GG-1006",
+    "firstName": "Asha",
+    "lastName": "Singh",
+    "email": "khushiarchana85@gmail.com",
+    "password": "Godwin#5541",
+    "contactNo": "7834936454",
+    "branchId": "branch-gg",
+    "departmentId": "dept-2",
+    "designation": "Front Desk Executive",
+    "morningTime": "08:00",
+    "eveningTime": "18:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "doj": "2026-09-17",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Female",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-2",
+      "name": "Front Office"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-21T05:23:10.663Z",
+    "updatedAt": "2026-09-21T05:23:10.663Z"
+  },
+  {
+    "id": "emp-1789639590725",
+    "employeeId": "GG-1007",
+    "firstName": "Rajesh",
+    "lastName": "Singh",
+    "email": "Rajesh@godwinhotels.com",
+    "password": "Godwin#9392",
+    "contactNo": "9015167776",
+    "branchId": "branch-gg",
+    "departmentId": "dept-2",
+    "designation": "Manager",
+    "morningTime": "08:00",
+    "eveningTime": "20:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "doj": "2026-09-17T00:00:00.000Z",
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-2",
+      "name": "Front Office"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-21T05:23:10.670Z",
+    "updatedAt": "2026-09-21T05:23:10.670Z",
+    "swapShiftEligible": true
+  },
+  {
+    "id": "emp-1789894008834",
+    "employeeId": "CB-1001",
+    "firstName": "Smita",
+    "lastName": "Tamang",
+    "email": "smita.tamang2021@gmail.com",
+    "password": "Godwin#2901",
+    "contactNo": "7602098412",
+    "branchId": "branch-cb",
+    "departmentId": "dept-15",
+    "designation": "Manager",
+    "morningTime": "08:00",
+    "eveningTime": "18:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": false,
+    "doj": "2026-09-20",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Female",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-cb",
+      "name": "Cafe Brownie",
+      "prefix": "CB"
+    },
+    "department": {
+      "id": "dept-15",
+      "name": "Kitchen & Culinary"
+    },
+    "role": "Manager",
+    "createdAt": "2026-09-21T05:23:10.676Z",
+    "updatedAt": "2026-09-21T05:23:10.676Z"
+  },
+  {
+    "id": "emp-1789903391165",
+    "employeeId": "GG-1010",
+    "firstName": "Arun",
+    "lastName": "Sachdeva",
+    "email": "accounts@godwinhotels.com",
+    "password": "Sachdeva@123",
+    "contactNo": "9818600427",
+    "branchId": "branch-gg",
+    "departmentId": "dept-5",
+    "designation": "Sr. Accountant",
+    "morningTime": "10:00",
+    "eveningTime": "19:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": false,
+    "doj": "2026-09-20",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-5",
+      "name": "Accounts"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-21T05:23:10.682Z",
+    "updatedAt": "2026-09-21T05:23:10.682Z"
+  },
+  {
+    "id": "emp-1789894627280",
+    "employeeId": "CB-1002",
+    "firstName": "Sujal",
+    "lastName": "Chhetri",
+    "email": "xhetrisujal7@gmail.com",
+    "password": "Godwin#6272",
+    "contactNo": "9211498628",
+    "branchId": "branch-cb",
+    "departmentId": "dept-15",
+    "designation": "Barista",
+    "morningTime": "09:00",
+    "eveningTime": "18:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": true,
+    "doj": "2026-09-20",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-cb",
+      "name": "Cafe Brownie",
+      "prefix": "CB"
+    },
+    "department": {
+      "id": "dept-15",
+      "name": "Kitchen & Culinary"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-21T05:23:10.688Z",
+    "updatedAt": "2026-09-21T05:23:10.688Z"
+  },
+  {
+    "id": "emp-1789970166499",
+    "employeeId": "GD-1002",
+    "firstName": "Archita",
+    "lastName": "S Nair",
+    "email": "Nairarchita2022@gmail.com",
+    "password": "Godwin#7635",
+    "contactNo": "7292075493",
+    "branchId": "branch-gd",
+    "departmentId": "dept-9",
+    "designation": "Travel Manager",
+    "morningTime": "08:00",
+    "eveningTime": "18:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": false,
+    "doj": "2026-09-21",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Female",
+    "emergencyContact": "8860110532",
+    "address": "",
+    "branch": {
+      "id": "branch-gd",
+      "name": "Hotel Godwin Deluxe",
+      "prefix": "GD"
+    },
+    "department": {
+      "id": "dept-9",
+      "name": "Front Office"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-21T05:56:06.499Z",
+    "updatedAt": "2026-09-21T05:56:06.499Z"
+  },
+  {
+    "id": "emp-1790085913327",
+    "employeeId": "GG-1014",
+    "firstName": "Naveen",
+    "lastName": "Arora",
+    "email": "Naveen@godwinhotels.com",
+    "password": "Godwin#7758",
+    "contactNo": "9910863614",
+    "branchId": "branch-gg",
+    "departmentId": "dept-2",
+    "designation": "Manager",
+    "morningTime": "20:00",
+    "eveningTime": "08:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": true,
+    "doj": "2026-09-22",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-2",
+      "name": "Front Office"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-22T14:05:13.327Z",
+    "updatedAt": "2026-09-22T14:12:07.386Z"
+  },
+  {
+    "id": "emp-1790086302683",
+    "employeeId": "GD-1003",
+    "firstName": "Ashok",
+    "lastName": "Pandey",
+    "email": "ashok@godwinhotels.com",
+    "password": "Godwin#6268",
+    "contactNo": "9868500694",
+    "branchId": "branch-gd",
+    "departmentId": "dept-9",
+    "designation": "Manager",
+    "morningTime": "20:00",
+    "eveningTime": "08:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": true,
+    "doj": "2026-09-22",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gd",
+      "name": "Hotel Godwin Deluxe",
+      "prefix": "GD"
+    },
+    "department": {
+      "id": "dept-9",
+      "name": "Front Office"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-22T14:11:42.683Z",
+    "updatedAt": "2026-09-22T14:11:42.683Z"
+  },
+  {
+    "id": "emp-1790086852112",
+    "employeeId": "GG-1015",
+    "firstName": "Pawan",
+    "lastName": "Pawan",
+    "email": "Pawan@godwinhotels.com",
+    "password": "Godwin#6172",
+    "contactNo": "8888888888",
+    "branchId": "branch-gg",
+    "departmentId": "dept-3",
+    "designation": "Supervisor",
+    "morningTime": "20:00",
+    "eveningTime": "08:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": true,
+    "doj": "2026-09-22",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-gg",
+      "name": "Hotel Grand Godwin",
+      "prefix": "GG"
+    },
+    "department": {
+      "id": "dept-3",
+      "name": "Housekeeping"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-22T14:20:52.112Z",
+    "updatedAt": "2026-09-22T14:20:52.113Z"
+  },
+  {
+    "id": "emp-1790087541495",
+    "employeeId": "IG-1003",
+    "firstName": "Lalit",
+    "lastName": "Kumar Thakur",
+    "email": "lalit@godwinhotels.com",
+    "password": "Godwin#9485",
+    "contactNo": "9205652709",
+    "branchId": "branch-ig",
+    "departmentId": "dept-14",
+    "designation": "Supervisor",
+    "morningTime": "19:00",
+    "eveningTime": "07:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": false,
+    "doj": "2026-09-22",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "",
+    "branch": {
+      "id": "branch-ig",
+      "name": "Indian Grill",
+      "prefix": "IG"
+    },
+    "department": {
+      "id": "dept-14",
+      "name": "Kitchen & Culinary"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-22T14:32:21.495Z",
+    "updatedAt": "2026-09-22T14:32:21.495Z"
+  },
+  {
+    "id": "emp-1790088126074",
+    "employeeId": "IG-1004",
+    "firstName": "Virendra",
+    "lastName": "Singh",
+    "email": "Virendra@godwinhotels.com",
+    "password": "Godwin#6318",
+    "contactNo": "9971488205",
+    "branchId": "branch-ig",
+    "departmentId": "dept-14",
+    "designation": "Captain",
+    "morningTime": "08:00",
+    "eveningTime": "19:00",
+    "offDays": [
+      "Sunday"
+    ],
+    "swapShiftEligible": true,
+    "doj": "2026-09-22",
+    "dob": null,
+    "employmentType": "PERMANENT",
+    "status": "ACTIVE",
+    "gender": "Male",
+    "emergencyContact": "",
+    "address": "Hotel Grand Godwin Booking",
+    "branch": {
+      "id": "branch-ig",
+      "name": "Indian Grill",
+      "prefix": "IG"
+    },
+    "department": {
+      "id": "dept-14",
+      "name": "Kitchen & Culinary"
+    },
+    "role": "Employee",
+    "createdAt": "2026-09-22T14:42:06.074Z",
+    "updatedAt": "2026-09-22T14:42:06.074Z"
   }
 ]

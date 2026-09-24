@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAllEmployees } from '@/lib/employeeData'
 import { getMergedAttendance } from '@/lib/attendanceStorage'
+import { getEmployeeRosterShift } from '@/lib/shiftStorage'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,9 @@ export async function GET() {
           branchName = 'Cafe Brownie'
         }
 
+        // Dynamically resolve today's shift from roster (including Night Shift swap: 8 PM to 8 AM)
+        const rosterShift = getEmployeeRosterShift(emp, todayIST)
+
         return {
           id: emp.id,
           employeeId: emp.employeeId || emp.id,
@@ -53,8 +57,12 @@ export async function GET() {
           department: typeof emp.department === 'object' ? (emp.department?.name || 'General') : (emp.department || emp.departmentId || 'General'),
           branch: branchName,
           branchId: emp.branchId || (typeof emp.branch === 'object' ? emp.branch?.id : null),
-          morningTime: emp.morningTime || '09:00',
-          eveningTime: emp.eveningTime || '18:00',
+          morningTime: rosterShift.startTime,
+          eveningTime: rosterShift.endTime,
+          shiftName: rosterShift.shiftName,
+          shiftDisplay: rosterShift.formatted12H,
+          isNightShift: rosterShift.isNightShift,
+          isOff: rosterShift.isOff,
           photo: emp.photo || null,
           gender: emp.gender || 'Male',
           checkedIn: !!(todayRecord && todayRecord.punchIn),

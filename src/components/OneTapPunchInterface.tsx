@@ -14,6 +14,10 @@ export interface EmployeeInfo {
   photo?: string | null;
   morningTime?: string;
   eveningTime?: string;
+  shiftName?: string;
+  shiftDisplay?: string;
+  isNightShift?: boolean;
+  isOff?: boolean;
   branch?: string;
   checkedIn?: boolean;
   checkedOut?: boolean;
@@ -730,11 +734,83 @@ export default function OneTapPunchInterface({
             </span>
           </div>
 
-          {(employee.morningTime || employee.eveningTime) && (
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.78rem', color: isLight ? '#475569' : '#cbd5e1' }}>
-              ⏰ Shift: <strong>{employee.morningTime || '09:00'} – {employee.eveningTime || '18:00'}</strong>
-            </p>
-          )}
+          {/* Shift Schedule Badge (Clearly shows 8 PM to 8 AM for night shifts) */}
+          {(employee.morningTime || employee.eveningTime || employee.shiftDisplay) && (() => {
+            const mTime = employee.morningTime || '09:00';
+            const eTime = employee.eveningTime || '18:00';
+            const isNight = employee.isNightShift || mTime === '20:00' || eTime === '08:00' || (employee.shiftName && employee.shiftName.toLowerCase().includes('night'));
+            
+            const format12H = (t?: string) => {
+              if (!t) return '';
+              const trimmed = t.trim();
+              if (trimmed.toUpperCase() === 'OFF') return 'Weekly Off';
+              const parts = trimmed.split(':');
+              if (parts.length < 2) return trimmed;
+              const h = parseInt(parts[0], 10);
+              const m = parts[1];
+              if (isNaN(h)) return trimmed;
+              const ampm = h >= 12 ? 'PM' : 'AM';
+              const h12 = h % 12 === 0 ? 12 : h % 12;
+              const mClean = m.padStart(2, '0');
+              return mClean === '00' ? `${h12} ${ampm}` : `${h12}:${mClean} ${ampm}`;
+            };
+
+            const timingText = isNight
+              ? '8 PM to 8 AM'
+              : `${format12H(mTime)} to ${format12H(eTime)}`;
+
+            const shiftLabel = employee.shiftName
+              ? employee.shiftName
+              : isNight
+              ? 'Night Shift'
+              : mTime === '13:00'
+              ? 'Afternoon Shift'
+              : mTime === '10:00' && eTime === '22:00'
+              ? 'Break Shift'
+              : 'Day Shift';
+
+            return (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  marginTop: '0.4rem',
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  backgroundColor: isNight
+                    ? (isLight ? '#ede9fe' : 'rgba(139, 92, 246, 0.22)')
+                    : (isLight ? '#e0f2fe' : 'rgba(14, 165, 233, 0.18)'),
+                  color: isNight
+                    ? (isLight ? '#6d28d9' : '#c084fc')
+                    : (isLight ? '#0369a1' : '#38bdf8'),
+                  border: isNight
+                    ? (isLight ? '1px solid #c4b5fd' : '1px solid rgba(139, 92, 246, 0.4)')
+                    : (isLight ? '1px solid #bae6fd' : '1px solid rgba(14, 165, 233, 0.35)'),
+                  boxShadow: isNight ? '0 2px 8px rgba(109, 40, 217, 0.15)' : undefined,
+                }}
+              >
+                <span>{isNight ? '🌙' : '⏰'}</span>
+                <span>
+                  Shift: <strong>{timingText}</strong>
+                  {' '}
+                  <span style={{ fontSize: '0.78rem', opacity: 0.9 }}>({shiftLabel})</span>
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontFamily: 'monospace',
+                    opacity: 0.75,
+                    paddingLeft: '0.2rem',
+                  }}
+                >
+                  [{mTime} – {eTime}]
+                </span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Live Attendance Status Badge */}
