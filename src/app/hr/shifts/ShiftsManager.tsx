@@ -202,11 +202,20 @@ function saveWeeklyToStorage(monday: Date, data: Record<string, Record<string, s
 }
 
 export const DEFAULT_SHIFTS_LIST: Shift[] = [
-  { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '09:00', endTime: '18:00', graceMinutes: 15, branchId: 'mock-1' },
+  { id: 'shift-1', name: 'Morning Shift', type: 'FIXED', startTime: '08:00', endTime: '20:00', graceMinutes: 15, branchId: 'mock-1' },
   { id: 'shift-afternoon', name: 'Afternoon Shift', type: 'FIXED', startTime: '13:00', endTime: '23:00', graceMinutes: 15, branchId: 'mock-1' },
   { id: 'shift-2', name: 'Break Shift', type: 'BREAK', startTime: '10:00', endTime: '22:00', firstSlot: '10:00 – 14:00', secondSlot: '18:00 – 22:00', breakTime: '14:00 – 18:00', graceMinutes: 15, branchId: 'mock-1' },
   { id: 'shift-3', name: 'Night Shift', type: 'NIGHT', startTime: '20:00', endTime: '08:00', graceMinutes: 20, branchId: 'mock-1' },
 ]
+
+function normalizeShiftsList(list: Shift[]): Shift[] {
+  return list.map(s => {
+    if (s.name === 'Morning Shift' && (s.startTime === '09:00' || s.endTime === '18:00')) {
+      return { ...s, startTime: '08:00', endTime: '20:00' }
+    }
+    return s
+  })
+}
 
 export default function ShiftsManager() {
   const [employeesList, setEmployeesList] = useState<EmployeeItem[]>(DEFAULT_ROSTER_EMPLOYEES)
@@ -216,7 +225,7 @@ export default function ShiftsManager() {
         const cached = localStorage.getItem('GODWIN_SHIFTS_BACKUP_V1')
         if (cached) {
           const parsed = JSON.parse(cached)
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed
+          if (Array.isArray(parsed) && parsed.length > 0) return normalizeShiftsList(parsed)
         }
       } catch {}
     }
@@ -436,9 +445,10 @@ export default function ShiftsManager() {
       .then(r => r.json())
       .then(d => {
         if (d.shifts && Array.isArray(d.shifts) && d.shifts.length > 0) {
-          setShifts(d.shifts)
+          const normalized = normalizeShiftsList(d.shifts)
+          setShifts(normalized)
           try {
-            localStorage.setItem('GODWIN_SHIFTS_BACKUP_V1', JSON.stringify(d.shifts))
+            localStorage.setItem('GODWIN_SHIFTS_BACKUP_V1', JSON.stringify(normalized))
           } catch {}
         } else {
           const cached = typeof window !== 'undefined' ? localStorage.getItem('GODWIN_SHIFTS_BACKUP_V1') : null
@@ -446,7 +456,7 @@ export default function ShiftsManager() {
             try {
               const parsed = JSON.parse(cached)
               if (Array.isArray(parsed) && parsed.length > 0) {
-                setShifts(parsed)
+                setShifts(normalizeShiftsList(parsed))
                 return
               }
             } catch {}
@@ -460,7 +470,7 @@ export default function ShiftsManager() {
           try {
             const parsed = JSON.parse(cached)
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setShifts(parsed)
+              setShifts(normalizeShiftsList(parsed))
               return
             }
           } catch {}
@@ -473,8 +483,8 @@ export default function ShiftsManager() {
     setForm({
       name: '',
       type: 'FIXED',
-      startTime: '09:00',
-      endTime: '18:00',
+      startTime: '08:00',
+      endTime: '20:00',
       morningStart: '10:00',
       morningEnd: '14:00',
       eveningStart: '18:00',
@@ -1704,7 +1714,7 @@ export default function ShiftsManager() {
             {/* Shift Badges Legend */}
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', fontSize: '0.75rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span style={{ padding: '0.1rem 0.4rem', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontWeight: 700 }}>M</span> Morning (09-18)
+                <span style={{ padding: '0.1rem 0.4rem', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#10b981', fontWeight: 700 }}>M</span> Morning (08-20)
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                 <span style={{ padding: '0.1rem 0.4rem', borderRadius: '4px', backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', fontWeight: 700 }}>A</span> Afternoon (13-23)
@@ -2055,7 +2065,7 @@ export default function ShiftsManager() {
                     }}
                     title={dateDutyStats.morning.map(e => e.name).join(', ') || 'No staff'}
                   >
-                    ☀️ Morning: <b>{dateDutyStats.morning.length}</b>
+                    ☀️ Morning (8 AM – 8 PM): <b>{dateDutyStats.morning.length}</b>
                   </span>
 
                   <span
@@ -2367,7 +2377,7 @@ export default function ShiftsManager() {
                           let badgeBg = 'rgba(16, 185, 129, 0.18)'
                           let badgeColor = '#10b981'
                           let badgeText = 'M'
-                          let title = 'Morning Shift (09:00 - 18:00)'
+                          let title = 'Morning Shift (08:00 - 20:00)'
 
                           if (assignment === 'Afternoon Shift') {
                             badgeBg = 'rgba(245, 158, 11, 0.18)'

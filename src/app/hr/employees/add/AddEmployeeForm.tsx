@@ -1036,8 +1036,8 @@ export default function AddEmployeeForm({
             className="shift-card-btn"
             onClick={() => {
               setSelectedShift('MORNING')
-              setMorningTime('09:00')
-              setEveningTime('18:00')
+              setMorningTime('08:00')
+              setEveningTime('20:00')
             }}
             style={{
               padding: '0.85rem 1rem',
@@ -1059,7 +1059,7 @@ export default function AddEmployeeForm({
                 Morning Shift
               </span>
               <span style={{ fontSize: '0.75rem', color: selectedShift === 'MORNING' ? '#10b981' : 'var(--text-muted)' }}>
-                09:00 AM – 06:00 PM
+                08:00 AM – 08:00 PM
               </span>
             </div>
           </button>

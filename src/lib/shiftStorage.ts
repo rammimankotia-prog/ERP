@@ -29,8 +29,8 @@ export const DEFAULT_SHIFTS: ShiftRecord[] = [
     id: 'shift-1',
     name: 'Morning Shift',
     type: 'FIXED',
-    startTime: '09:00',
-    endTime: '18:00',
+    startTime: '08:00',
+    endTime: '20:00',
     graceMinutes: 15,
     branchId: 'mock-1'
   },
@@ -68,16 +68,17 @@ export const DEFAULT_SHIFTS: ShiftRecord[] = [
 
 /**
  * Get all merged shifts across all persistent storage tiers and historical deployments.
- * Guarantees Morning Shift custom times and Afternoon Shift are never lost during git updates or redeploys.
+ * Guarantees Morning Shift (08:00 - 20:00) and Afternoon Shift are never lost during git updates or redeploys.
  */
 export function getMergedShifts(): ShiftRecord[] {
   const map = new Map<string, ShiftRecord>()
 
   const mergeShift = (s: any) => {
     if (!s || !s.id) return
-    // Guard: Morning Shift standard start time is 09:00, NEVER 08:00
-    if (s.name === 'Morning Shift' && s.startTime === '08:00') {
-      s.startTime = '09:00'
+    // Standard Morning Shift is 08:00 to 20:00 (8 AM - 8 PM)
+    if (s.name === 'Morning Shift' && (s.startTime === '09:00' || s.endTime === '18:00')) {
+      s.startTime = '08:00'
+      s.endTime = '20:00'
     }
     const key = String(s.id).trim()
     const existing = map.get(key)
@@ -381,8 +382,8 @@ export function getEmployeeRosterShift(
           }
         }
 
-        const sTime = (isProfileDefaultNight ? emp?.dayShiftStart : (emp?.dayShiftStart || emp?.morningTime)) || (matched?.startTime) || '09:00'
-        const eTime = (isProfileDefaultNight ? emp?.dayShiftEnd : (emp?.dayShiftEnd || emp?.eveningTime)) || (matched?.endTime) || '18:00'
+        const sTime = (isProfileDefaultNight ? emp?.dayShiftStart : (emp?.dayShiftStart || emp?.morningTime)) || (matched?.startTime) || '08:00'
+        const eTime = (isProfileDefaultNight ? emp?.dayShiftEnd : (emp?.dayShiftEnd || emp?.eveningTime)) || (matched?.endTime) || '20:00'
         const isSwapped = isProfileDefaultNight
         return {
           startTime: sTime,
@@ -445,8 +446,8 @@ export function getEmployeeRosterShift(
 
       if (matched) {
         const isMorningOrDay = matched.name && (matched.name.toLowerCase().includes('morning') || matched.name.toLowerCase().includes('day'))
-        const sTime = (isMorningOrDay ? (emp?.dayShiftStart || emp?.morningTime) : null) || matched.startTime || '09:00'
-        const eTime = (isMorningOrDay ? (emp?.dayShiftEnd || emp?.eveningTime) : null) || matched.endTime || '18:00'
+        const sTime = (isMorningOrDay ? (emp?.dayShiftStart || emp?.morningTime) : null) || matched.startTime || '08:00'
+        const eTime = (isMorningOrDay ? (emp?.dayShiftEnd || emp?.eveningTime) : null) || matched.endTime || '20:00'
         const isNight = matched.type === 'NIGHT' || isNightShiftTime(sTime, eTime) || matched.name.toLowerCase().includes('night')
         return {
           startTime: sTime,
