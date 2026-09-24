@@ -317,7 +317,7 @@ export default function KioskDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
           <div style={{ fontSize: '1.25rem' }}>🏨</div>
           <span style={{ fontSize: '0.88rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc', whiteSpace: 'nowrap' }}>
-            Grand Godwin
+            Godwin Hotels
           </span>
         </div>
 
