@@ -932,8 +932,8 @@ export default function OneTapPunchInterface({
           </div>
         </div>
 
-        {/* Security Guard Punch Notice (Informed Notice for Employee) */}
-        {checkedIn && !checkedOut && (punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
+        {/* Security Guard Punch Notice (Informed Notice for Employee on Mobile/Dashboard) */}
+        {punchMode !== 'KIOSK' && checkedIn && !checkedOut && (punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
           <div
             style={{
               width: '100%',
@@ -987,7 +987,9 @@ export default function OneTapPunchInterface({
             <div>
               <div style={{ fontWeight: 800 }}>
                 {(punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
-                  ? `Security Guard dwara Check-Out record ho gaya hai (${formatTimeStr(punchOutTime)})`
+                  ? (punchMode !== 'KIOSK'
+                      ? `Security Guard dwara Check-Out record ho gaya hai (${formatTimeStr(punchOutTime)})`
+                      : `Shift Complete • Check-Out Recorded (${formatTimeStr(punchOutTime)})`)
                   : `Check-Out Complete Ho Chuka Hai (${formatTimeStr(punchOutTime)})`}
               </div>
               <div style={{ fontSize: '0.74rem', opacity: 0.85, marginTop: '2px' }}>
