@@ -81,12 +81,25 @@ export async function GET() {
         }
       })
 
-    // Sort by Hotel Name:
-    // 1. Hotel Grand Godwin
-    // 2. Hotel Godwin Deluxe
-    // 3. Indian Grill
-    // 4. Cafe Brownie
-    // Secondary sort: Employee ID / Name
+    // Sort by Duty Roster & Shift Timing:
+    // 1. Working staff before Weekly Off
+    // 2. Chronological shift in-time (08:00, 09:00, 09:30, 10:00, 13:00, 19:00, 20:00)
+    // 3. Checked In / Active on Shift first
+    // 4. Hotel branch priority (Grand Godwin, Godwin Deluxe, Indian Grill, Cafe Brownie)
+    // 5. Employee ID
+    const parseTimeMins = (t?: string) => {
+      if (!t) return 9999
+      const tr = String(t).trim()
+      if (tr.toUpperCase() === 'OFF') return 9999
+      const parts = tr.split(':')
+      if (parts.length >= 2) {
+        const h = parseInt(parts[0], 10)
+        const m = parseInt(parts[1], 10)
+        if (!isNaN(h) && !isNaN(m)) return h * 60 + m
+      }
+      return 9999
+    }
+
     const hotelPriority = (bName: string) => {
       const lower = (bName || '').toLowerCase()
       if (lower.includes('grand godwin')) return 1
@@ -97,9 +110,26 @@ export async function GET() {
     }
 
     activeList.sort((a, b) => {
+      // 1. Working staff before Weekly Off
+      const offA = a.isOff || a.morningTime === 'OFF' ? 1 : 0
+      const offB = b.isOff || b.morningTime === 'OFF' ? 1 : 0
+      if (offA !== offB) return offA - offB
+
+      // 2. Chronological shift in-time
+      const tA = parseTimeMins(a.morningTime)
+      const tB = parseTimeMins(b.morningTime)
+      if (tA !== tB) return tA - tB
+
+      // 3. Checked In / Active on Shift first
+      const inA = a.checkedIn && !a.checkedOut ? 0 : 1
+      const inB = b.checkedIn && !b.checkedOut ? 0 : 1
+      if (inA !== inB) return inA - inB
+
+      // 4. Hotel branch priority
       const pA = hotelPriority(a.branch)
       const pB = hotelPriority(b.branch)
       if (pA !== pB) return pA - pB
+
       const bCompare = a.branch.localeCompare(b.branch)
       if (bCompare !== 0) return bCompare
       return (a.employeeId || '').localeCompare(b.employeeId || '')

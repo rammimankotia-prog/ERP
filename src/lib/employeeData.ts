@@ -14,6 +14,7 @@ import {
   writeToAllTiers,
   ensureDirExists
 } from './persistentVault'
+import { isNightShiftTime } from './shiftStorage'
 
 const prisma = new PrismaClient()
 
@@ -74,6 +75,7 @@ export async function getAllEmployees(): Promise<any[]> {
         if (isEmployeeDeleted(e, deletedKeys)) continue
         const key = (e.employeeId || e.id || '').toUpperCase().trim()
         if (key) {
+          const isNight = (e as any).isNightShift === true || isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined)
           map.set(key, {
             id: e.id,
             employeeId: e.employeeId || e.id,
@@ -96,10 +98,10 @@ export async function getAllEmployees(): Promise<any[]> {
             nightShiftStart: (e as any).nightShiftStart || '20:00',
             nightShiftEnd: (e as any).nightShiftEnd || '08:00',
             swapShiftEligible: (e as any).swapShiftEligible === true,
-            isNightShift: (e as any).isNightShift === true || ((e.morningTime || '').startsWith('2') || (e.eveningTime || '') === '08:00'),
-            shiftName: (e as any).shiftName || (((e.morningTime || '').startsWith('2') || (e.eveningTime || '') === '08:00') ? 'Night Shift' : 'Morning Shift'),
-            shiftType: (e as any).shiftType || (((e as any).isNightShift || (e.morningTime || '').startsWith('2')) ? 'NIGHT' : undefined),
-            selectedShift: (e as any).selectedShift || (((e as any).isNightShift || (e.morningTime || '').startsWith('2')) ? 'NIGHT' : undefined),
+            isNightShift: isNight,
+            shiftName: (e as any).shiftName || (isNight ? 'Night Shift' : 'Morning Shift'),
+            shiftType: (e as any).shiftType || (isNight ? 'NIGHT' : undefined),
+            selectedShift: (e as any).selectedShift || (isNight ? 'NIGHT' : undefined),
             status: e.status || 'ACTIVE',
             role: (e as any).role || 'Employee',
             baseSalary: (e as any).baseSalary || 0,
@@ -132,9 +134,7 @@ export async function getAllEmployees(): Promise<any[]> {
             const isNight = emp.isNightShift === true ||
               (emp.shiftName && String(emp.shiftName).toLowerCase().includes('night')) ||
               emp.selectedShift === 'NIGHT' ||
-              mTime.startsWith('2') || mTime.startsWith('19') || mTime.startsWith('18') ||
-              mTime.toLowerCase().includes('pm') ||
-              eTime === '08:00' || eTime === '07:00'
+              isNightShiftTime(mTime, eTime)
 
             map.set(key, {
               ...emp,

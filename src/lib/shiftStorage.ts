@@ -220,26 +220,25 @@ export function isNightShiftTime(startTime?: string, endTime?: string): boolean 
   const e = String(endTime || '').trim().toLowerCase()
 
   if (s.includes('night') || e.includes('night')) return true
-  if (s.includes('pm') && (e.includes('am') || e.includes('morning') || !e)) return true
+  if (s.includes('pm') && (e.includes('am') || e.includes('morning'))) return true
 
-  // Standard 24h checks
+  // Standard 24h checks: Starts at 19:00 (7 PM) or later, or early morning 00:00 - 04:59
   const sParts = s.split(':')
   if (sParts.length >= 1) {
     const sHour = parseInt(sParts[0], 10)
     if (!isNaN(sHour)) {
-      // Starting from 18:00 (6 PM) onwards, or midnight up to 04:00 AM
-      if (sHour >= 18 || (sHour >= 0 && sHour <= 4 && s !== '00:00' && e !== '')) return true
+      if (sHour >= 19 || (sHour >= 0 && sHour <= 4 && s !== '00:00' && e !== '')) return true
     }
   }
 
+  // Cross-midnight: start hour is >= 18:00 and end hour is in early morning 05:00 - 09:00
   if (e) {
     const eParts = e.split(':')
     if (eParts.length >= 1) {
       const eHour = parseInt(eParts[0], 10)
       if (!isNaN(eHour) && (eHour >= 5 && eHour <= 9)) {
-        // Ends in early morning (05:00 - 09:00) while start is evening or late afternoon
         const sHour = parseInt(s.split(':')[0], 10)
-        if (!isNaN(sHour) && sHour >= 16) return true
+        if (!isNaN(sHour) && sHour >= 18) return true
       }
     }
   }
@@ -259,16 +258,10 @@ export function isEmployeeProfileNight(emp: any): boolean {
   if (sName.includes('night')) return true
   if (emp.selectedShift === 'NIGHT') return true
 
-  if (isNightShiftTime(emp.morningTime, emp.eveningTime)) return true
-  if (isNightShiftTime(emp.nightShiftStart, emp.nightShiftEnd)) return true
-  if (isNightShiftTime(emp.dayShiftStart, emp.dayShiftEnd)) return true
-
-  // Check if nightShiftStart was specifically set
-  if (emp.nightShiftStart && (emp.nightShiftStart === '20:00' || isNightShiftTime(emp.nightShiftStart))) {
-    if (emp.swapShiftEligible === false) return true
-    if (emp.shiftName && emp.shiftName.toLowerCase().includes('night')) return true
-    if (emp.morningTime === emp.nightShiftStart || isNightShiftTime(emp.morningTime)) return true
-  }
+  // Check if primary configured hours are night shift hours
+  const mTime = (emp.morningTime || emp.startTime || '').trim()
+  const eTime = (emp.eveningTime || emp.endTime || '').trim()
+  if (isNightShiftTime(mTime, eTime)) return true
 
   return false
 }

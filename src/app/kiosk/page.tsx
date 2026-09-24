@@ -147,7 +147,7 @@ export default function KioskPage() {
   }, []);
 
   const [selectedHotel, setSelectedHotel] = useState('ALL');
-  const [sortOption, setSortOption] = useState<'HOTEL' | 'NAME' | 'ID'>('HOTEL');
+  const [sortOption, setSortOption] = useState<'SHIFT' | 'HOTEL' | 'NAME' | 'ID'>('SHIFT');
 
   // Hotels list (Hotel Grand Godwin & Hotel Godwin Deluxe first)
   const hotels = useMemo(() => {
@@ -195,6 +195,19 @@ export default function KioskPage() {
       return matchesSearch && matchesDept && matchesHotel;
     });
 
+    const parseTimeMins = (t?: string) => {
+      if (!t) return 9999;
+      const tr = String(t).trim();
+      if (tr.toUpperCase() === 'OFF') return 9999;
+      const parts = tr.split(':');
+      if (parts.length >= 2) {
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(h) && !isNaN(m)) return h * 60 + m;
+      }
+      return 9999;
+    };
+
     const hotelPriority = (bName: string) => {
       const l = (bName || '').toLowerCase();
       if (l.includes('grand godwin')) return 1;
@@ -205,7 +218,29 @@ export default function KioskPage() {
     };
 
     return list.sort((a, b) => {
-      if (sortOption === 'HOTEL') {
+      if (sortOption === 'SHIFT') {
+        // 1. Working staff before Weekly Off
+        const offA = a.isOff || a.morningTime === 'OFF' ? 1 : 0;
+        const offB = b.isOff || b.morningTime === 'OFF' ? 1 : 0;
+        if (offA !== offB) return offA - offB;
+
+        // 2. Chronological shift in-time (e.g. 08:00, 09:00, 09:30, 10:00, 13:00, 19:00, 20:00)
+        const tA = parseTimeMins(a.morningTime);
+        const tB = parseTimeMins(b.morningTime);
+        if (tA !== tB) return tA - tB;
+
+        // 3. Checked In / Active on Shift first
+        const inA = a.checkedIn && !a.checkedOut ? 0 : 1;
+        const inB = b.checkedIn && !b.checkedOut ? 0 : 1;
+        if (inA !== inB) return inA - inB;
+
+        // 4. Hotel branch priority
+        const pA = hotelPriority(a.branch || '');
+        const pB = hotelPriority(b.branch || '');
+        if (pA !== pB) return pA - pB;
+
+        return (a.employeeId || '').localeCompare(b.employeeId || '');
+      } else if (sortOption === 'HOTEL') {
         const pA = hotelPriority(a.branch || '');
         const pB = hotelPriority(b.branch || '');
         if (pA !== pB) return pA - pB;
@@ -800,6 +835,7 @@ export default function KioskPage() {
                     outline: 'none',
                   }}
                 >
+                  <option value="SHIFT">⏰ Shift Time & Duty Roster</option>
                   <option value="HOTEL">🏨 Hotel (Grand Godwin & Godwin Deluxe)</option>
                   <option value="NAME">👤 Employee Name (A-Z)</option>
                   <option value="ID">🔢 Staff ID (Ascending)</option>
@@ -1145,9 +1181,7 @@ export default function KioskPage() {
                             const eTime = (emp.eveningTime || '').trim()
                             const isNight = emp.isNightShift === true ||
                               (emp.shiftName && emp.shiftName.toLowerCase().includes('night')) ||
-                              mTime === '20:00' || mTime.startsWith('2') || mTime.startsWith('19') || mTime.startsWith('18') ||
-                              mTime.toLowerCase().includes('pm') ||
-                              eTime === '08:00' || eTime === '07:00' || eTime === '06:00'
+                              ((mTime === '20:00' || mTime.startsWith('2') || mTime.startsWith('19')) && (eTime === '08:00' || eTime === '07:00' || eTime.includes('am') || !eTime))
 
                             const format12H = (t?: string) => {
                               if (!t) return ''
@@ -1210,7 +1244,7 @@ export default function KioskPage() {
                                   ? '☕ 10 AM – 10 PM'
                                   : isAfternoon
                                   ? '🌆 1 PM – 11 PM'
-                                  : `☀️ ${format12H(mTime || '09:00')} – ${format12H(eTime || '18:00')}`}
+                                  : `☀️ ${format12H(mTime || '08:00')} – ${format12H(eTime || '20:00')}`}
                               </span>
                             )
                           })()}
