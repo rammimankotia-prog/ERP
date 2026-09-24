@@ -868,88 +868,146 @@ export default function OneTapPunchInterface({
           </div>
         )}
 
-        {/* Live Attendance Status Badge */}
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '480px',
-            padding: '0.55rem 1rem',
-            borderRadius: '10px',
-            backgroundColor: loadingStatus
-              ? (isLight ? '#f8fafc' : '#0f172a')
-              : checkedIn && !checkedOut
-              ? (isLight ? '#ecfdf5' : 'rgba(16, 185, 129, 0.15)')
-              : checkedOut
-              ? (isLight ? '#f1f5f9' : 'rgba(100, 116, 139, 0.2)')
-              : (isLight ? '#eff6ff' : 'rgba(59, 130, 246, 0.15)'),
-            border: loadingStatus
-              ? (isLight ? '1px solid #cbd5e1' : '1px solid #334155')
-              : checkedIn && !checkedOut
-              ? (isLight ? '1px solid #a7f3d0' : '1px solid rgba(16, 185, 129, 0.4)')
-              : checkedOut
-              ? (isLight ? '1px solid #cbd5e1' : '1px solid rgba(100, 116, 139, 0.4)')
-              : (isLight ? '1px solid #bfdbfe' : '1px solid rgba(59, 130, 246, 0.35)'),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '0.4rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', textAlign: 'left' }}>
-            <span style={{ fontSize: '1.05rem' }}>
-              {loadingStatus ? '⏳' : checkedIn && !checkedOut ? '🟢' : checkedOut ? '🔴' : '⚪'}
-            </span>
-            <div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: isLight ? '#0f172a' : '#f8fafc' }}>
-                {loadingStatus
-                  ? 'Checking Live Status...'
-                  : checkedIn && !checkedOut
-                  ? (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
-                    ? '🛡️ Checked-In by Security Guard (On Shift)'
-                    : 'Currently Checked-In (On Shift)'
-                  : checkedOut
-                  ? (punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
-                    ? '🛡️ Shift Completed (Checked-Out by Security)'
-                    : 'Shift Completed for Today'
-                  : 'Not Checked-In Today'}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: isLight ? '#475569' : '#cbd5e1' }}>
-                {checkedIn && punchInTime && (
-                  <span>
-                    Checked In: <strong>{formatTimeStr(punchInTime)}</strong>
-                    {(punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
-                      <span style={{ marginLeft: '4px', color: '#10b981', fontWeight: 700 }}>[🛡️ Security]</span>
-                    )}
-                  </span>
-                )}
-                {checkedOut && punchOutTime && (
-                  <span>
-                    {' '}• Out: <strong>{formatTimeStr(punchOutTime)}</strong>
-                    {(punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK') && (
-                      <span style={{ marginLeft: '4px', color: '#ef4444', fontWeight: 700 }}>[🛡️ Security]</span>
-                    )}
-                  </span>
-                )}
-                {!checkedIn && <span>Ready to record Arrival punch</span>}
-              </div>
-            </div>
-          </div>
-
+        {/* Live Attendance Status Badge / Consolidated Shift Completed Card */}
+        {checkedOut ? (
           <div
             style={{
-              fontSize: '0.72rem',
-              fontWeight: 800,
-              padding: '2px 7px',
-              borderRadius: '99px',
-              backgroundColor: checkedIn && !checkedOut ? '#10b981' : (checkedOut ? '#64748b' : '#3b82f6'),
-              color: 'white',
-              letterSpacing: '0.04em',
+              width: '100%',
+              maxWidth: '480px',
+              padding: '0.85rem 1.15rem',
+              borderRadius: '12px',
+              backgroundColor: isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.5)',
+              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid rgba(148, 163, 184, 0.25)',
+              boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.04)' : '0 2px 8px rgba(0,0,0,0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.45rem',
+              textAlign: 'left',
             }}
           >
-            {checkedIn && !checkedOut ? 'ON SHIFT' : (checkedOut ? 'COMPLETED' : 'READY')}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>🏁</span>
+                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc' }}>
+                  Shift Completed (शिफ्ट पूरी हुई)
+                </span>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  padding: '3px 8px',
+                  borderRadius: '99px',
+                  backgroundColor: '#64748b',
+                  color: 'white',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                COMPLETED
+              </span>
+            </div>
+
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: isLight ? '#334155' : '#cbd5e1',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.35rem 0.65rem',
+                alignItems: 'center',
+                paddingTop: '2px',
+              }}
+            >
+              {punchInTime && (
+                <span>
+                  Checked In: <strong>{formatTimeStr(punchInTime)}</strong>
+                  {(punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
+                    <span style={{ marginLeft: '4px', color: '#10b981', fontWeight: 700 }}>[🛡️ Security]</span>
+                  )}
+                </span>
+              )}
+              {punchInTime && punchOutTime && <span>•</span>}
+              {punchOutTime && (
+                <span>
+                  Checked Out: <strong>{formatTimeStr(punchOutTime)}</strong>
+                  {(punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK') && (
+                    <span style={{ marginLeft: '4px', color: '#ef4444', fontWeight: 700 }}>[🛡️ Security]</span>
+                  )}
+                </span>
+              )}
+            </div>
+
+            <div style={{ fontSize: '0.74rem', color: isLight ? '#64748b' : '#94a3b8', marginTop: '1px' }}>
+              Aaj ki attendance record ho chuki hai. Dobara punch nahi hoga.
+            </div>
           </div>
-        </div>
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '480px',
+              padding: '0.55rem 1rem',
+              borderRadius: '10px',
+              backgroundColor: loadingStatus
+                ? (isLight ? '#f8fafc' : '#0f172a')
+                : checkedIn
+                ? (isLight ? '#ecfdf5' : 'rgba(16, 185, 129, 0.15)')
+                : (isLight ? '#eff6ff' : 'rgba(59, 130, 246, 0.15)'),
+              border: loadingStatus
+                ? (isLight ? '1px solid #cbd5e1' : '1px solid #334155')
+                : checkedIn
+                ? (isLight ? '1px solid #a7f3d0' : '1px solid rgba(16, 185, 129, 0.4)')
+                : (isLight ? '1px solid #bfdbfe' : '1px solid rgba(59, 130, 246, 0.35)'),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.4rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', textAlign: 'left' }}>
+              <span style={{ fontSize: '1.05rem' }}>
+                {loadingStatus ? '⏳' : checkedIn ? '🟢' : '⚪'}
+              </span>
+              <div>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: isLight ? '#0f172a' : '#f8fafc' }}>
+                  {loadingStatus
+                    ? 'Checking Live Status...'
+                    : checkedIn
+                    ? (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
+                      ? '🛡️ Checked-In by Security Guard (On Shift)'
+                      : 'Currently Checked-In (On Shift)'
+                    : 'Not Checked-In Today'}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: isLight ? '#475569' : '#cbd5e1' }}>
+                  {checkedIn && punchInTime && (
+                    <span>
+                      Checked In: <strong>{formatTimeStr(punchInTime)}</strong>
+                      {(punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
+                        <span style={{ marginLeft: '4px', color: '#10b981', fontWeight: 700 }}>[🛡️ Security]</span>
+                      )}
+                    </span>
+                  )}
+                  {!checkedIn && <span>Ready to record Arrival punch</span>}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                padding: '2px 7px',
+                borderRadius: '99px',
+                backgroundColor: checkedIn ? '#10b981' : '#3b82f6',
+                color: 'white',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {checkedIn ? 'ON SHIFT' : 'READY'}
+            </div>
+          </div>
+        )}
 
         {/* Security Guard Punch Notice (Informed Notice for Employee on Mobile/Dashboard) */}
         {punchMode !== 'KIOSK' && checkedIn && !checkedOut && (punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
@@ -980,197 +1038,154 @@ export default function OneTapPunchInterface({
             </div>
           </div>
         )}
-
-        {/* Shift Completed Notice Banner */}
-        {checkedOut && (
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              padding: '0.65rem 0.95rem',
-              borderRadius: '10px',
-              backgroundColor: isLight ? '#f8fafc' : 'rgba(100, 116, 139, 0.12)',
-              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid rgba(100, 116, 139, 0.35)',
-              color: isLight ? '#334155' : '#cbd5e1',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.55rem',
-              lineHeight: 1.35,
-              textAlign: 'left',
-            }}
-          >
-            <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>
-              {(punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK') ? '🛡️' : '✓'}
-            </span>
-            <div>
-              <div style={{ fontWeight: 800 }}>
-                {(punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
-                  ? (punchMode !== 'KIOSK'
-                      ? `Security Guard dwara Check-Out record ho gaya hai (${formatTimeStr(punchOutTime)})`
-                      : `Shift Complete • Check-Out Recorded (${formatTimeStr(punchOutTime)})`)
-                  : `Check-Out Complete Ho Chuka Hai (${formatTimeStr(punchOutTime)})`}
-              </div>
-              <div style={{ fontSize: '0.74rem', opacity: 0.85, marginTop: '2px' }}>
-                Aaj ki shift complete ho chuki hai. Dobara punch nahi lag sakta.
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
 
       {/* ========================================================================= */}
-      {/* DYNAMIC ONE-TAP PUNCH ACTION (SPACE-SAVING AUTO-MORPH: IN -> OUT -> DONE) */}
+      {/* DYNAMIC ONE-TAP PUNCH ACTION (SPACE-SAVING AUTO-MORPH: IN -> OUT) */}
       {/* ========================================================================= */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          width: '100%',
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            if (currentAction === 'IN') handlePunch('IN');
-            else if (currentAction === 'OUT') handlePunch('OUT');
-          }}
-          disabled={processing || loadingStatus || currentAction === 'DONE'}
-          className={`punch-btn ${
-            currentAction === 'IN'
-              ? 'punch-btn-in'
-              : currentAction === 'OUT'
-              ? 'punch-btn-out'
-              : 'punch-btn-done'
-          }`}
+      {!checkedOut ? (
+        <div
           style={{
-            position: 'relative',
-            width: '100%',
-            maxWidth: '520px',
-            padding: 'clamp(0.85rem, 2vw, 1.35rem) 1.5rem',
-            borderRadius: '18px',
-            border: currentAction === 'IN'
-              ? '3px solid #10b981'
-              : currentAction === 'OUT'
-              ? '3px solid #ef4444'
-              : (isLight ? '2px solid #cbd5e1' : '2px solid #334155'),
-            background: currentAction === 'IN'
-              ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-              : currentAction === 'OUT'
-              ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-              : (isLight ? 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' : 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'),
-            color: currentAction === 'DONE' ? (isLight ? '#475569' : '#94a3b8') : '#ffffff',
-            cursor: (processing || loadingStatus || currentAction === 'DONE') ? 'not-allowed' : 'pointer',
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
             justifyContent: 'center',
-            gap: '0.4rem',
-            boxShadow: currentAction === 'IN' && !processing
-              ? '0 0 0 5px rgba(16, 185, 129, 0.25), 0 12px 28px rgba(16, 185, 129, 0.4)'
-              : currentAction === 'OUT' && !processing
-              ? '0 0 0 5px rgba(239, 68, 68, 0.25), 0 12px 28px rgba(239, 68, 68, 0.4)'
-              : 'var(--shadow)',
-            opacity: processing ? 0.75 : 1,
-            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-            minHeight: 'clamp(88px, 15vw, 125px)',
+            width: '100%',
           }}
         >
-          {/* Highlight Badge */}
-          {currentAction === 'IN' && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '-11px',
-                background: '#047857',
-                color: '#ffffff',
-                border: '2px solid #34d399',
-                padding: '2px 14px',
-                borderRadius: '99px',
-                fontSize: '0.72rem',
-                fontWeight: 900,
-                letterSpacing: '0.05em',
-                boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-                animation: 'pulseGlow 2s infinite',
-              }}
-            >
-              ★ ONE-TAP ACTION (ARRIVAL)
-            </div>
-          )}
-
-          {currentAction === 'OUT' && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '-11px',
-                background: '#b91c1c',
-                color: '#ffffff',
-                border: '2px solid #f87171',
-                padding: '2px 14px',
-                borderRadius: '99px',
-                fontSize: '0.72rem',
-                fontWeight: 900,
-                letterSpacing: '0.05em',
-                boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-                animation: 'pulseGlowRed 2s infinite',
-              }}
-            >
-              ★ ONE-TAP ACTION (DEPARTURE)
-            </div>
-          )}
-
-          {currentAction === 'DONE' && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '-11px',
-                background: isLight ? '#64748b' : '#334155',
-                color: '#ffffff',
-                border: '2px solid #94a3b8',
-                padding: '2px 14px',
-                borderRadius: '99px',
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                letterSpacing: '0.05em',
-              }}
-            >
-              ✓ COMPLETED FOR TODAY
-            </div>
-          )}
-
-          <div style={{ fontSize: '2rem', lineHeight: 1 }}>
-            {currentAction === 'IN' ? '🟢' : currentAction === 'OUT' ? '🔴' : '🏁'}
-          </div>
-
-          <div style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.01em' }}>
-            {currentAction === 'IN'
-              ? 'Check-In (Arrival)'
-              : currentAction === 'OUT'
-              ? 'Check-Out (Departure)'
-              : 'Shift Completed (Attendance Done)'}
-          </div>
-
-          <div
+          <button
+            type="button"
+            onClick={() => {
+              if (currentAction === 'IN') handlePunch('IN');
+              else if (currentAction === 'OUT') handlePunch('OUT');
+            }}
+            disabled={processing || loadingStatus}
+            className={`punch-btn ${
+              currentAction === 'IN'
+                ? 'punch-btn-in'
+                : 'punch-btn-out'
+            }`}
             style={{
-              fontSize: '0.84rem',
-              fontWeight: 600,
-              opacity: currentAction === 'DONE' ? 0.85 : 0.95,
-              textAlign: 'center',
+              position: 'relative',
+              width: '100%',
+              maxWidth: '520px',
+              padding: 'clamp(0.85rem, 2vw, 1.35rem) 1.5rem',
+              borderRadius: '18px',
+              border: currentAction === 'IN'
+                ? '3px solid #10b981'
+                : '3px solid #ef4444',
+              background: currentAction === 'IN'
+                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: '#ffffff',
+              cursor: (processing || loadingStatus) ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              boxShadow: currentAction === 'IN' && !processing
+                ? '0 0 0 5px rgba(16, 185, 129, 0.25), 0 12px 28px rgba(16, 185, 129, 0.4)'
+                : '0 0 0 5px rgba(239, 68, 68, 0.25), 0 12px 28px rgba(239, 68, 68, 0.4)',
+              opacity: processing ? 0.75 : 1,
+              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              minHeight: 'clamp(88px, 15vw, 125px)',
             }}
           >
-            {processing
-              ? (currentAction === 'IN' ? 'Recording Arrival Punch...' : 'Recording Departure Punch...')
-              : currentAction === 'IN'
-              ? 'One-Tap Arrival Punch • Tap to Clock In'
-              : currentAction === 'OUT'
-              ? `Checked In at ${formatTimeStr(punchInTime)} • Tap to Clock Out`
-              : `In: ${formatTimeStr(punchInTime)} • Out: ${formatTimeStr(punchOutTime)} • Dobara punch nahi hoga`}
-          </div>
-        </button>
-      </div>
+            {/* Highlight Badge */}
+            {currentAction === 'IN' ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-11px',
+                  background: '#047857',
+                  color: '#ffffff',
+                  border: '2px solid #34d399',
+                  padding: '2px 14px',
+                  borderRadius: '99px',
+                  fontSize: '0.72rem',
+                  fontWeight: 900,
+                  letterSpacing: '0.05em',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+                  animation: 'pulseGlow 2s infinite',
+                }}
+              >
+                ★ ONE-TAP ACTION (ARRIVAL)
+              </div>
+            ) : (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-11px',
+                  background: '#b91c1c',
+                  color: '#ffffff',
+                  border: '2px solid #f87171',
+                  padding: '2px 14px',
+                  borderRadius: '99px',
+                  fontSize: '0.72rem',
+                  fontWeight: 900,
+                  letterSpacing: '0.05em',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+                  animation: 'pulseGlowRed 2s infinite',
+                }}
+              >
+                ★ ONE-TAP ACTION (DEPARTURE)
+              </div>
+            )}
 
-      {/* Secondary Actions (Request Leave, My Attendance & Log Out) - ONLY for self-service staff logged in with email & password */}
+            <div style={{ fontSize: '2rem', lineHeight: 1 }}>
+              {currentAction === 'IN' ? '🟢' : '🔴'}
+            </div>
+
+            <div style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.01em' }}>
+              {currentAction === 'IN'
+                ? 'Check-In (Arrival)'
+                : 'Check-Out (Departure)'}
+            </div>
+
+            <div
+              style={{
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                opacity: 0.95,
+                textAlign: 'center',
+              }}
+            >
+              {processing
+                ? (currentAction === 'IN' ? 'Recording Arrival Punch...' : 'Recording Departure Punch...')
+                : currentAction === 'IN'
+                ? 'One-Tap Arrival Punch • Tap to Clock In'
+                : `Checked In at ${formatTimeStr(punchInTime)} • Tap to Clock Out`}
+            </div>
+          </button>
+        </div>
+      ) : (
+        /* When shift is complete: provide quick return button for Kiosk */
+        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: '0.25rem' }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              padding: '0.6rem 1.4rem',
+              borderRadius: '10px',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+              background: isLight ? '#ffffff' : '#1e293b',
+              color: isLight ? '#0f172a' : '#f8fafc',
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: '0.84rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              boxShadow: isLight ? '0 1px 3px rgba(0,0,0,0.06)' : '0 2px 6px rgba(0,0,0,0.25)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span>←</span>
+            <span>Back to Staff List (वापस जाएं)</span>
+          </button>
+        </div>
+      )}
+
       {/* Secondary Actions (Request Leave, My Attendance & Log Out) - ONLY for self-service staff logged in with email & password */}
       {showLeaveAndHistory && (
         <div
@@ -1261,11 +1276,13 @@ export default function OneTapPunchInterface({
       )}
 
       {/* Footer Instructions / Switch button */}
-      <div style={{ textAlign: 'center', marginTop: '0.25rem' }}>
-        <p style={{ color: isLight ? '#475569' : '#cbd5e1', fontSize: '0.8rem', fontWeight: 500, margin: 0 }}>
-          💡 Tap the highlighted button to record your punch in 1 tap. Godwin ERP automatically stamps the server timestamp and calculates shift hours.
-        </p>
-      </div>
+      {!checkedOut && (
+        <div style={{ textAlign: 'center', marginTop: '0.25rem' }}>
+          <p style={{ color: isLight ? '#475569' : '#cbd5e1', fontSize: '0.8rem', fontWeight: 500, margin: 0 }}>
+            💡 Tap the highlighted button to record your punch in 1 tap. Godwin ERP automatically stamps the server timestamp and calculates shift hours.
+          </p>
+        </div>
+      )}
 
       {/* ============================================================ */}
       {/* LEAVE REQUEST MODAL (ORGANIZED, RESPONSIVE & MOBILE-OPTIMIZED) */}
