@@ -212,17 +212,57 @@ export async function POST(req: NextRequest) {
       }
 
       const nameParts = (sysUser.name || 'Security User').split(' ')
+
+      // --- CRITICAL: If system user has a linked employeeId (e.g. GG-1001 for Raman Mankotia),
+      // look up their actual HR employee record so that attendance lookups use the correct ID.
+      // Without this, checkStatus queries 'admin-001' instead of 'GG-1001' and finds no record.
+      let actualEmployeeId: string = sysUser.employeeId || sysUser.id
+      let actualId: string = sysUser.id
+      let actualDept = isSecurityAccount ? 'Security' : 'Management'
+      let actualDesig = isSecurityAccount ? 'Security Guard' : sysUser.role
+      let actualRole = sysUser.role || (isSecurityAccount ? 'Security Guard' : 'Master Admin')
+      let actualFirstName = nameParts[0]
+      let actualLastName = nameParts.slice(1).join(' ') || ''
+      let actualEmail = sysUser.email
+
+      // If the system user has a real employeeId (like GG-1001), resolve the HR record
+      if (sysUser.employeeId && sysUser.employeeId !== sysUser.id) {
+        try {
+          const allEmployees = await getAllEmployees()
+          const linkedEmp = allEmployees.find(e => {
+            const eId = (e.employeeId || '').toLowerCase().trim()
+            const rawId = (e.id || '').toLowerCase().trim()
+            const eEmail = (e.email || '').toLowerCase().trim()
+            const sysEmpId = sysUser.employeeId.toLowerCase().trim()
+            const sysEmail = (sysUser.email || '').toLowerCase().trim()
+            return eId === sysEmpId || rawId === sysEmpId || (sysEmail && eEmail === sysEmail)
+          })
+          if (linkedEmp) {
+            // Use the HR employee's actual ID (GG-1001) for attendance tracking
+            actualId = linkedEmp.id || linkedEmp.employeeId || sysUser.id
+            actualEmployeeId = linkedEmp.employeeId || linkedEmp.id || sysUser.employeeId
+            actualFirstName = linkedEmp.firstName || nameParts[0]
+            actualLastName = linkedEmp.lastName || nameParts.slice(1).join(' ') || ''
+            actualEmail = linkedEmp.email || sysUser.email
+            const dept = typeof linkedEmp.department === 'object' ? (linkedEmp.department?.name || 'Management') : (linkedEmp.department || 'Management')
+            actualDept = isSecurityAccount ? 'Security' : dept
+            actualDesig = linkedEmp.designation || actualDesig
+            actualRole = sysUser.role || linkedEmp.role || 'Master Admin'
+          }
+        } catch {}
+      }
+
       return NextResponse.json({
         success: true,
         employee: {
-          id: sysUser.id,
-          employeeId: sysUser.employeeId || sysUser.username || sysUser.id,
-          firstName: nameParts[0],
-          lastName: nameParts.slice(1).join(' ') || '',
-          email: sysUser.email,
-          department: isSecurityAccount ? 'Security' : 'Management',
-          designation: isSecurityAccount ? 'Security Guard' : sysUser.role,
-          role: sysUser.role || (isSecurityAccount ? 'Security Guard' : 'Master Admin'),
+          id: actualId,
+          employeeId: actualEmployeeId,
+          firstName: actualFirstName,
+          lastName: actualLastName,
+          email: actualEmail,
+          department: actualDept,
+          designation: actualDesig,
+          role: actualRole,
           loginRole: 'security',
         }
       })

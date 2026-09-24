@@ -188,18 +188,33 @@ export async function GET(req: NextRequest) {
 
     const employees = await getAllEmployees()
     const targetEmpId = employeeId.trim().toUpperCase()
-    const emp = employees.find(e => 
-      (e.id && e.id.trim().toUpperCase() === targetEmpId) || 
+
+    // Find by ID first. If that fails and the ID looks like a system ID (admin-XXX, sec-XXX),
+    // also try matching by email or employeeId from query param to find the real HR employee.
+    let emp = employees.find(e =>
+      (e.id && e.id.trim().toUpperCase() === targetEmpId) ||
       (e.employeeId && e.employeeId.trim().toUpperCase() === targetEmpId)
     )
+
+    // Fallback: also accept email via query param for system users
+    const emailParam = searchParams.get('email')
+    if (!emp && emailParam) {
+      const emailLower = emailParam.trim().toLowerCase()
+      emp = employees.find(e => (e.email || '').trim().toLowerCase() === emailLower)
+    }
 
     const allAttendance = getMergedAttendance()
     const empIdUpper = emp?.id?.trim().toUpperCase()
     const empCodeUpper = emp?.employeeId?.trim().toUpperCase()
 
+    // Build all possible ID aliases to search attendance records
+    const idAliases = new Set<string>([targetEmpId])
+    if (empIdUpper) idAliases.add(empIdUpper)
+    if (empCodeUpper) idAliases.add(empCodeUpper)
+
     const record = allAttendance.find(a => {
       const aEmp = (a.employeeId || '').trim().toUpperCase()
-      const empMatch = aEmp === targetEmpId || (empIdUpper && aEmp === empIdUpper) || (empCodeUpper && aEmp === empCodeUpper)
+      const empMatch = idAliases.has(aEmp)
       if (!empMatch) return false
 
       if (a.date === dateStr) return true

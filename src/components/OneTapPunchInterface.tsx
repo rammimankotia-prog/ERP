@@ -122,7 +122,8 @@ export default function OneTapPunchInterface({
     setLoadingStatus(true);
     setErrorMsg(null);
     try {
-      const res = await fetch(`/api/kiosk/punch?employeeId=${encodeURIComponent(employee.id || employee.employeeId)}`);
+      const emailParam = (employee as any).email ? `&email=${encodeURIComponent((employee as any).email)}` : '';
+      const res = await fetch(`/api/kiosk/punch?employeeId=${encodeURIComponent(employee.id || employee.employeeId)}${emailParam}`);
       if (res.ok) {
         const data = await res.json();
         setCheckedIn(!!data.checkedIn);
@@ -193,22 +194,38 @@ export default function OneTapPunchInterface({
     let accuracy: number | undefined;
 
     const empAny = employee as any;
+    const empRole = String(empAny.role || '').toLowerCase();
+    const empDesig = String(employee.designation || '').toLowerCase();
+    const empDept = typeof employee.department === 'string'
+      ? employee.department.toLowerCase()
+      : String(empAny.department?.name || '').toLowerCase();
+
     const isSecurityGuard =
       punchedBy === 'SECURITY' ||
-      (empAny.role && String(empAny.role).toLowerCase().includes('security')) ||
-      (employee.designation && (employee.designation.toLowerCase().includes('guard') || employee.designation.toLowerCase().includes('security'))) ||
-      (typeof employee.department === 'string' && employee.department.toLowerCase().includes('security')) ||
-      (empAny.department?.name && String(empAny.department.name).toLowerCase().includes('security')) ||
+      empRole.includes('security') ||
+      empDesig.includes('guard') ||
+      empDesig.includes('security') ||
+      empDept.includes('security') ||
       empAny.departmentId === 'dept-4' ||
       empAny.departmentId === 'dept-11';
 
     const isAdmin =
       punchedBy === 'ADMIN' ||
-      (empAny.role && String(empAny.role).toLowerCase().includes('admin'));
+      empRole.includes('admin') ||
+      empRole.includes('manager') ||
+      empDesig.includes('admin') ||
+      empDesig.includes('manager') ||
+      empAny.loginRole === 'security';
 
-    const isExempt = isSecurityGuard || isAdmin;
+    // Also exempt if already punched in by security (employee is physically present — no need for GPS re-check)
+    const alreadyPunchedBySecurity =
+      action === 'OUT' &&
+      checkedIn &&
+      (punchInMode === 'SECURITY' || punchInMode === 'KIOSK');
 
-    // GPS boundary acquisition is STRICTLY MANDATORY for all employees (except Admin and Security)
+    const isExempt = isSecurityGuard || isAdmin || alreadyPunchedBySecurity;
+
+    // GPS boundary acquisition is STRICTLY MANDATORY for all employees (except Admin, Security, and already-verified punches)
     if (!isExempt) {
       setGeoLocating(true);
       try {
