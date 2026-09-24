@@ -187,16 +187,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Your account is currently inactive or suspended. Please contact Admin." }, { status: 403 });
     }
 
-    // STRICT: Only Master Admin roles have access to the Executive ERP Portal
-    const isMasterAdmin = user.id === "admin-001" || user.id === "admin-002" || user.id === "admin-003" || user.id === "admin-004" || user.role === "Master Admin";
-    if (!isMasterAdmin) {
+    // Allow Master Admin, Manager, and Security Guard roles
+    const isSecurityGuard = user.role === "Security Guard" || user.id === "sec-001" || user.email?.toLowerCase().includes("sec");
+    const isMasterAdmin = user.id === "admin-001" || user.id === "admin-002" || user.id === "admin-003" || user.id === "admin-004" || user.role === "Master Admin" || user.role === "Manager";
+    if (!isMasterAdmin && !isSecurityGuard) {
       return NextResponse.json(
         { error: "Access Denied: Administrative privileges required. Employees can only access the Punch Terminal at /kiosk." },
         { status: 403 }
       );
     }
 
-    const permissions = MASTER_ADMIN_PERMISSIONS;
+    const permissions = isSecurityGuard ? { kiosk: { access: true } } : MASTER_ADMIN_PERMISSIONS;
 
     const safeUser = {
       id: user.id,

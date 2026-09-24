@@ -226,30 +226,71 @@ export default function KioskPage() {
     setGuardLoginLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: guardLoginUser.trim(),
-          password: guardLoginPass.trim(),
-        }),
-      });
+      let authUser: any = null;
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
+      // 1. Try /api/kiosk/auth first (accepts aliases like sec, security, guard, etc.)
+      try {
+        const resKiosk = await fetch('/api/kiosk/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            identifier: guardLoginUser.trim(),
+            password: guardLoginPass.trim(),
+          }),
+        });
+        if (resKiosk.ok) {
+          const dKiosk = await resKiosk.json();
+          if (dKiosk.success && dKiosk.employee) {
+            authUser = {
+              id: dKiosk.employee.id,
+              employeeId: dKiosk.employee.employeeId,
+              username: dKiosk.employee.email || dKiosk.employee.employeeId,
+              name: `${dKiosk.employee.firstName || ''} ${dKiosk.employee.lastName || ''}`.trim() || 'Security Guard',
+              email: dKiosk.employee.email,
+              role: dKiosk.employee.role || 'Security Guard',
+              department: dKiosk.employee.department,
+              designation: dKiosk.employee.designation,
+            };
+            const payload = JSON.stringify({
+              ...dKiosk.employee,
+              loginRole: 'security',
+              expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+            });
+            localStorage.setItem('kiosk_employee', payload);
+            sessionStorage.setItem('kiosk_employee', payload);
+            setKioskGuard(dKiosk.employee);
+          }
+        }
+      } catch {}
+
+      // 2. If not authenticated via kiosk/auth, try /api/auth/login
+      if (!authUser) {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: guardLoginUser.trim(),
+            password: guardLoginPass.trim(),
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Authentication failed');
+        }
+        authUser = data.user;
       }
 
       if (
-        data.user.role !== 'Security Guard' &&
-        data.user.role !== 'Master Admin' &&
-        data.user.role !== 'Manager' &&
-        data.user.role !== 'ADMIN'
+        authUser.role !== 'Security Guard' &&
+        authUser.role !== 'Master Admin' &&
+        authUser.role !== 'Manager' &&
+        authUser.role !== 'ADMIN'
       ) {
         throw new Error('Access restricted: Only Security Guard, Manager, or Admin accounts can unlock this Kiosk Terminal.');
       }
 
-      login(data.user, guardRememberMe);
+      login(authUser, guardRememberMe);
     } catch (err: any) {
       setGuardLoginError(err.message || 'Failed to authenticate guard');
     } finally {

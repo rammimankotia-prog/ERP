@@ -202,9 +202,18 @@ export default function LoginPage() {
         // Check if they are a security guard
         const designation = (data.employee.designation || '').toLowerCase();
         const dept = (data.employee.department || '').toLowerCase();
-        const isGuard = designation.includes('guard') || designation.includes('security') || dept.includes('security');
+        const role = (data.employee.role || '').toLowerCase();
+        const isGuard =
+          designation.includes('guard') ||
+          designation.includes('security') ||
+          dept.includes('security') ||
+          role.includes('admin') ||
+          role.includes('manager') ||
+          designation.includes('admin') ||
+          designation.includes('manager') ||
+          data.employee.loginRole === 'security';
         if (!isGuard) {
-          setSecError('Access denied. This login is only for Security Guard staff.');
+          setSecError('Access denied. This login is only for Security Guard or Management staff.');
           setSecLoading(false);
           return;
         }
