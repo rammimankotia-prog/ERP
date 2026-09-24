@@ -358,10 +358,10 @@ export function getEmployeeRosterShift(
       }
 
       // If assignedShiftName is Morning Shift:
-      // If the employee is locked to Night Shift (not swap eligible), do not override with generic default Morning Shift!
+      // If the employee is configured for Night Shift, they remain on Night Shift duty!
       if (assignedShiftName === 'Morning Shift' || (matched && (matched.name.toLowerCase().includes('morning') || matched.name.toLowerCase().includes('day')))) {
-        if (isProfileDefaultNight && !emp?.swapShiftEligible) {
-          // Locked night shift employee
+        if (isProfileDefaultNight) {
+          // Designated Night Shift employee
           return {
             startTime: baseNightStart,
             endTime: baseNightEnd,
@@ -375,9 +375,8 @@ export function getEmployeeRosterShift(
           }
         }
 
-        const sTime = (isProfileDefaultNight ? emp?.dayShiftStart : (emp?.dayShiftStart || emp?.morningTime)) || (matched?.startTime) || '08:00'
-        const eTime = (isProfileDefaultNight ? emp?.dayShiftEnd : (emp?.dayShiftEnd || emp?.eveningTime)) || (matched?.endTime) || '20:00'
-        const isSwapped = isProfileDefaultNight
+        const sTime = (emp?.dayShiftStart || emp?.morningTime) || (matched?.startTime) || '08:00'
+        const eTime = (emp?.dayShiftEnd || emp?.eveningTime) || (matched?.endTime) || '20:00'
         return {
           startTime: sTime,
           endTime: eTime,
@@ -385,9 +384,9 @@ export function getEmployeeRosterShift(
           formatted12H: formatShiftTimingLabel(sTime, eTime, 'Morning Shift'),
           isNightShift: false,
           isOff: false,
-          isShiftSwapped: isSwapped,
-          shiftChangeNotice: isSwapped ? `☀️ Swapped to Day Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})` : null,
-          shiftInstruction: isSwapped ? `Shift changed to Day Duty (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)}). Reporting time is ${formatTime12Hour(sTime)}.` : null,
+          isShiftSwapped: false,
+          shiftChangeNotice: null,
+          shiftInstruction: null,
         }
       }
 
