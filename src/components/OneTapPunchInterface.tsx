@@ -762,9 +762,7 @@ export default function OneTapPunchInterface({
               return mClean === '00' ? `${h12} ${ampm}` : `${h12}:${mClean} ${ampm}`;
             };
 
-            const timingText = isNight
-              ? '8 PM to 8 AM'
-              : `${format12H(mTime)} to ${format12H(eTime)}`;
+            const timingText = `${format12H(mTime)} to ${format12H(eTime)}`;
 
             const shiftLabel = employee.shiftName
               ? employee.shiftName

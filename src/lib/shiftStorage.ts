@@ -280,8 +280,8 @@ export function getEmployeeRosterShift(
       )
 
       if (assignedShiftName === 'Night Shift' || (matched && (matched.type === 'NIGHT' || matched.name.toLowerCase().includes('night')))) {
-        const sTime = emp?.nightShiftStart || matched?.startTime || '20:00'
-        const eTime = emp?.nightShiftEnd || matched?.endTime || '08:00'
+        const sTime = emp?.nightShiftStart || (isProfileDefaultNight ? (emp?.morningTime || baseNightStart) : baseNightStart) || matched?.startTime || '20:00'
+        const eTime = emp?.nightShiftEnd || (isProfileDefaultNight ? (emp?.eveningTime || baseNightEnd) : baseNightEnd) || matched?.endTime || '08:00'
         const isSwapped = !isProfileDefaultNight || emp?.swapShiftEligible === true
         return {
           startTime: sTime,
@@ -296,9 +296,11 @@ export function getEmployeeRosterShift(
         }
       }
 
-      if (assignedShiftName === 'Morning Shift') {
-        const sTime = emp?.dayShiftStart || (matched?.startTime) || '09:00'
-        const eTime = emp?.dayShiftEnd || (matched?.endTime) || '18:00'
+      if (assignedShiftName === 'Morning Shift' || (matched && (matched.name.toLowerCase().includes('morning') || matched.name.toLowerCase().includes('day')))) {
+        // Individual employee working hours from profile (morningTime / eveningTime or dayShiftStart / dayShiftEnd)
+        // must always take precedence over the generic 09:00 - 18:00 shift template
+        const sTime = emp?.dayShiftStart || emp?.morningTime || (matched?.startTime) || '09:00'
+        const eTime = emp?.dayShiftEnd || emp?.eveningTime || (matched?.endTime) || '18:00'
         const isSwapped = isProfileDefaultNight
         return {
           startTime: sTime,
@@ -360,8 +362,9 @@ export function getEmployeeRosterShift(
       }
 
       if (matched) {
-        const sTime = matched.startTime || '09:00'
-        const eTime = matched.endTime || '18:00'
+        const isMorningOrDay = matched.name && (matched.name.toLowerCase().includes('morning') || matched.name.toLowerCase().includes('day'))
+        const sTime = (isMorningOrDay ? (emp?.dayShiftStart || emp?.morningTime) : null) || matched.startTime || '09:00'
+        const eTime = (isMorningOrDay ? (emp?.dayShiftEnd || emp?.eveningTime) : null) || matched.endTime || '18:00'
         const isNight = matched.type === 'NIGHT' || sTime === '20:00' || matched.name.toLowerCase().includes('night')
         return {
           startTime: sTime,
