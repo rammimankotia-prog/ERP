@@ -311,9 +311,17 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     const selectedBranchObj = branches.find(b => b.id === editForm.branchId)
     const selectedDeptObj = departments.find(d => d.id === editForm.departmentId)
 
+    const mTime = (editForm.morningTime || '').trim()
+    const eTime = (editForm.eveningTime || '').trim()
+    const isNight = mTime.startsWith('2') || mTime.startsWith('19') || mTime.startsWith('18') || mTime.toLowerCase().includes('pm') || eTime === '08:00' || eTime === '07:00'
+
     const updatedEmp: Employee = {
       ...editingEmp,
       ...editForm,
+      isNightShift: isNight,
+      shiftName: isNight ? 'Night Shift' : (mTime === '13:00' ? 'Afternoon Shift' : (mTime === '10:00' && eTime === '22:00' ? 'Break Shift' : 'Morning Shift')),
+      nightShiftStart: isNight ? (editForm.morningTime || '20:00') : ((editingEmp as any).nightShiftStart || '20:00'),
+      nightShiftEnd: isNight ? (editForm.eveningTime || '08:00') : ((editingEmp as any).nightShiftEnd || '08:00'),
       ...(editForm.password ? { password: editForm.password } : {}),
       branch: selectedBranchObj ? { id: selectedBranchObj.id, name: selectedBranchObj.name, prefix: selectedBranchObj.prefix } : editingEmp.branch,
       department: selectedDeptObj ? { id: selectedDeptObj.id, name: selectedDeptObj.name } : editingEmp.department,

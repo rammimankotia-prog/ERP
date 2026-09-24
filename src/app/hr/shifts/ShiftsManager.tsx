@@ -34,6 +34,10 @@ export type EmployeeItem = {
   swapShiftEligible?: boolean
   morningTime?: string
   eveningTime?: string
+  shiftName?: string
+  isNightShift?: boolean
+  nightShiftStart?: string
+  nightShiftEnd?: string
 }
 
 export const DEFAULT_ROSTER_EMPLOYEES: EmployeeItem[] = []
@@ -53,6 +57,14 @@ function generateInitialMonthlyRoster(year: number, month: number, employees: Em
   employees.forEach(emp => {
     res[emp.id] = {}
     const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
+    const isNightProfile =
+      (emp as any).isNightShift === true ||
+      (emp as any).shiftName?.toLowerCase().includes('night') ||
+      (emp as any).shift?.toLowerCase().includes('night') ||
+      (emp.morningTime || '').startsWith('2') ||
+      (emp.morningTime || '').startsWith('19') ||
+      (emp.eveningTime || '') === '08:00' ||
+      (emp.eveningTime || '') === '07:00'
     const isSecurity = emp.dept.toLowerCase().includes('security') || emp.designation.toLowerCase().includes('security')
     const isHousekeeping = emp.dept.toLowerCase().includes('housekeeping')
     const isCafe = emp.branch.toLowerCase().includes('cafe') || emp.dept.toLowerCase().includes('beverage')
@@ -65,6 +77,8 @@ function generateInitialMonthlyRoster(year: number, month: number, employees: Em
 
       if (isConfiguredOff) {
         res[emp.id][day] = 'OFF'
+      } else if (isNightProfile) {
+        res[emp.id][day] = 'Night Shift'
       } else if (isSecurity) {
         res[emp.id][day] = day % 2 === 0 ? 'Night Shift' : 'Morning Shift'
       } else if (isCafe) {
@@ -92,6 +106,14 @@ function generateInitialWeeklyRoster(employees: EmployeeItem[] = DEFAULT_ROSTER_
   employees.forEach(emp => {
     res[emp.id] = {}
     const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
+    const isNightProfile =
+      (emp as any).isNightShift === true ||
+      (emp as any).shiftName?.toLowerCase().includes('night') ||
+      (emp as any).shift?.toLowerCase().includes('night') ||
+      (emp.morningTime || '').startsWith('2') ||
+      (emp.morningTime || '').startsWith('19') ||
+      (emp.eveningTime || '') === '08:00' ||
+      (emp.eveningTime || '') === '07:00'
     const isSecurity = emp.dept.toLowerCase().includes('security') || emp.designation.toLowerCase().includes('security')
     const isHousekeeping = emp.dept.toLowerCase().includes('housekeeping')
     const isCafe = emp.branch.toLowerCase().includes('cafe') || emp.dept.toLowerCase().includes('beverage')
@@ -102,6 +124,8 @@ function generateInitialWeeklyRoster(employees: EmployeeItem[] = DEFAULT_ROSTER_
 
       if (isConfiguredOff) {
         res[emp.id][day] = 'OFF'
+      } else if (isNightProfile) {
+        res[emp.id][day] = 'Night Shift'
       } else if (isSecurity) {
         res[emp.id][day] = idx % 2 === 0 ? 'Night Shift' : 'Morning Shift'
       } else if (isCafe) {

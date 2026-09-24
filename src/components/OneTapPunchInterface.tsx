@@ -762,7 +762,11 @@ export default function OneTapPunchInterface({
           {(employee.morningTime || employee.eveningTime || employee.shiftDisplay) && (() => {
             const mTime = employee.morningTime || '09:00';
             const eTime = employee.eveningTime || '18:00';
-            const isNight = employee.isNightShift || mTime === '20:00' || eTime === '08:00' || (employee.shiftName && employee.shiftName.toLowerCase().includes('night'));
+            const isNight = employee.isNightShift === true ||
+              (employee.shiftName && employee.shiftName.toLowerCase().includes('night')) ||
+              mTime === '20:00' || mTime.startsWith('2') || mTime.startsWith('19') || mTime.startsWith('18') ||
+              mTime.toLowerCase().includes('pm') ||
+              eTime === '08:00' || eTime === '07:00' || eTime === '06:00';
             
             const format12H = (t?: string) => {
               if (!t) return '';

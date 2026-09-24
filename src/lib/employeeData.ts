@@ -91,6 +91,15 @@ export async function getAllEmployees(): Promise<any[]> {
             branchId: e.branchId || null,
             morningTime: e.morningTime || '09:00',
             eveningTime: e.eveningTime || '18:00',
+            dayShiftStart: (e as any).dayShiftStart || e.morningTime || '09:00',
+            dayShiftEnd: (e as any).dayShiftEnd || e.eveningTime || '18:00',
+            nightShiftStart: (e as any).nightShiftStart || '20:00',
+            nightShiftEnd: (e as any).nightShiftEnd || '08:00',
+            swapShiftEligible: (e as any).swapShiftEligible === true,
+            isNightShift: (e as any).isNightShift === true || ((e.morningTime || '').startsWith('2') || (e.eveningTime || '') === '08:00'),
+            shiftName: (e as any).shiftName || (((e.morningTime || '').startsWith('2') || (e.eveningTime || '') === '08:00') ? 'Night Shift' : 'Morning Shift'),
+            shiftType: (e as any).shiftType || (((e as any).isNightShift || (e.morningTime || '').startsWith('2')) ? 'NIGHT' : undefined),
+            selectedShift: (e as any).selectedShift || (((e as any).isNightShift || (e.morningTime || '').startsWith('2')) ? 'NIGHT' : undefined),
             status: e.status || 'ACTIVE',
             role: (e as any).role || 'Employee',
             baseSalary: (e as any).baseSalary || 0,
@@ -118,12 +127,30 @@ export async function getAllEmployees(): Promise<any[]> {
           const key = (emp.employeeId || emp.id || '').toUpperCase().trim()
           if (!key || isEmployeeDeleted(emp, deletedKeys)) continue
           if (!map.has(key)) {
+            const mTime = (emp.morningTime || '').trim()
+            const eTime = (emp.eveningTime || '').trim()
+            const isNight = emp.isNightShift === true ||
+              (emp.shiftName && String(emp.shiftName).toLowerCase().includes('night')) ||
+              emp.selectedShift === 'NIGHT' ||
+              mTime.startsWith('2') || mTime.startsWith('19') || mTime.startsWith('18') ||
+              mTime.toLowerCase().includes('pm') ||
+              eTime === '08:00' || eTime === '07:00'
+
             map.set(key, {
               ...emp,
               id: emp.id || key,
               employeeId: emp.employeeId || key,
-              morningTime: emp.morningTime || '09:00',
-              eveningTime: emp.eveningTime || '18:00',
+              morningTime: emp.morningTime || (isNight ? (emp.nightShiftStart || '20:00') : '09:00'),
+              eveningTime: emp.eveningTime || (isNight ? (emp.nightShiftEnd || '08:00') : '18:00'),
+              dayShiftStart: emp.dayShiftStart || (isNight ? '09:00' : (emp.morningTime || '09:00')),
+              dayShiftEnd: emp.dayShiftEnd || (isNight ? '18:00' : (emp.eveningTime || '18:00')),
+              nightShiftStart: emp.nightShiftStart || (isNight ? (emp.morningTime || '20:00') : '20:00'),
+              nightShiftEnd: emp.nightShiftEnd || (isNight ? (emp.eveningTime || '08:00') : '08:00'),
+              swapShiftEligible: emp.swapShiftEligible === true,
+              isNightShift: isNight,
+              shiftName: emp.shiftName || (isNight ? 'Night Shift' : 'Morning Shift'),
+              shiftType: emp.shiftType || (isNight ? 'NIGHT' : 'FIXED'),
+              selectedShift: emp.selectedShift || (isNight ? 'NIGHT' : 'MORNING'),
               status: emp.status || 'ACTIVE',
               offDays: emp.offDays || [],
             })

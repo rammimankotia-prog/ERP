@@ -191,6 +191,9 @@ export function deleteShift(id: string): ShiftRecord[] {
 /**
  * Format a 24-hour time string ("20:00", "08:00") to 12-hour AM/PM ("8 PM", "8 AM", "8:30 AM")
  */
+/**
+ * Format a 24-hour time string ("20:00", "08:00") to 12-hour AM/PM ("8 PM", "8 AM", "8:30 AM")
+ */
 export function formatTime12Hour(time24: string): string {
   if (!time24 || typeof time24 !== 'string') return ''
   const trimmed = time24.trim()
@@ -204,6 +207,69 @@ export function formatTime12Hour(time24: string): string {
   const h12 = h % 12 === 0 ? 12 : h % 12
   const mClean = m.padStart(2, '0')
   return mClean === '00' ? `${h12} ${ampm}` : `${h12}:${mClean} ${ampm}`
+}
+
+/**
+ * Detects whether a time string or pair of times represents night shift hours
+ * (e.g. 20:00 - 08:00, 19:00 - 07:00, 21:00 - 09:00, 22:00 - 06:00, 8 PM - 8 AM)
+ */
+export function isNightShiftTime(startTime?: string, endTime?: string): boolean {
+  if (!startTime && !endTime) return false
+  const s = String(startTime || '').trim().toLowerCase()
+  const e = String(endTime || '').trim().toLowerCase()
+
+  if (s.includes('night') || e.includes('night')) return true
+  if (s.includes('pm') && (e.includes('am') || e.includes('morning') || !e)) return true
+
+  // Standard 24h checks
+  const sParts = s.split(':')
+  if (sParts.length >= 1) {
+    const sHour = parseInt(sParts[0], 10)
+    if (!isNaN(sHour)) {
+      // Starting from 18:00 (6 PM) onwards, or midnight up to 04:00 AM
+      if (sHour >= 18 || (sHour >= 0 && sHour <= 4 && s !== '00:00' && e !== '')) return true
+    }
+  }
+
+  if (e) {
+    const eParts = e.split(':')
+    if (eParts.length >= 1) {
+      const eHour = parseInt(eParts[0], 10)
+      if (!isNaN(eHour) && (eHour >= 5 && eHour <= 9)) {
+        // Ends in early morning (05:00 - 09:00) while start is evening or late afternoon
+        const sHour = parseInt(s.split(':')[0], 10)
+        if (!isNaN(sHour) && sHour >= 16) return true
+      }
+    }
+  }
+
+  return false
+}
+
+/**
+ * Checks whether an employee's profile is configured as a Night Shift employee
+ */
+export function isEmployeeProfileNight(emp: any): boolean {
+  if (!emp) return false
+
+  if (emp.isNightShift === true) return true
+
+  const sName = (emp.shiftName || emp.shift || emp.shiftType || '').toString().toLowerCase()
+  if (sName.includes('night')) return true
+  if (emp.selectedShift === 'NIGHT') return true
+
+  if (isNightShiftTime(emp.morningTime, emp.eveningTime)) return true
+  if (isNightShiftTime(emp.nightShiftStart, emp.nightShiftEnd)) return true
+  if (isNightShiftTime(emp.dayShiftStart, emp.dayShiftEnd)) return true
+
+  // Check if nightShiftStart was specifically set
+  if (emp.nightShiftStart && (emp.nightShiftStart === '20:00' || isNightShiftTime(emp.nightShiftStart))) {
+    if (emp.swapShiftEligible === false) return true
+    if (emp.shiftName && emp.shiftName.toLowerCase().includes('night')) return true
+    if (emp.morningTime === emp.nightShiftStart || isNightShiftTime(emp.morningTime)) return true
+  }
+
+  return false
 }
 
 /**
@@ -265,12 +331,13 @@ export function getEmployeeRosterShift(
     const empRoster = (empId && roster[empId]) || (empCode && roster[empCode]) || {}
     const assignedShiftName: string = empRoster[dayNum] || empRoster[String(dayNum)] || ''
 
+    const isProfileDefaultNight = isEmployeeProfileNight(emp)
+
     // Base profile timings
-    const baseDayStart = emp?.dayShiftStart || emp?.morningTime || '09:00'
-    const baseDayEnd = emp?.dayShiftEnd || emp?.eveningTime || '18:00'
-    const baseNightStart = emp?.nightShiftStart || '20:00'
-    const baseNightEnd = emp?.nightShiftEnd || '08:00'
-    const isProfileDefaultNight = baseDayStart === '20:00' || baseDayStart.startsWith('2') || baseDayEnd === '08:00'
+    const baseDayStart = emp?.dayShiftStart || (isProfileDefaultNight ? '09:00' : (emp?.morningTime || '09:00'))
+    const baseDayEnd = emp?.dayShiftEnd || (isProfileDefaultNight ? '18:00' : (emp?.eveningTime || '18:00'))
+    const baseNightStart = emp?.nightShiftStart || (isProfileDefaultNight ? (emp?.morningTime || '20:00') : '20:00')
+    const baseNightEnd = emp?.nightShiftEnd || (isProfileDefaultNight ? (emp?.eveningTime || '08:00') : '08:00')
 
     if (assignedShiftName) {
       const allShifts = getMergedShifts()
@@ -280,8 +347,8 @@ export function getEmployeeRosterShift(
       )
 
       if (assignedShiftName === 'Night Shift' || (matched && (matched.type === 'NIGHT' || matched.name.toLowerCase().includes('night')))) {
-        const sTime = emp?.nightShiftStart || (isProfileDefaultNight ? (emp?.morningTime || baseNightStart) : baseNightStart) || matched?.startTime || '20:00'
-        const eTime = emp?.nightShiftEnd || (isProfileDefaultNight ? (emp?.eveningTime || baseNightEnd) : baseNightEnd) || matched?.endTime || '08:00'
+        const sTime = baseNightStart || matched?.startTime || '20:00'
+        const eTime = baseNightEnd || matched?.endTime || '08:00'
         const isSwapped = !isProfileDefaultNight || emp?.swapShiftEligible === true
         return {
           startTime: sTime,
@@ -290,17 +357,32 @@ export function getEmployeeRosterShift(
           formatted12H: formatShiftTimingLabel(sTime, eTime, 'Night Shift'),
           isNightShift: true,
           isOff: false,
-          isShiftSwapped: isSwapped,
-          shiftChangeNotice: isSwapped ? `🌙 Swapped to Night Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})` : null,
-          shiftInstruction: isSwapped ? `Shift changed to Night Duty (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)}). Reporting time is ${formatTime12Hour(sTime)}.` : null,
+          isShiftSwapped: isSwapped && !isProfileDefaultNight,
+          shiftChangeNotice: (isSwapped && !isProfileDefaultNight) ? `🌙 Swapped to Night Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})` : null,
+          shiftInstruction: (isSwapped && !isProfileDefaultNight) ? `Shift changed to Night Duty (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)}). Reporting time is ${formatTime12Hour(sTime)}.` : null,
         }
       }
 
+      // If assignedShiftName is Morning Shift:
+      // If the employee is locked to Night Shift (not swap eligible), do not override with generic default Morning Shift!
       if (assignedShiftName === 'Morning Shift' || (matched && (matched.name.toLowerCase().includes('morning') || matched.name.toLowerCase().includes('day')))) {
-        // Individual employee working hours from profile (morningTime / eveningTime or dayShiftStart / dayShiftEnd)
-        // must always take precedence over the generic 09:00 - 18:00 shift template
-        const sTime = emp?.dayShiftStart || emp?.morningTime || (matched?.startTime) || '09:00'
-        const eTime = emp?.dayShiftEnd || emp?.eveningTime || (matched?.endTime) || '18:00'
+        if (isProfileDefaultNight && !emp?.swapShiftEligible) {
+          // Locked night shift employee
+          return {
+            startTime: baseNightStart,
+            endTime: baseNightEnd,
+            shiftName: 'Night Shift',
+            formatted12H: formatShiftTimingLabel(baseNightStart, baseNightEnd, 'Night Shift'),
+            isNightShift: true,
+            isOff: false,
+            isShiftSwapped: false,
+            shiftChangeNotice: null,
+            shiftInstruction: null,
+          }
+        }
+
+        const sTime = (isProfileDefaultNight ? emp?.dayShiftStart : (emp?.dayShiftStart || emp?.morningTime)) || (matched?.startTime) || '09:00'
+        const eTime = (isProfileDefaultNight ? emp?.dayShiftEnd : (emp?.dayShiftEnd || emp?.eveningTime)) || (matched?.endTime) || '18:00'
         const isSwapped = isProfileDefaultNight
         return {
           startTime: sTime,
@@ -365,7 +447,7 @@ export function getEmployeeRosterShift(
         const isMorningOrDay = matched.name && (matched.name.toLowerCase().includes('morning') || matched.name.toLowerCase().includes('day'))
         const sTime = (isMorningOrDay ? (emp?.dayShiftStart || emp?.morningTime) : null) || matched.startTime || '09:00'
         const eTime = (isMorningOrDay ? (emp?.dayShiftEnd || emp?.eveningTime) : null) || matched.endTime || '18:00'
-        const isNight = matched.type === 'NIGHT' || sTime === '20:00' || matched.name.toLowerCase().includes('night')
+        const isNight = matched.type === 'NIGHT' || isNightShiftTime(sTime, eTime) || matched.name.toLowerCase().includes('night')
         return {
           startTime: sTime,
           endTime: eTime,
@@ -380,10 +462,24 @@ export function getEmployeeRosterShift(
       }
     }
 
-    // Fall back to employee individual configured timings
+    // Fall back to employee individual configured timings (no roster override)
+    if (isProfileDefaultNight) {
+      return {
+        startTime: baseNightStart,
+        endTime: baseNightEnd,
+        shiftName: 'Night Shift',
+        formatted12H: formatShiftTimingLabel(baseNightStart, baseNightEnd, 'Night Shift'),
+        isNightShift: true,
+        isOff: false,
+        isShiftSwapped: false,
+        shiftChangeNotice: null,
+        shiftInstruction: null,
+      }
+    }
+
     const sTime = (emp?.morningTime && String(emp.morningTime).trim()) || baseDayStart
     const eTime = (emp?.eveningTime && String(emp.eveningTime).trim()) || baseDayEnd
-    const isNight = sTime === '20:00' || eTime === '08:00' || sTime === '22:00' || sTime.startsWith('2')
+    const isNight = isNightShiftTime(sTime, eTime)
     const fallbackShiftName = isNight
       ? 'Night Shift'
       : sTime === '13:00'
@@ -404,9 +500,9 @@ export function getEmployeeRosterShift(
       shiftInstruction: null,
     }
   } catch {
-    const sTime = (emp?.morningTime && String(emp.morningTime).trim()) || '09:00'
-    const eTime = (emp?.eveningTime && String(emp.eveningTime).trim()) || '18:00'
-    const isNight = sTime === '20:00' || eTime === '08:00'
+    const isNight = isEmployeeProfileNight(emp)
+    const sTime = isNight ? (emp?.nightShiftStart || emp?.morningTime || '20:00') : (emp?.morningTime || '09:00')
+    const eTime = isNight ? (emp?.nightShiftEnd || emp?.eveningTime || '08:00') : (emp?.eveningTime || '18:00')
     const fallbackShiftName = isNight ? 'Night Shift' : 'Morning Shift'
     return {
       startTime: sTime,

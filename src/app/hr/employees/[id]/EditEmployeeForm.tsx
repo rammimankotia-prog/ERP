@@ -134,6 +134,7 @@ export default function EditEmployeeForm({
         throw new Error('Please fill in all required fields.')
       }
 
+      const isNight = selectedShift === 'NIGHT' || (morningTime || '').startsWith('2') || (eveningTime || '') === '08:00' || (nightShiftStart && morningTime === nightShiftStart)
       const updatePayload = {
         id: employee.id,
         employeeId: employee.employeeId,
@@ -143,13 +144,17 @@ export default function EditEmployeeForm({
         branchId,
         departmentId,
         designation,
-        morningTime: morningTime || (formData.get('morningTime') as string) || '09:00',
-        eveningTime: eveningTime || (formData.get('eveningTime') as string) || '18:00',
+        selectedShift,
+        shiftName: selectedShift === 'NIGHT' || isNight ? 'Night Shift' : selectedShift === 'AFTERNOON' ? 'Afternoon Shift' : selectedShift === 'BREAK' ? 'Break Shift' : 'Morning Shift',
+        shiftType: selectedShift,
+        isNightShift: isNight,
+        morningTime: (selectedShift === 'NIGHT' && (!morningTime || morningTime === '09:00')) ? (nightShiftStart || '20:00') : (morningTime || (formData.get('morningTime') as string) || '09:00'),
+        eveningTime: (selectedShift === 'NIGHT' && (!eveningTime || eveningTime === '18:00')) ? (nightShiftEnd || '08:00') : (eveningTime || (formData.get('eveningTime') as string) || '18:00'),
         swapShiftEligible,
-        dayShiftStart: swapShiftEligible ? dayShiftStart : (morningTime || '09:00'),
-        dayShiftEnd: swapShiftEligible ? dayShiftEnd : (eveningTime || '18:00'),
-        nightShiftStart: swapShiftEligible ? nightShiftStart : '20:00',
-        nightShiftEnd: swapShiftEligible ? nightShiftEnd : '08:00',
+        dayShiftStart: swapShiftEligible ? dayShiftStart : (selectedShift === 'NIGHT' ? '09:00' : (morningTime || '09:00')),
+        dayShiftEnd: swapShiftEligible ? dayShiftEnd : (selectedShift === 'NIGHT' ? '18:00' : (eveningTime || '18:00')),
+        nightShiftStart: selectedShift === 'NIGHT' ? (morningTime || nightShiftStart || '20:00') : (nightShiftStart || '20:00'),
+        nightShiftEnd: selectedShift === 'NIGHT' ? (eveningTime || nightShiftEnd || '08:00') : (nightShiftEnd || '08:00'),
         offDays: offDays.length > 0 ? offDays : ['Sunday'],
         doj: dojStr ? new Date(dojStr).toISOString() : new Date().toISOString(),
         dob: dobStr ? new Date(dobStr).toISOString() : undefined,
