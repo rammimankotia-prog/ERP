@@ -400,7 +400,9 @@ export default function PayrollSummary() {
           <div className="form-group" style={{ marginBottom: 0, minWidth: '100px' }}>
             <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>YEAR</label>
             <select className="form-input" value={year} onChange={e => setYear(Number(e.target.value))}>
-              {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+              {Array.from({ length: Math.max(new Date().getFullYear() + 25, year + 10, 2050) - 2023 }, (_, i) => 2024 + i).map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
             </select>
           </div>
 

@@ -241,6 +241,22 @@ export default function ShiftsManager() {
   // Monthly Roster State
   const [selectedMonth, setSelectedMonth] = useState<number>(8) // September (0-indexed)
   const [selectedYear, setSelectedYear] = useState<number>(2026)
+
+  // Dynamic available years list: supports past and future years indefinitely
+  const availableYears = useMemo(() => {
+    const startY = 2024
+    const endY = Math.max(new Date().getFullYear() + 25, selectedYear + 10, 2050)
+    const list: number[] = []
+    for (let y = startY; y <= endY; y++) {
+      list.push(y)
+    }
+    if (!list.includes(selectedYear)) {
+      list.push(selectedYear)
+      list.sort((a, b) => a - b)
+    }
+    return list
+  }, [selectedYear])
+
   const [monthlyRoster, setMonthlyRoster] = useState<Record<string, Record<number, string>>>(() =>
     generateInitialMonthlyRoster(2026, 8, DEFAULT_ROSTER_EMPLOYEES)
   )
@@ -1874,7 +1890,7 @@ export default function ShiftsManager() {
                   value={selectedYear}
                   onChange={e => handleMonthChange(selectedMonth, Number(e.target.value))}
                 >
-                  {[2026, 2025, 2024].map(y => (
+                  {availableYears.map(y => (
                     <option key={y} value={y}>{y}</option>
                   ))}
                 </select>

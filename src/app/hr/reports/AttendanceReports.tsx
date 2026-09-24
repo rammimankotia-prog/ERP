@@ -633,7 +633,7 @@ export default function AttendanceReports() {
                 value={selectedYear}
                 onChange={e => setSelectedYear(Number(e.target.value))}
               >
-                {Array.from({ length: new Date().getFullYear() - 2023 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                {Array.from({ length: Math.max(new Date().getFullYear() + 25, selectedYear + 10, 2050) - 2023 }, (_, i) => 2024 + i).map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>
