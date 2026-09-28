@@ -65,14 +65,35 @@ if (fs.existsSync(buildIdFile) && fs.existsSync(serverDir)) {
     } catch {}
   }
 
-  // Signal server process recycle so Phusion Passenger / supervisor loads fresh build
+  // Signal server process recycle so Hostinger Node supervisor loads fresh build
   if (!isWindows) {
     try {
-      log('Triggering pkill -f server.js for supervisor to spawn fresh worker...');
-      execSync('pkill -f "server.js" || true', { stdio: 'ignore' });
-      log('pkill signal executed.');
+      const myPid = process.pid;
+      const ppid = process.ppid;
+      const pidsToKill = [];
+      const procEntries = fs.readdirSync('/proc');
+      for (const entry of procEntries) {
+        if (!/^\d+$/.test(entry)) continue;
+        const pid = parseInt(entry, 10);
+        if (pid === myPid || pid === ppid) continue;
+        try {
+          const cmd = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf-8');
+          if (cmd.includes('server.js') || cmd.includes('next')) {
+            pidsToKill.push(pid);
+          }
+        } catch {}
+      }
+      log(`Found target server PIDs to recycle: ${pidsToKill.join(', ') || 'none'}`);
+      for (const pid of pidsToKill) {
+        try {
+          process.kill(pid, 'SIGTERM');
+          log(`Sent SIGTERM to PID ${pid}`);
+        } catch (kErr) {
+          log(`Error killing PID ${pid}: ${kErr.message}`);
+        }
+      }
     } catch (kErr) {
-      log(`pkill notice: ${kErr.message}`);
+      log(`Process scan notice: ${kErr.message}`);
     }
   }
 
