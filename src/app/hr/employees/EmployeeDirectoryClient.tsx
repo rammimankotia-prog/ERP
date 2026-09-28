@@ -185,14 +185,18 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
 
       const cleanIncoming = incomingList
 
-      // Build map where server records take authoritative precedence for IDs and names,
-      // merged with any recent client-side edits
+      // Build map where server records take authoritative precedence for IDs, names, and status
       const merged = cleanIncoming.map(serverEmp => {
         const cachedEmp = cache.find((c: any) => c.id === serverEmp.id || (serverEmp.employeeId && c.employeeId === serverEmp.employeeId))
         if (cachedEmp) {
+          // If server marked employee as inactive (RESIGNED, TERMINATED, INACTIVE), NEVER let stale cache revert it to ACTIVE!
+          const isServerInactive = serverEmp.status === 'RESIGNED' || serverEmp.status === 'TERMINATED' || serverEmp.status === 'INACTIVE'
+          const effectiveStatus = isServerInactive ? serverEmp.status : (cachedEmp.status || serverEmp.status)
+
           return {
             ...serverEmp,
             ...cachedEmp,
+            status: effectiveStatus,
             // Never allow cache to revert canonical ID or name from server
             id: serverEmp.id,
             employeeId: serverEmp.employeeId,
@@ -437,10 +441,28 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
     setActionLoadingId(emp.id)
     const newStatus = emp.status === 'ACTIVE' ? 'RESIGNED' : 'ACTIVE'
     
-    // Optimistic UI update
+    // 1. Optimistic UI update
     setEmployees((prev) =>
       prev.map((item) => (item.id === emp.id ? { ...item, status: newStatus } : item))
     )
+
+    // 2. Persist to localStorage immediately so it NEVER reverts on refresh
+    try {
+      const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
+      let cache: any[] = []
+      if (cachedStr) {
+        try { cache = JSON.parse(cachedStr) } catch {}
+      }
+      if (!Array.isArray(cache)) cache = []
+      const idx = cache.findIndex((c: any) => c.id === emp.id || (emp.employeeId && c.employeeId === emp.employeeId))
+      if (idx !== -1) {
+        cache[idx] = { ...cache[idx], status: newStatus, updatedAt: new Date().toISOString() }
+      } else {
+        cache.push({ ...emp, status: newStatus, updatedAt: new Date().toISOString() })
+      }
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache))
+      window.dispatchEvent(new Event('godwin-employees-updated'))
+    } catch {}
 
     try {
       const apiRes = await fetch('/api/hr/employees', {

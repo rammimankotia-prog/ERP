@@ -540,11 +540,19 @@ export async function POST(req: NextRequest) {
       const rosterShift = getRosterShiftTimes(emp, dateStr)
       const shiftStartTime = rosterShift.startTime
       const activeShiftName = rosterShift.shiftName
+      const todayDayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(now)
+      const isOffDay = rosterShift.isOff || shiftStartTime === 'OFF' ||
+        (Array.isArray(emp?.offDays) && emp.offDays.length > 0
+          ? emp.offDays.some((od: string) => od.toLowerCase() === todayDayName.toLowerCase())
+          : todayDayName === 'Sunday')
+
       const punchInMinutes = parseTimeToISTMinutes(nowIso)
       const scheduledInMinutes = parseTimeToISTMinutes(shiftStartTime)
       const graceMinutes = activeShiftName === 'Night Shift' ? 20 : 15
-      const lateMinutes = Math.max(0, punchInMinutes - scheduledInMinutes)
-      const isLate = lateMinutes > graceMinutes
+      
+      // On an off day (e.g. Sunday or roster off), working is voluntary — employee is NEVER late!
+      const lateMinutes = isOffDay ? 0 : Math.max(0, punchInMinutes - scheduledInMinutes)
+      const isLate = !isOffDay && lateMinutes > graceMinutes
       const attendanceStatus = isLate ? 'LATE' : 'PRESENT'
 
       const formattedLate = formatDurationHoursMinutes(lateMinutes)
@@ -566,7 +574,9 @@ export async function POST(req: NextRequest) {
         totalMinutes: null,
         shiftName: activeShiftName,
         scheduledTime: shiftStartTime,
-        remarks: isLate ? `Late arrival by ${formattedLate} (+${lateMinutes}m) [${activeShiftName}]` : `Present [${activeShiftName}]`
+        remarks: isOffDay 
+          ? `Worked on Off Day (${todayDayName}) • Present`
+          : (isLate ? `Late arrival by ${formattedLate} (+${lateMinutes}m) [${activeShiftName}]` : `Present [${activeShiftName}]`)
       }
 
       saveAttendanceRecord(newRecord)

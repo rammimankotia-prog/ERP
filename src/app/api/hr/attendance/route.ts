@@ -99,8 +99,21 @@ export async function GET(req: NextRequest) {
       return false
     })
 
-    // Combine employees with their attendance
-    const teamAttendance = employees.map(emp => {
+    // Combine employees with their attendance (filter out inactive staff unless they actually punched today)
+    const teamAttendance = employees
+      .filter(emp => {
+        const isEmpActive = emp.status === 'ACTIVE' || !emp.status
+        if (isEmpActive) return true
+
+        const empIdNorm = (emp.id || '').trim().toUpperCase()
+        const empCodeNorm = (emp.employeeId || '').trim().toUpperCase()
+        const empEmailNorm = (emp.email || '').trim().toUpperCase()
+        return todayAttendance.some(a => {
+          const aIdNorm = (a.employeeId || '').trim().toUpperCase()
+          return (aIdNorm && (aIdNorm === empIdNorm || aIdNorm === empCodeNorm || aIdNorm === empEmailNorm)) && a.punchIn
+        })
+      })
+      .map(emp => {
       const empIdNorm = (emp.id || '').trim().toUpperCase()
       const empCodeNorm = (emp.employeeId || '').trim().toUpperCase()
       const empEmailNorm = (emp.email || '').trim().toUpperCase()
@@ -127,12 +140,13 @@ export async function GET(req: NextRequest) {
       if (record && record.punchIn) {
         // Employee has arrived and punched in: Evaluate punctuality strictly against individual morningTime (default 09:00, NEVER 08:00)
         const empStartTime = (emp.morningTime && String(emp.morningTime).trim()) || '09:00'
+        const isOffDay = empStartTime === 'OFF'
         const shiftInMinutes = parseTimeToISTMinutes(empStartTime)
         const punchInMinutes = parseTimeToISTMinutes(record.punchIn)
-        const diffMinutes = Math.max(0, punchInMinutes - shiftInMinutes)
+        const diffMinutes = isOffDay ? 0 : Math.max(0, punchInMinutes - shiftInMinutes)
         const graceMinutes = 15
 
-        isLate = diffMinutes > graceMinutes
+        isLate = !isOffDay && diffMinutes > graceMinutes
         lateMinutes = isLate ? diffMinutes : 0
         status = isLate ? 'LATE' : 'PRESENT'
 

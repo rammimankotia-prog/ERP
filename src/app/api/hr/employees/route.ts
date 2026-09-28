@@ -184,11 +184,86 @@ export async function PUT(req: NextRequest) {
 
     writeEmployees(employees)
 
-    // Unmark from deleted if active
-    if (updatedRecord.status === 'ACTIVE') {
+    // Sync to Prisma DB if accessible
+    try {
+      const { PrismaClient } = await import('@prisma/client')
+      const prisma = new PrismaClient()
+      const prismaStatus = (updatedRecord.status === 'INACTIVE' ? 'RESIGNED' : updatedRecord.status) as any
+      await prisma.employee.updateMany({
+        where: {
+          OR: [
+            { id: targetId },
+            { employeeId: targetId },
+            ...(updatedRecord.employeeId ? [{ employeeId: updatedRecord.employeeId }] : [])
+          ]
+        },
+        data: {
+          ...(prismaStatus ? { status: prismaStatus } : {}),
+          ...(updatedRecord.firstName ? { firstName: updatedRecord.firstName } : {}),
+          ...(updatedRecord.lastName ? { lastName: updatedRecord.lastName } : {}),
+          ...(updatedRecord.contactNo ? { contactNo: updatedRecord.contactNo } : {}),
+          ...(updatedRecord.designation ? { designation: updatedRecord.designation } : {}),
+          ...(updatedRecord.morningTime ? { morningTime: updatedRecord.morningTime } : {}),
+          ...(updatedRecord.eveningTime ? { eveningTime: updatedRecord.eveningTime } : {}),
+        }
+      })
+      await prisma.$disconnect()
+    } catch (e) {
+      console.warn('Prisma DB sync notice in PUT /api/hr/employees:', e)
+    }
+
+    // Active vs Inactive registry management
+    const isNowActive = updatedRecord.status === 'ACTIVE'
+    const isNowDeactivated = updatedRecord.status === 'RESIGNED' || updatedRecord.status === 'TERMINATED' || updatedRecord.status === 'INACTIVE'
+
+    if (isNowActive) {
       try {
-        const { unmarkEmployeeDeleted } = await import('@/lib/employeeData')
+        const { unmarkEmployeeDeleted, unmarkEmployeeDeactivated } = await import('@/lib/employeeData')
         unmarkEmployeeDeleted([targetId, updatedRecord.employeeId, updatedRecord.email])
+        unmarkEmployeeDeactivated([targetId, updatedRecord.employeeId, updatedRecord.email])
+      } catch {}
+
+      // Clear from revoked sessions
+      try {
+        const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+        const LOCAL_REVOKED_FILE = path.join(process.cwd(), 'data', 'revoked_sessions.json')
+        let revoked = readJson<any[]>(REVOKED_FILE, LOCAL_REVOKED_FILE, [])
+        revoked = revoked.filter(
+          (r: any) =>
+            r.userId !== targetId &&
+            r.employeeId !== targetId &&
+            r.employeeId !== updatedRecord.employeeId &&
+            (!updatedRecord.email || r.email?.toLowerCase() !== updatedRecord.email.toLowerCase()) &&
+            (!updatedRecord.employeeId || r.username?.toLowerCase() !== updatedRecord.employeeId.toLowerCase())
+        )
+        writeJson(REVOKED_FILE, revoked)
+      } catch (e) {
+        console.warn('Failed to clear revoked sessions registry on activate:', e)
+      }
+    }
+
+    if (isNowDeactivated) {
+      try {
+        const { markEmployeeDeactivated } = await import('@/lib/employeeData')
+        markEmployeeDeactivated([targetId, updatedRecord.employeeId, updatedRecord.email])
+      } catch {}
+
+      // Add to revoked sessions
+      try {
+        const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+        const LOCAL_REVOKED_FILE = path.join(process.cwd(), 'data', 'revoked_sessions.json')
+        let revoked = readJson<any[]>(REVOKED_FILE, LOCAL_REVOKED_FILE, [])
+        const revokeEntry = {
+          userId: targetId,
+          employeeId: updatedRecord.employeeId || targetId,
+          email: updatedRecord.email || '',
+          username: updatedRecord.employeeId || targetId,
+          reason: 'Employee deactivated in HR directory',
+          revokedAt: new Date().toISOString()
+        }
+        const alreadyRevoked = revoked.some(r => r.userId === targetId || r.employeeId === (updatedRecord.employeeId || targetId))
+        if (!alreadyRevoked) revoked.push(revokeEntry)
+        writeJson(REVOKED_FILE, revoked)
       } catch {}
     }
 
@@ -209,54 +284,13 @@ export async function PUT(req: NextRequest) {
           name: `${updatedRecord.firstName || ''} ${updatedRecord.lastName || ''}`.trim() || users[uIdx].name,
           email: updatedRecord.email || users[uIdx].email,
           username: updatedRecord.email || users[uIdx].username,
-          status: updatedRecord.status === 'ACTIVE' ? 'Active' : 'Inactive',
+          status: isNowActive ? 'Active' : 'Inactive',
           ...(updatedRecord.password ? { password: updatedRecord.password } : {})
         }
         writeJson(USERS_FILE, users)
       }
     } catch (e) {
       console.warn('Failed to sync updated user in users.json:', e)
-    }
-
-    // When reactivating, remove from revoked sessions
-    if (updatedRecord.status === 'ACTIVE') {
-      try {
-        const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
-        const LOCAL_REVOKED_FILE = path.join(process.cwd(), 'data', 'revoked_sessions.json')
-        let revoked = readJson<any[]>(REVOKED_FILE, LOCAL_REVOKED_FILE, [])
-        revoked = revoked.filter(
-          (r: any) =>
-            r.userId !== targetId &&
-            r.employeeId !== targetId &&
-            r.employeeId !== updatedRecord.employeeId &&
-            (!updatedRecord.email || r.email?.toLowerCase() !== updatedRecord.email.toLowerCase()) &&
-            (!updatedRecord.employeeId || r.username?.toLowerCase() !== updatedRecord.employeeId.toLowerCase())
-        )
-        writeJson(REVOKED_FILE, revoked)
-      } catch (e) {
-        console.warn('Failed to clear revoked sessions registry on activate:', e)
-      }
-    }
-
-    // When deactivating, update users.json status and add to revoked sessions
-    if (updatedRecord.status === 'INACTIVE') {
-      try {
-        const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
-        const LOCAL_REVOKED_FILE = path.join(process.cwd(), 'data', 'revoked_sessions.json')
-        let revoked = readJson<any[]>(REVOKED_FILE, LOCAL_REVOKED_FILE, [])
-        const revokeEntry = {
-          userId: targetId,
-          employeeId: updatedRecord.employeeId || targetId,
-          email: updatedRecord.email || '',
-          username: updatedRecord.employeeId || targetId,
-          reason: 'Employee deactivated',
-          revokedAt: new Date().toISOString()
-        }
-        // Avoid duplicates
-        const alreadyRevoked = revoked.some(r => r.userId === targetId || r.employeeId === (updatedRecord.employeeId || targetId))
-        if (!alreadyRevoked) revoked.push(revokeEntry)
-        writeJson(REVOKED_FILE, revoked)
-      } catch {}
     }
 
     return NextResponse.json({

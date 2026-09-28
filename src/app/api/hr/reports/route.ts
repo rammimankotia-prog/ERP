@@ -166,16 +166,17 @@ export async function GET(req: NextRequest) {
       const dayName = daysOfWeekNames[dayIndex]
       const isSunday = dayIndex === 0
       const isSaturday = dayIndex === 6
+      // Per-date roster shift — handles night shift, duty swaps etc.
+      const rosterShift = getEmployeeRosterShift(emp, dateStr)
       const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0
         ? emp.offDays
         : ['Sunday']
-      const isOffDay = empOffDays.some((od: string) => od.toLowerCase() === dayName.toLowerCase())
+      const isRosterOff = rosterShift.isOff || rosterShift.startTime === 'OFF'
+      const isOffDay = isRosterOff || empOffDays.some((od: string) => od.toLowerCase() === dayName.toLowerCase())
       const isWeekend = isSunday || isSaturday || isOffDay
 
-      // Per-date roster shift — handles night shift, duty swaps etc.
-      const rosterShift = getEmployeeRosterShift(emp, dateStr)
-      const shiftIn = rosterShift.startTime || emp.morningTime || '09:00'
-      const shiftOut = rosterShift.endTime || emp.eveningTime || '18:00'
+      const shiftIn = (rosterShift.startTime && rosterShift.startTime !== 'OFF') ? rosterShift.startTime : (emp.morningTime || '09:00')
+      const shiftOut = (rosterShift.endTime && rosterShift.endTime !== 'OFF') ? rosterShift.endTime : (emp.eveningTime || '18:00')
       const shiftInMins = parseTimeToMinutes(shiftIn)
       const shiftOutMins = parseTimeToMinutes(shiftOut)
       const scheduledTotalMins = shiftOutMins > shiftInMins

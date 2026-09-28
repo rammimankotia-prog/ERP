@@ -53,15 +53,61 @@ export function unmarkEmployeeDeleted(keys: string[]): void {
   } catch {}
 }
 
+export function getDeactivatedEmployeeKeys(): string[] {
+  const allDirs = getAllDataDirs()
+  const keysSet = new Set<string>()
+
+  for (const dir of allDirs) {
+    const filePath = path.join(dir, 'deactivated_employees.json')
+    const list = safeReadJsonFile<any[]>(filePath, [])
+    if (Array.isArray(list)) {
+      list.forEach(k => keysSet.add(String(k).toLowerCase().trim()))
+    }
+  }
+
+  return Array.from(keysSet)
+}
+
+export function isEmployeeDeactivated(emp: any, deactivatedKeys: string[]): boolean {
+  const id = (emp.id || '').toLowerCase().trim()
+  const empId = (emp.employeeId || '').toLowerCase().trim()
+  const email = (emp.email || '').toLowerCase().trim()
+  return (
+    (id !== '' && deactivatedKeys.includes(id)) ||
+    (empId !== '' && deactivatedKeys.includes(empId)) ||
+    (email !== '' && deactivatedKeys.includes(email))
+  )
+}
+
+export function markEmployeeDeactivated(keys: string[]): void {
+  try {
+    const existing = getDeactivatedEmployeeKeys()
+    const toAdd = keys.map(k => String(k).toLowerCase().trim()).filter(Boolean)
+    const merged = Array.from(new Set([...existing, ...toAdd]))
+    writeToAllTiers('deactivated_employees.json', merged)
+  } catch {}
+}
+
+export function unmarkEmployeeDeactivated(keys: string[]): void {
+  try {
+    const existing = getDeactivatedEmployeeKeys()
+    const toRemove = new Set(keys.map(k => String(k).toLowerCase().trim()).filter(Boolean))
+    const filtered = existing.filter(k => !toRemove.has(k))
+    writeToAllTiers('deactivated_employees.json', filtered)
+  } catch {}
+}
+
 /**
  * Returns ALL active employees, normalized and unified across Prisma DB,
  * permanent external vault, historical build folders, and local data files.
  * - Queries Prisma DB (if reachable).
  * - Merges with all JSON files across all tiers so no employee is ever missed.
  * - Always excludes employees in deleted_employees.json.
+ * - Respects deactivated_employees.json so deactivated staff never resurrect as ACTIVE.
  */
 export async function getAllEmployees(): Promise<any[]> {
   const deletedKeys = getDeletedEmployeeKeys()
+  const deactivatedKeys = getDeactivatedEmployeeKeys()
   const map = new Map<string, any>()
 
   // 1. Prisma DB (production source of truth when configured)
@@ -102,7 +148,7 @@ export async function getAllEmployees(): Promise<any[]> {
             shiftName: (e as any).shiftName || (isNight ? 'Night Shift' : 'Morning Shift'),
             shiftType: (e as any).shiftType || (isNight ? 'NIGHT' : undefined),
             selectedShift: (e as any).selectedShift || (isNight ? 'NIGHT' : undefined),
-            status: e.status || 'ACTIVE',
+            status: isEmployeeDeactivated(e, deactivatedKeys) ? 'RESIGNED' : (e.status || 'ACTIVE'),
             updatedAt: (e as any).updatedAt || null,
             role: (e as any).role || 'Employee',
             baseSalary: (e as any).baseSalary || 0,
@@ -132,6 +178,11 @@ export async function getAllEmployees(): Promise<any[]> {
           const key = (emp.employeeId || emp.id || '').toUpperCase().trim()
           if (!key || isEmployeeDeleted(emp, deletedKeys)) continue
 
+          const isDeactivated = isEmployeeDeactivated(emp, deactivatedKeys)
+          const empStatus = isDeactivated
+            ? 'RESIGNED'
+            : (emp.status === 'TERMINATED' ? 'TERMINATED' : (emp.status || 'ACTIVE'))
+
           const mTime = (emp.morningTime || '').trim()
           const eTime = (emp.eveningTime || '').trim()
           const isNight = emp.isNightShift === true ||
@@ -156,21 +207,26 @@ export async function getAllEmployees(): Promise<any[]> {
               shiftName: emp.shiftName || (isNight ? 'Night Shift' : 'Morning Shift'),
               shiftType: emp.shiftType || (isNight ? 'NIGHT' : 'FIXED'),
               selectedShift: emp.selectedShift || (isNight ? 'NIGHT' : 'MORNING'),
-              status: emp.status || 'ACTIVE',
+              status: empStatus,
               offDays: emp.offDays || [],
             })
           } else {
-            // Employee exists in Prisma — JSON overrides status/mutable fields if JSON is newer
+            // Employee exists in Prisma — JSON overrides status/mutable fields if JSON is newer or deactivated
             const existing = map.get(key)!
             const prismaUpdatedAt = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0
             const jsonUpdatedAt = emp.updatedAt ? new Date(emp.updatedAt).getTime() : 0
+            const existingIsDeactivated = isEmployeeDeactivated(existing, deactivatedKeys) || existing.status === 'RESIGNED' || existing.status === 'TERMINATED'
 
-            // If JSON was updated more recently than Prisma record, trust JSON for status and other mutable fields
-            if (jsonUpdatedAt > prismaUpdatedAt || (emp.status && emp.status !== existing.status)) {
+            // If existing is already deactivated, NEVER let an old JSON record with ACTIVE override it!
+            const newStatus = (isDeactivated || existingIsDeactivated)
+              ? (existing.status === 'TERMINATED' || empStatus === 'TERMINATED' ? 'TERMINATED' : 'RESIGNED')
+              : (jsonUpdatedAt >= prismaUpdatedAt ? empStatus : existing.status)
+
+            if (jsonUpdatedAt > prismaUpdatedAt || isDeactivated || existingIsDeactivated) {
               map.set(key, {
                 ...existing,
                 // Override mutable operational fields from JSON
-                status: emp.status || existing.status,
+                status: newStatus,
                 offDays: emp.offDays || existing.offDays || [],
                 morningTime: emp.morningTime || existing.morningTime,
                 eveningTime: emp.eveningTime || existing.eveningTime,
@@ -184,6 +240,13 @@ export async function getAllEmployees(): Promise<any[]> {
           }
         }
       }
+    }
+  }
+
+  // Final enforcement: Any employee in deactivatedKeys MUST have non-active status
+  for (const [key, emp] of map.entries()) {
+    if (isEmployeeDeactivated(emp, deactivatedKeys) && emp.status === 'ACTIVE') {
+      map.set(key, { ...emp, status: 'RESIGNED' })
     }
   }
 

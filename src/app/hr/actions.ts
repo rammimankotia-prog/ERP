@@ -537,8 +537,14 @@ export async function toggleEmployeeStatus(
   const targetStatus = newStatus || (emp?.status === 'ACTIVE' ? 'RESIGNED' : 'ACTIVE')
 
   try {
-    await prisma.employee?.update({
-      where: { id },
+    await prisma.employee?.updateMany({
+      where: {
+        OR: [
+          { id },
+          { employeeId: id },
+          ...(emp?.employeeId ? [{ employeeId: emp.employeeId }] : [])
+        ]
+      },
       data: { status: targetStatus }
     })
   } catch (e) {
@@ -550,6 +556,17 @@ export async function toggleEmployeeStatus(
     emp.updatedAt = new Date().toISOString()
     writeJsonFile(EMPLOYEES_FILE, fileEmployees)
   }
+
+  // Manage deactivated registry
+  try {
+    const { markEmployeeDeactivated, unmarkEmployeeDeactivated } = await import('@/lib/employeeData')
+    const keys = [id, emp?.id, emp?.employeeId, emp?.email].filter(Boolean) as string[]
+    if (targetStatus !== 'ACTIVE') {
+      markEmployeeDeactivated(keys)
+    } else {
+      unmarkEmployeeDeactivated(keys)
+    }
+  } catch {}
 
   const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
   const USERS_FILE = path.join(DATA_DIR, 'users.json')
