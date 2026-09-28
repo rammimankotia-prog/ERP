@@ -2,22 +2,46 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const logFile = path.join(process.cwd(), 'data', 'deploy_debug.log');
+const dataDirs = [
+  path.join(process.cwd(), 'data'),
+  process.env.PERSISTENT_DATA_DIR,
+  '/home/u790942238/domains/grandgodwin.com/godwin_permanent_data',
+  '/home/u790942238/domains/grandgodwin.com/hbuilds/versions/01a0d3e1-49d2-7368-b673-e6e029270fa9/nodejs/data'
+].filter(Boolean);
 
 function log(msg) {
-  const line = `[${new Date().toISOString()}] ${msg}\n`;
+  const line = `[${new Date().toISOString()}] [deploy-build] ${msg}\n`;
   console.log(msg);
-  try {
-    const dir = path.dirname(logFile);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.appendFileSync(logFile, line, 'utf-8');
-  } catch {}
+  for (const d of dataDirs) {
+    for (const f of ['deploy.log', 'deploy_debug.log']) {
+      try {
+        const full = path.join(d, f);
+        if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+        fs.appendFileSync(full, line, 'utf-8');
+      } catch {}
+    }
+  }
 }
 
 log('Starting deploy-build.js...');
 log(`Node version: ${process.version}`);
 log(`Working directory: ${process.cwd()}`);
 log(`process.execPath: ${process.execPath}`);
+
+const nodeBin = process.execPath;
+const nodeBinDir = path.dirname(nodeBin);
+const nodeModulesBin = path.join(process.cwd(), 'node_modules', '.bin');
+
+const isWindows = process.platform === 'win32';
+const enhancedPath = isWindows
+  ? process.env.PATH
+  : `${nodeBinDir}:${nodeModulesBin}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
+
+const execEnv = {
+  ...process.env,
+  PATH: enhancedPath,
+  NODE_ENV: 'production'
+};
 
 // Check next installation
 const nextBin = path.join(process.cwd(), 'node_modules', 'next', 'dist', 'bin', 'next');
@@ -27,26 +51,28 @@ log(`nextBin exists: ${fs.existsSync(nextBin)}`);
 log(`nextCliBuild exists: ${fs.existsSync(nextCliBuild)}`);
 
 if (!fs.existsSync(nextCliBuild)) {
-  log('next-build.js missing! Running npm install...');
+  log('next-build.js missing! Running npm install to fetch full next CLI...');
   try {
-    const out = execSync('npm install --no-audit --no-fund --production=false', {
+    const installOut = execSync('npm install next@16.2.4 --no-audit --no-fund --production=false', {
       encoding: 'utf-8',
-      env: process.env,
+      env: execEnv,
       stdio: 'pipe',
       timeout: 180000
     });
-    log(`npm install output: ${out ? out.slice(-500) : 'none'}`);
+    log(`npm install output: ${installOut ? installOut.slice(-500) : 'done'}`);
   } catch (err) {
-    log(`npm install error: ${err.message}\n${err.stdout || ''}\n${err.stderr || ''}`);
+    log(`npm install error: ${err.message}\nSTDOUT:\n${err.stdout || ''}\nSTDERR:\n${err.stderr || ''}`);
   }
 }
+
+log(`Post-install nextCliBuild exists: ${fs.existsSync(nextCliBuild)}`);
 
 // Generate Prisma
 try {
   log('Running prisma generate...');
   const prismaOut = execSync('npx prisma generate', {
     encoding: 'utf-8',
-    env: process.env,
+    env: execEnv,
     stdio: 'pipe',
     timeout: 60000
   });
@@ -58,9 +84,9 @@ try {
 // Execute next build
 try {
   log('Executing next build with node...');
-  const buildOut = execSync(`"${process.execPath}" "${nextBin}" build`, {
+  const buildOut = execSync(`"${nodeBin}" "${nextBin}" build`, {
     encoding: 'utf-8',
-    env: { ...process.env, NODE_ENV: 'production' },
+    env: execEnv,
     stdio: 'pipe',
     timeout: 300000
   });
