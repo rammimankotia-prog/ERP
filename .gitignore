@@ -59,6 +59,7 @@ next-env.d.ts
 /data/*_safe.json
 /data/*.jsonl
 /data/deploy.log
+/data/deploy_debug.log
 godwin_local_permanent_vault/
 godwin_permanent_data/
 

@@ -158,6 +158,14 @@ export async function GET() {
     }
   } catch {}
 
+  const debugLogFile = path.join(DATA_DIR, "deploy_debug.log");
+  let debugLogContent = "";
+  try {
+    if (fs.existsSync(debugLogFile)) {
+      debugLogContent = fs.readFileSync(debugLogFile, "utf-8").slice(-2500);
+    }
+  } catch {}
+
   return NextResponse.json({
     success: true,
     isDeploying,
@@ -168,6 +176,7 @@ export async function GET() {
     workingDir: findGitDirectory(),
     secretConfigured: true,
     log: logContent || "No deployment logs yet.",
+    debugLog: debugLogContent || "No debug log yet.",
   });
 }
 
