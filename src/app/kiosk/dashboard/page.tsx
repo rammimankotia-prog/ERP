@@ -91,7 +91,7 @@ export default function KioskDashboard() {
         return
       }
       setEmployee(emp)
-      checkStatus(emp.id)
+      checkStatus(emp.id, emp.employeeId)
       fetchNotifications(emp.id, emp.employeeId)
 
       // Real-time deactivation check
@@ -216,12 +216,18 @@ export default function KioskDashboard() {
     return () => clearInterval(timer)
   }, [])
 
-  const checkStatus = async (empId: string) => {
+  const checkStatus = async (empId: string, empCode?: string) => {
     try {
-      const res = await fetch(`/api/hr/attendance?date=${new Date().toISOString().split('T')[0]}`)
+      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+      const res = await fetch(`/api/hr/attendance?date=${todayStr}`)
       if (res.ok) {
         const data = await res.json()
-        const record = data.logs?.find((l: any) => l.employeeId === empId)
+        const idUpper = (empId || '').trim().toUpperCase()
+        const codeUpper = (empCode || '').trim().toUpperCase()
+        const record = data.logs?.find((l: any) => {
+          const lId = (l.employeeId || '').trim().toUpperCase()
+          return lId === idUpper || (codeUpper && lId === codeUpper)
+        })
         if (record && record.punchIn) {
           setHasPunchedIn(true)
           if (record.punchOut) {

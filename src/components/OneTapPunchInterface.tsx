@@ -450,7 +450,10 @@ export default function OneTapPunchInterface({
     setShowHistoryModal(true);
     setLoadingHistory(true);
     try {
-      const res = await fetch(`/api/kiosk/attendance?employeeId=${encodeURIComponent(employee.id || employee.employeeId)}`);
+      const empCode = employee.employeeId || employee.id;
+      const empId = employee.id || '';
+      const email = (employee as any).email || '';
+      const res = await fetch(`/api/kiosk/attendance?employeeId=${encodeURIComponent(empCode)}&id=${encodeURIComponent(empId)}&email=${encodeURIComponent(email)}`);
       if (res.ok) {
         const data = await res.json();
         setHistoryLogs(data.logs || []);
@@ -1951,31 +1954,49 @@ export default function OneTapPunchInterface({
                       </tr>
                     </thead>
                     <tbody>
-                      {historyLogs.map((log, idx) => (
-                        <tr key={idx} style={{ borderBottom: isLight ? '1px solid #f1f5f9' : '1px solid #334155', color: isLight ? '#0f172a' : '#f8fafc' }}>
-                          <td style={{ padding: '0.65rem 0.5rem', fontWeight: 600 }}>
-                            {new Date(log.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </td>
-                          <td style={{ padding: '0.65rem 0.5rem', color: '#10b981', fontWeight: 700 }}>
-                            {log.punchIn ? new Date(log.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                          </td>
-                          <td style={{ padding: '0.65rem 0.5rem', color: '#ef4444', fontWeight: 700 }}>
-                            {log.punchOut ? new Date(log.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                          </td>
-                          <td style={{ padding: '0.65rem 0.5rem' }}>
-                            <span style={{
-                              padding: '2px 8px',
-                              borderRadius: '99px',
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              backgroundColor: log.status === 'LATE' ? 'rgba(245, 158, 11, 0.15)' : log.status === 'ABSENT' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                              color: log.status === 'LATE' ? '#f59e0b' : log.status === 'ABSENT' ? '#ef4444' : '#10b981'
-                            }}>
-                              {log.status || 'ON_TIME'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {historyLogs.map((log, idx) => {
+                        const isLate = log.status === 'LATE' || log.isLate;
+                        const isAbsent = log.status === 'ABSENT';
+                        const isOff = log.status === 'WEEKLY_OFF' || log.status === 'OFF';
+                        const isLeave = log.status && (log.status.includes('LEAVE') || log.status === 'PAID_LEAVE' || log.status === 'UNPAID_LEAVE');
+                        const isHalf = log.status === 'HALF_DAY';
+
+                        const badgeColor = isLate ? '#f59e0b' : isAbsent ? '#ef4444' : isOff ? '#64748b' : isLeave ? '#2563eb' : isHalf ? '#8b5cf6' : '#10b981';
+                        const badgeBg = isLate ? 'rgba(245, 158, 11, 0.15)' : isAbsent ? 'rgba(239, 68, 68, 0.15)' : isOff ? 'rgba(100, 116, 139, 0.15)' : isLeave ? 'rgba(37, 99, 235, 0.15)' : isHalf ? 'rgba(139, 92, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+                        const badgeText = isLate ? 'Late' : isAbsent ? 'Absent' : isOff ? 'Weekly Off' : isLeave ? (log.status.replace(/_/g, ' ')) : isHalf ? 'Half Day' : 'Present';
+
+                        let displayDate = log.date || '';
+                        try {
+                          displayDate = new Date(log.date + (String(log.date).includes('T') ? '' : 'T12:00:00+05:30')).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+                        } catch {}
+
+                        return (
+                          <tr key={idx} style={{ borderBottom: isLight ? '1px solid #f1f5f9' : '1px solid #334155', color: isLight ? '#0f172a' : '#f8fafc' }}>
+                            <td style={{ padding: '0.65rem 0.5rem', fontWeight: 600 }}>
+                              {displayDate}
+                            </td>
+                            <td style={{ padding: '0.65rem 0.5rem', color: log.punchIn ? '#10b981' : 'var(--text-muted)', fontWeight: 700 }}>
+                              {log.punchIn ? new Date(log.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
+                            </td>
+                            <td style={{ padding: '0.65rem 0.5rem', color: log.punchOut ? '#ef4444' : 'var(--text-muted)', fontWeight: 700 }}>
+                              {log.punchOut ? new Date(log.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
+                            </td>
+                            <td style={{ padding: '0.65rem 0.5rem' }}>
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '99px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                backgroundColor: badgeBg,
+                                color: badgeColor,
+                                whiteSpace: 'nowrap',
+                              }}>
+                                {badgeText}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
