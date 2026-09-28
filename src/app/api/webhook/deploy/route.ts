@@ -121,13 +121,16 @@ function triggerDeployment(triggerSource: string) {
     ? process.env.PATH
     : `${nodeBinDir}:${nodeModulesBin}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
 
-  const buildCmd = "npm run build";
+  const nextBin = path.join(workingDir, "node_modules", "next", "dist", "bin", "next");
+  const buildCmd = fs.existsSync(nextBin)
+    ? `"${nodeBin}" "${nextBin}" build`
+    : `npm run build`;
 
   const restartCmd = isWindows
     ? ""
-    : " && (pm2 restart all || pm2 reload all || true)";
+    : " && (pm2 restart all || pm2 reload all || true) && (mkdir -p tmp && touch tmp/restart.txt || true)";
 
-  const cmd = `git pull origin main && ${buildCmd}${restartCmd}`;
+  const cmd = `(git stash push -m "pre-deploy" || true) && git pull origin main && ${buildCmd}${restartCmd}`;
 
   exec(cmd, { cwd: workingDir, maxBuffer: 1024 * 1024 * 10, env: { ...process.env, PATH: enhancedPath } }, (error, stdout, stderr) => {
     isDeploying = false;
