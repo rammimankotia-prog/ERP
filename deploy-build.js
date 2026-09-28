@@ -50,6 +50,32 @@ const serverDir = path.join(process.cwd(), '.next', 'server');
 if (fs.existsSync(buildIdFile) && fs.existsSync(serverDir)) {
   const buildId = fs.readFileSync(buildIdFile, 'utf-8').trim();
   log(`✅ Verified pre-compiled production build (BUILD_ID: ${buildId}). Skipping compilation to avoid Hostinger memory limit!`);
+  
+  // Touch Phusion Passenger restart files
+  const restartDirs = [
+    path.join(process.cwd(), 'tmp'),
+    '/home/u790942238/domains/grandgodwin.com/public_html/tmp',
+    '/home/u790942238/domains/grandgodwin.com/tmp'
+  ];
+  for (const rDir of restartDirs) {
+    try {
+      if (!fs.existsSync(rDir)) fs.mkdirSync(rDir, { recursive: true });
+      fs.writeFileSync(path.join(rDir, 'restart.txt'), String(Date.now()));
+      log(`Touched ${path.join(rDir, 'restart.txt')}`);
+    } catch {}
+  }
+
+  // Signal server process recycle so Phusion Passenger / supervisor loads fresh build
+  if (!isWindows) {
+    try {
+      log('Triggering pkill -f server.js for supervisor to spawn fresh worker...');
+      execSync('pkill -f "server.js" || true', { stdio: 'ignore' });
+      log('pkill signal executed.');
+    } catch (kErr) {
+      log(`pkill notice: ${kErr.message}`);
+    }
+  }
+
   log('Build step completed successfully!');
   process.exit(0);
 }
