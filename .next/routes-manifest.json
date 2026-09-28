@@ -1,0 +1,449 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/_next/static/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ],
+      "regex": "^/_next/static(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ],
+      "regex": "^(?:/(.*))(?:/)?$"
+    }
+  ],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/api/hr/leave/[id]/approve",
+      "regex": "^/api/hr/leave/([^/]+?)/approve(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/hr/leave/(?<nxtPid>[^/]+?)/approve(?:/)?$"
+    },
+    {
+      "page": "/api/hr/leave/[id]/reject",
+      "regex": "^/api/hr/leave/([^/]+?)/reject(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/hr/leave/(?<nxtPid>[^/]+?)/reject(?:/)?$"
+    },
+    {
+      "page": "/hr/employees/[id]",
+      "regex": "^/hr/employees/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/hr/employees/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/operations/[id]/expenses",
+      "regex": "^/operations/([^/]+?)/expenses(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/operations/(?<nxtPid>[^/]+?)/expenses(?:/)?$"
+    },
+    {
+      "page": "/operations/[id]/review",
+      "regex": "^/operations/([^/]+?)/review(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/operations/(?<nxtPid>[^/]+?)/review(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin/login",
+      "regex": "^/admin/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/login(?:/)?$"
+    },
+    {
+      "page": "/api/admin/cleanup-employees",
+      "regex": "^/api/admin/cleanup\\-employees(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/admin/cleanup\\-employees(?:/)?$"
+    },
+    {
+      "page": "/api/auth/deactivate",
+      "regex": "^/api/auth/deactivate(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/deactivate(?:/)?$"
+    },
+    {
+      "page": "/api/auth/login",
+      "regex": "^/api/auth/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/login(?:/)?$"
+    },
+    {
+      "page": "/api/auth/reset",
+      "regex": "^/api/auth/reset(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/reset(?:/)?$"
+    },
+    {
+      "page": "/api/auth/session-check",
+      "regex": "^/api/auth/session\\-check(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/session\\-check(?:/)?$"
+    },
+    {
+      "page": "/api/auth/users",
+      "regex": "^/api/auth/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/users(?:/)?$"
+    },
+    {
+      "page": "/api/chat",
+      "regex": "^/api/chat(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/chat(?:/)?$"
+    },
+    {
+      "page": "/api/expenses",
+      "regex": "^/api/expenses(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/expenses(?:/)?$"
+    },
+    {
+      "page": "/api/expenses/review",
+      "regex": "^/api/expenses/review(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/expenses/review(?:/)?$"
+    },
+    {
+      "page": "/api/fx",
+      "regex": "^/api/fx(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/fx(?:/)?$"
+    },
+    {
+      "page": "/api/hr/attendance",
+      "regex": "^/api/hr/attendance(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/attendance(?:/)?$"
+    },
+    {
+      "page": "/api/hr/attendance/punch-in",
+      "regex": "^/api/hr/attendance/punch\\-in(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/attendance/punch\\-in(?:/)?$"
+    },
+    {
+      "page": "/api/hr/attendance/punch-out",
+      "regex": "^/api/hr/attendance/punch\\-out(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/attendance/punch\\-out(?:/)?$"
+    },
+    {
+      "page": "/api/hr/attendance/recover",
+      "regex": "^/api/hr/attendance/recover(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/attendance/recover(?:/)?$"
+    },
+    {
+      "page": "/api/hr/attendance/sync",
+      "regex": "^/api/hr/attendance/sync(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/attendance/sync(?:/)?$"
+    },
+    {
+      "page": "/api/hr/employees",
+      "regex": "^/api/hr/employees(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/employees(?:/)?$"
+    },
+    {
+      "page": "/api/hr/employees/create",
+      "regex": "^/api/hr/employees/create(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/employees/create(?:/)?$"
+    },
+    {
+      "page": "/api/hr/leave",
+      "regex": "^/api/hr/leave(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/leave(?:/)?$"
+    },
+    {
+      "page": "/api/hr/payroll/summary",
+      "regex": "^/api/hr/payroll/summary(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/payroll/summary(?:/)?$"
+    },
+    {
+      "page": "/api/hr/reports",
+      "regex": "^/api/hr/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/reports(?:/)?$"
+    },
+    {
+      "page": "/api/hr/roster",
+      "regex": "^/api/hr/roster(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/roster(?:/)?$"
+    },
+    {
+      "page": "/api/hr/shifts",
+      "regex": "^/api/hr/shifts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/hr/shifts(?:/)?$"
+    },
+    {
+      "page": "/api/kiosk/attendance",
+      "regex": "^/api/kiosk/attendance(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/kiosk/attendance(?:/)?$"
+    },
+    {
+      "page": "/api/kiosk/auth",
+      "regex": "^/api/kiosk/auth(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/kiosk/auth(?:/)?$"
+    },
+    {
+      "page": "/api/kiosk/employees",
+      "regex": "^/api/kiosk/employees(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/kiosk/employees(?:/)?$"
+    },
+    {
+      "page": "/api/kiosk/punch",
+      "regex": "^/api/kiosk/punch(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/kiosk/punch(?:/)?$"
+    },
+    {
+      "page": "/api/kiosk/sheet",
+      "regex": "^/api/kiosk/sheet(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/kiosk/sheet(?:/)?$"
+    },
+    {
+      "page": "/api/leads",
+      "regex": "^/api/leads(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/leads(?:/)?$"
+    },
+    {
+      "page": "/api/notifications",
+      "regex": "^/api/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/notifications(?:/)?$"
+    },
+    {
+      "page": "/api/operations",
+      "regex": "^/api/operations(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/operations(?:/)?$"
+    },
+    {
+      "page": "/api/pay",
+      "regex": "^/api/pay(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/pay(?:/)?$"
+    },
+    {
+      "page": "/api/reputation",
+      "regex": "^/api/reputation(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/reputation(?:/)?$"
+    },
+    {
+      "page": "/api/send-email",
+      "regex": "^/api/send\\-email(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/send\\-email(?:/)?$"
+    },
+    {
+      "page": "/api/settings/ai",
+      "regex": "^/api/settings/ai(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/settings/ai(?:/)?$"
+    },
+    {
+      "page": "/api/settings/ai/download",
+      "regex": "^/api/settings/ai/download(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/settings/ai/download(?:/)?$"
+    },
+    {
+      "page": "/api/settings/global",
+      "regex": "^/api/settings/global(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/settings/global(?:/)?$"
+    },
+    {
+      "page": "/api/settings/models",
+      "regex": "^/api/settings/models(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/settings/models(?:/)?$"
+    },
+    {
+      "page": "/api/webhook/deploy",
+      "regex": "^/api/webhook/deploy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/webhook/deploy(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/hr/attendance",
+      "regex": "^/hr/attendance(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/hr/attendance(?:/)?$"
+    },
+    {
+      "page": "/hr/employees",
+      "regex": "^/hr/employees(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/hr/employees(?:/)?$"
+    },
+    {
+      "page": "/hr/employees/add",
+      "regex": "^/hr/employees/add(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/hr/employees/add(?:/)?$"
+    },
+    {
+      "page": "/hr/leave",
+      "regex": "^/hr/leave(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/hr/leave(?:/)?$"
+    },
+    {
+      "page": "/hr/payroll",
+      "regex": "^/hr/payroll(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/hr/payroll(?:/)?$"
+    },
+    {
+      "page": "/hr/reports",
+      "regex": "^/hr/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/hr/reports(?:/)?$"
+    },
+    {
+      "page": "/hr/shifts",
+      "regex": "^/hr/shifts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/hr/shifts(?:/)?$"
+    },
+    {
+      "page": "/kiosk",
+      "regex": "^/kiosk(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/kiosk(?:/)?$"
+    },
+    {
+      "page": "/kiosk/dashboard",
+      "regex": "^/kiosk/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/kiosk/dashboard(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/logout",
+      "regex": "^/logout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/logout(?:/)?$"
+    },
+    {
+      "page": "/operations",
+      "regex": "^/operations(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/operations(?:/)?$"
+    },
+    {
+      "page": "/settings",
+      "regex": "^/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/settings(?:/)?$"
+    },
+    {
+      "page": "/users",
+      "regex": "^/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/users(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

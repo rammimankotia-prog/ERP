@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/kiosk/layout,_N_T_/kiosk/dashboard/layout,_N_T_/kiosk/dashboard/page,_N_T_/kiosk/dashboard"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/kiosk/dashboard/__PAGE__",
+    "/kiosk/dashboard",
+    "/kiosk",
+    "/_index",
+    "/_head"
+  ]
+}

@@ -43,6 +43,17 @@ const execEnv = {
   NODE_ENV: 'production'
 };
 
+// Check if pre-compiled .next build is already deployed (saves 1GB+ RAM on Hostinger)
+const buildIdFile = path.join(process.cwd(), '.next', 'BUILD_ID');
+const serverDir = path.join(process.cwd(), '.next', 'server');
+
+if (fs.existsSync(buildIdFile) && fs.existsSync(serverDir)) {
+  const buildId = fs.readFileSync(buildIdFile, 'utf-8').trim();
+  log(`✅ Verified pre-compiled production build (BUILD_ID: ${buildId}). Skipping compilation to avoid Hostinger memory limit!`);
+  log('Build step completed successfully!');
+  process.exit(0);
+}
+
 // Check next installation
 const nextBin = path.join(process.cwd(), 'node_modules', 'next', 'dist', 'bin', 'next');
 const nextCliBuild = path.join(process.cwd(), 'node_modules', 'next', 'dist', 'cli', 'next-build.js');

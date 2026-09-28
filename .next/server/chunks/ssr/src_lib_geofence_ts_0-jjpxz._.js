@@ -1,0 +1,3 @@
+module.exports=[966380,a=>{"use strict";a.s(["verifyStaffLocation",0,function(a,b){return new Promise((c,d)=>{if(function(a,b){if(!a&&!b)return!1;let c=(a||"").trim().toLowerCase(),d=(b||"").trim().toLowerCase(),e="admin"===c||"admin"===d||"master admin"===d||d.includes("admin"),f="security"===c||"guard"===c||c.startsWith("sec-")||d.includes("security")||d.includes("guard");return e||f}(a,b)){console.log("🛡️ Admin / Security Guard detected: Bypassing geofence."),c({allowed:!0,distance:"0",latitude:28.6457421,longitude:77.2153514,accuracy:5,nearestHotel:"Hotel Grand Godwin (Authorized Exempt Mode)"});return}d("Geolocation not supported on this device")})}])}];
+
+//# sourceMappingURL=src_lib_geofence_ts_0-jjpxz._.js.map
