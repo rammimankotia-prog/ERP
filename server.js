@@ -12,7 +12,17 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
   createServer(async (req, res) => {
     try {
-      const parsedUrl = new URL(req.url, `http://${req.headers.host || `${hostname}:${port}`}`);
+      const isHttps = req.headers['x-forwarded-proto'] === 'https' ||
+                      req.connection?.encrypted ||
+                      req.socket?.encrypted ||
+                      process.env.NODE_ENV === 'production' ||
+                      (req.headers.host && !req.headers.host.includes('localhost') && !req.headers.host.includes('127.0.0.1'));
+      const proto = isHttps ? 'https' : 'http';
+      if (isHttps && !req.headers['x-forwarded-proto']) {
+        req.headers['x-forwarded-proto'] = 'https';
+      }
+      const host = req.headers['x-forwarded-host'] || req.headers.host || `${hostname}:${port}`;
+      const parsedUrl = new URL(req.url, `${proto}://${host}`);
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
