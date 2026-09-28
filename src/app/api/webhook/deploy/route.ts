@@ -121,10 +121,7 @@ function triggerDeployment(triggerSource: string) {
     ? process.env.PATH
     : `${nodeBinDir}:${nodeModulesBin}:/usr/local/bin:/usr/bin:/bin:${process.env.HOME ? `${process.env.HOME}/.npm-global/bin:${process.env.HOME}/.nvm/versions/node/current/bin:` : ''}${process.env.PATH || ''}`;
 
-  const nextBin = path.join(workingDir, "node_modules", "next", "dist", "bin", "next");
-  const buildCmd = fs.existsSync(nextBin)
-    ? `"${nodeBin}" "${nextBin}" build`
-    : `npm run build`;
+  const buildCmd = "npm run build";
 
   const restartCmd = isWindows
     ? ""
