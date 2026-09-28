@@ -18,6 +18,8 @@
 /.next/diagnostics/
 /.next/dev/
 /.next/trace*
+/.next/standalone/.git/
+/.next/standalone/data/
 /out/
 
 # production

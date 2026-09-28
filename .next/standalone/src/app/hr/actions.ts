@@ -1,0 +1,638 @@
+'use server'
+
+import { PrismaClient, EmploymentType, EmployeeStatus } from '@prisma/client'
+import { revalidatePath } from 'next/cache'
+import fs from 'fs'
+import path from 'path'
+import { removeAttendanceRecord } from '@/lib/attendanceStorage'
+import { getAllEmployees } from '@/lib/employeeData'
+import { writeToAllTiers } from '@/lib/persistentVault'
+
+const prisma = new PrismaClient()
+
+
+// Use PERSISTENT_DATA_DIR env var if set (for production persistence outside repo),
+// otherwise fall back to the local data/ folder (works in development).
+const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
+const EMPLOYEES_FILE = path.join(DATA_DIR, 'hr_employees.json')
+const BRANCHES_FILE = path.join(DATA_DIR, 'hr_branches.json')
+const DEPARTMENTS_FILE = path.join(DATA_DIR, 'hr_departments.json')
+
+// Ensure data directory and seed files exist at startup
+;(function ensureDataDir() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true })
+    }
+    // Copy seed files from local data/ if they don't exist in PERSISTENT_DATA_DIR
+    const localDataDir = path.join(process.cwd(), 'data')
+    for (const fname of ['hr_employees.json', 'hr_branches.json', 'hr_departments.json']) {
+      const dest = path.join(DATA_DIR, fname)
+      const src = path.join(localDataDir, fname)
+      if (!fs.existsSync(dest) && fs.existsSync(src)) {
+        try {
+          fs.copyFileSync(src, dest)
+        } catch {}
+      }
+    }
+  } catch {}
+})()
+
+// Deleted employees registry path
+const DELETED_EMP_FILE = path.join(process.cwd(), 'data', 'deleted_employees.json')
+
+function getDeletedEmployeeKeys(): string[] {
+  try {
+    if (fs.existsSync(DELETED_EMP_FILE)) {
+      const raw = fs.readFileSync(DELETED_EMP_FILE, 'utf-8')
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed.map((k: any) => String(k).toLowerCase().trim())
+    }
+  } catch {}
+  return []
+}
+
+function saveDeletedEmployeeKey(keys: string[]): void {
+  try {
+    const existing = getDeletedEmployeeKeys()
+    const merged = Array.from(new Set([...existing, ...keys.map(k => String(k).toLowerCase().trim()).filter(Boolean)]))
+    writeToAllTiers('deleted_employees.json', merged)
+  } catch {}
+}
+
+function isEmpDeleted(emp: any, deletedKeys: string[]): boolean {
+  const id = (emp.id || '').toLowerCase().trim()
+  const empId = (emp.employeeId || '').toLowerCase().trim()
+  const email = (emp.email || '').toLowerCase().trim()
+  return (
+    (id && deletedKeys.includes(id)) ||
+    (empId && deletedKeys.includes(empId)) ||
+    (email && deletedKeys.includes(email))
+  )
+}
+
+function readJsonFile<T>(filePath: string, fallback: T): T {
+  const localDataDir = path.join(process.cwd(), 'data')
+  const fileName = path.basename(filePath)
+  const localFile = path.join(localDataDir, fileName)
+  const backupFile = path.join(localDataDir, fileName.replace('.json', '_backup.json'))
+
+  if (fileName === 'hr_employees.json') {
+    const deletedKeys = getDeletedEmployeeKeys()
+    const map = new Map<string, any>()
+    for (const f of [filePath, localFile, backupFile]) {
+      try {
+        if (fs.existsSync(f)) {
+          const raw = fs.readFileSync(f, 'utf-8')
+          const list = JSON.parse(raw)
+          if (Array.isArray(list)) {
+            for (const item of list) {
+              const k = item.id || item.employeeId
+              // Skip deleted employees
+              if (!k || isEmpDeleted(item, deletedKeys)) continue
+              if (!map.has(k)) map.set(k, item)
+            }
+          }
+        }
+      } catch {}
+    }
+    if (map.size > 0) return Array.from(map.values()) as unknown as T
+  }
+
+  for (const f of [filePath, localFile, backupFile]) {
+    try {
+      if (fs.existsSync(f)) {
+        const raw = fs.readFileSync(f, 'utf-8')
+        const parsed = JSON.parse(raw)
+        if (parsed !== undefined && parsed !== null) return parsed as T
+      }
+    } catch (err) {}
+  }
+  return fallback
+}
+
+function writeJsonFile(filePath: string, data: any): void {
+  const fileName = path.basename(filePath)
+  writeToAllTiers(fileName, data)
+}
+
+// --- BRANCH ACTIONS ---
+export async function getBranches() {
+  try {
+    const branches = await prisma.branch.findMany({
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { employees: true, departments: true } } }
+    })
+    if (branches && branches.length > 0) return branches
+  } catch (e) {
+    // DB not connected, fallback to JSON
+  }
+
+  const branches = readJsonFile(BRANCHES_FILE, [
+    { id: 'branch-gg', name: 'Hotel Grand Godwin', prefix: 'GG', address: '8502/41, Arakashan Road, Ram Nagar, Paharganj, New Delhi' },
+    { id: 'branch-gd', name: 'Hotel Godwin Deluxe', prefix: 'GD', address: '8501/42, Arakashan Road, Ram Nagar, Paharganj, New Delhi' },
+    { id: 'branch-ig', name: 'Indian Grill', prefix: 'IG', address: 'Hotel Grand Godwin Rooftop, New Delhi' },
+    { id: 'branch-cb', name: 'Cafe Brownie', prefix: 'CB', address: 'Hotel Godwin Deluxe Lobby, New Delhi' },
+  ])
+  return branches
+}
+
+export async function createBranch(data: { name: string; address?: string; prefix: string }) {
+  let branch: any = null
+  try {
+    branch = await prisma.branch.create({ data })
+  } catch (e) {
+    branch = { id: `branch-${Date.now()}`, ...data }
+  }
+
+  const branches = readJsonFile<any[]>(BRANCHES_FILE, [])
+  branches.push(branch)
+  writeJsonFile(BRANCHES_FILE, branches)
+
+  revalidatePath('/hr/branches')
+  return branch
+}
+
+// --- DEPARTMENT ACTIONS ---
+export async function getDepartments() {
+  try {
+    const depts = await prisma.department.findMany({
+      include: { branch: true, _count: { select: { employees: true } } },
+      orderBy: { name: 'asc' }
+    })
+    if (depts && depts.length > 0) return depts
+  } catch (e) {
+    // DB not connected, fallback to JSON
+  }
+
+  const depts = readJsonFile<any[]>(DEPARTMENTS_FILE, [
+    { id: 'dept-1', name: 'Management', branchId: 'branch-gg' },
+    { id: 'dept-2', name: 'Front Office', branchId: 'branch-gg' },
+    { id: 'dept-3', name: 'Housekeeping', branchId: 'branch-gg' },
+    { id: 'dept-4', name: 'Security Guard', branchId: 'branch-gg' },
+    { id: 'dept-5', name: 'Accounts', branchId: 'branch-gg' },
+    { id: 'dept-6', name: 'Reservation', branchId: 'branch-gg' },
+    { id: 'dept-7', name: 'Food & Beverage', branchId: 'branch-gg' },
+    { id: 'dept-8', name: 'Management', branchId: 'branch-gd' },
+    { id: 'dept-9', name: 'Front Office', branchId: 'branch-gd' },
+    { id: 'dept-10', name: 'Security Guard', branchId: 'branch-gd' },
+  ])
+  return depts
+}
+
+export async function createDepartment(data: { name: string; branchId: string }) {
+  let dept: any = null
+  try {
+    dept = await prisma.department.create({ data })
+  } catch (e) {
+    dept = { id: `dept-${Date.now()}`, ...data }
+  }
+
+  const depts = readJsonFile<any[]>(DEPARTMENTS_FILE, [])
+  depts.push(dept)
+  writeJsonFile(DEPARTMENTS_FILE, depts)
+
+  revalidatePath('/hr/departments')
+  return dept
+}
+
+// --- EMPLOYEE ACTIONS ---
+export async function getEmployees() {
+  return await getAllEmployees()
+}
+
+export async function getEmployeeById(id: string) {
+  const employees = await getAllEmployees()
+  const found = employees.find((e: any) => e.id === id || e.employeeId === id)
+  return found || null
+}
+
+
+export async function createEmployee(data: {
+  firstName: string
+  lastName: string
+  email: string
+  password?: string
+  contactNo: string
+  branchId: string
+  departmentId: string
+  designation: string
+  doj: Date
+  employmentType: EmploymentType
+  status?: EmployeeStatus
+  morningTime?: string
+  eveningTime?: string
+  photo?: string
+  dob?: Date
+  gender?: string
+  emergencyContact?: string
+  address?: string
+  offDays?: string[]
+}) {
+  const branches = await getBranches()
+  const departments = await getDepartments()
+  const branch = branches.find((b: any) => b.id === data.branchId)
+  const department = departments.find((d: any) => d.id === data.departmentId)
+  const branchPrefix = branch?.prefix || 'GG'
+
+  const fileEmployees = readJsonFile<any[]>(EMPLOYEES_FILE, [])
+
+  // Calculate next sequential ID for this branch prefix
+  const matchingEmployees = fileEmployees.filter((e: any) =>
+    e.employeeId && e.employeeId.startsWith(branchPrefix + '-')
+  )
+
+  let nextSequence = 1001
+  if (matchingEmployees.length > 0) {
+    const seqs = matchingEmployees.map((e: any) => {
+      const parts = e.employeeId.split('-')
+      const num = parseInt(parts[1], 10)
+      return isNaN(num) ? 0 : num
+    })
+    nextSequence = Math.max(...seqs, 1000) + 1
+  }
+  const employeeId = `${branchPrefix}-${nextSequence}`
+  const newId = `emp-${Date.now()}`
+
+  // 1. Auto-generate secure password if not provided
+  const generatedPassword = data.password && data.password.trim() !== '' && data.password !== 'Godwin@123'
+    ? data.password.trim()
+    : `Godwin#${Math.floor(1000 + Math.random() * 9000)}`
+
+  // 2. Determine Role (All regular staff are Employee, only guards get Security Guard)
+  const lowerDesig = (data.designation || '').toLowerCase()
+  const lowerDept = (department?.name || '').toLowerCase()
+  let assignedRole = 'Employee'
+  if (lowerDesig.includes('guard') || lowerDept.includes('security') || lowerDesig.includes('security')) {
+    assignedRole = 'Security Guard'
+  }
+
+  const configuredOffDays = Array.isArray(data.offDays) && data.offDays.length > 0
+    ? data.offDays
+    : ['Sunday']
+
+  const newRecord = {
+    id: newId,
+    employeeId,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    email: data.email,
+    password: generatedPassword,
+    contactNo: data.contactNo,
+    branchId: data.branchId,
+    departmentId: data.departmentId,
+    designation: data.designation,
+    morningTime: data.morningTime || '09:00',
+    eveningTime: data.eveningTime || '18:00',
+    offDays: configuredOffDays,
+    doj: data.doj instanceof Date ? data.doj.toISOString() : data.doj,
+    dob: data.dob instanceof Date ? data.dob.toISOString() : data.dob,
+    employmentType: data.employmentType || 'PERMANENT',
+    status: data.status || 'ACTIVE',
+    gender: data.gender || 'Male',
+    emergencyContact: data.emergencyContact || '',
+    address: data.address || '',
+    branch: branch ? { id: branch.id, name: branch.name, prefix: branch.prefix } : undefined,
+    department: department ? { id: department.id, name: department.name } : undefined,
+    role: assignedRole,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  // 3. Try DB persistence
+  try {
+    const { password: _p, offDays: _od, ...prismaData } = data
+    const created = await prisma.employee.create({
+      data: {
+        ...prismaData,
+        employeeId
+      }
+    })
+    newRecord.id = created.id
+  } catch (e) {
+    // Persistent JSON storage fallback
+  }
+
+  // 4. Write to persistent JSON storage
+  fileEmployees.push(newRecord)
+  writeJsonFile(EMPLOYEES_FILE, fileEmployees)
+
+  // 5. Only sync Security Guard account to users.json for dedicated security kiosk authentication
+  if (assignedRole === 'Security Guard') {
+    const USERS_FILE = path.join(DATA_DIR, 'users.json')
+    const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
+    try {
+      const users = readJsonFile<any[]>(USERS_FILE, readJsonFile<any[]>(LOCAL_USERS_FILE, []))
+      const existingIndex = users.findIndex(u => (u.email && u.email.toLowerCase() === data.email.toLowerCase()) || u.id === newRecord.id)
+      const userPayload = {
+        id: newRecord.id,
+        username: data.email,
+        name: `${data.firstName} ${data.lastName}`,
+        email: data.email,
+        password: generatedPassword,
+        role: 'Security Guard',
+        status: 'Active',
+        createdAt: new Date().toISOString().split('T')[0],
+        permissions: { kiosk: { access: true } }
+      }
+
+      if (existingIndex >= 0) {
+        users[existingIndex] = { ...users[existingIndex], ...userPayload }
+      } else {
+        users.push(userPayload)
+      }
+      writeJsonFile(USERS_FILE, users)
+      if (USERS_FILE !== LOCAL_USERS_FILE) {
+        writeJsonFile(LOCAL_USERS_FILE, users)
+      }
+    } catch (e) {
+      console.warn('Failed to sync security guard account in users.json:', e)
+    }
+  }
+
+  // 6. Automatically dispatch credentials email
+  try {
+    const { sendEmployeeCredentials } = await import('@/lib/email')
+    await sendEmployeeCredentials({
+      to: data.email,
+      name: `${data.firstName} ${data.lastName}`,
+      employeeId,
+      password: generatedPassword,
+      role: assignedRole
+    })
+  } catch (e) {
+    console.warn('Email dispatch warning:', e)
+  }
+
+  // Ensure newly created employee is removed from deleted registry
+  try {
+    const { unmarkEmployeeDeleted } = await import('@/lib/employeeData')
+    unmarkEmployeeDeleted([newRecord.id, employeeId, data.email])
+  } catch {}
+
+  revalidatePath('/hr/employees')
+  return {
+    ...newRecord,
+    generatedPassword,
+    assignedRole
+  }
+}
+
+export async function updateEmployee(id: string, data: any) {
+  const branches = await getBranches()
+  const departments = await getDepartments()
+  const branch = data.branchId ? branches.find((b: any) => b.id === data.branchId) : undefined
+  const department = data.departmentId ? departments.find((d: any) => d.id === data.departmentId) : undefined
+
+  // Clean data: prevent undefined from overwriting existing valid values
+  const cleanData: any = {}
+  for (const k of Object.keys(data)) {
+    if (data[k] !== undefined && data[k] !== null) {
+      if (data[k] instanceof Date) {
+        cleanData[k] = data[k].toISOString()
+      } else {
+        cleanData[k] = data[k]
+      }
+    }
+  }
+
+  // Try DB update
+  try {
+    const { offDays: _od, ...prismaData } = cleanData
+    await prisma.employee.update({
+      where: { id },
+      data: prismaData
+    })
+  } catch (e) {
+    console.warn("Prisma DB not available. Successfully updated in persistent JSON storage.")
+  }
+
+  // Always update persistent JSON storage
+  const fileEmployees = readJsonFile<any[]>(EMPLOYEES_FILE, [])
+  const index = fileEmployees.findIndex((e: any) => e.id === id || e.employeeId === id)
+
+  let updatedRecord: any = null
+
+  if (index !== -1) {
+    updatedRecord = {
+      ...fileEmployees[index],
+      ...cleanData,
+      branch: branch ? { id: branch.id, name: branch.name, prefix: branch.prefix } : fileEmployees[index].branch,
+      department: department ? { id: department.id, name: department.name } : fileEmployees[index].department,
+      updatedAt: new Date().toISOString(),
+    }
+    fileEmployees[index] = updatedRecord
+  } else {
+    updatedRecord = {
+      id,
+      ...cleanData,
+      branch: branch ? { id: branch.id, name: branch.name, prefix: branch.prefix } : undefined,
+      department: department ? { id: department.id, name: department.name } : undefined,
+      updatedAt: new Date().toISOString(),
+    }
+    fileEmployees.push(updatedRecord)
+  }
+
+  writeJsonFile(EMPLOYEES_FILE, fileEmployees)
+
+  // Sync with users.json
+  try {
+    const USERS_FILE = path.join(DATA_DIR, 'users.json')
+    const users = readJsonFile<any[]>(USERS_FILE, [])
+    const uIdx = users.findIndex((u: any) => u.id === id || (updatedRecord.email && u.email?.toLowerCase() === updatedRecord.email.toLowerCase()) || (updatedRecord.employeeId && u.username?.toLowerCase() === updatedRecord.employeeId.toLowerCase()))
+    if (uIdx !== -1) {
+      users[uIdx] = {
+        ...users[uIdx],
+        name: `${updatedRecord.firstName} ${updatedRecord.lastName}`.trim(),
+        email: updatedRecord.email || users[uIdx].email,
+        username: updatedRecord.email || users[uIdx].username,
+        status: updatedRecord.status === 'ACTIVE' ? 'Active' : 'Inactive',
+        ...(updatedRecord.password ? { password: updatedRecord.password } : {})
+      }
+      writeJsonFile(USERS_FILE, users)
+      const LOCAL_USERS_FILE = path.join(process.cwd(), 'data', 'users.json')
+      if (USERS_FILE !== LOCAL_USERS_FILE) {
+        writeJsonFile(LOCAL_USERS_FILE, users)
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to sync updated user in users.json:', e)
+  }
+
+  revalidatePath('/hr/employees')
+  revalidatePath(`/hr/employees/${id}`)
+  revalidatePath('/users')
+  return updatedRecord
+}
+
+export async function deleteEmployee(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await prisma.employeeDocument?.deleteMany({ where: { employeeId: id } }).catch(() => {})
+    await (prisma as any).shiftAssignment?.deleteMany({ where: { employeeId: id } }).catch(() => {})
+    await prisma.employee?.delete({ where: { id } }).catch(() => {})
+  } catch (e) {
+    // fallback
+  }
+
+  // Always delete from persistent JSON storage
+  const fileEmployees = readJsonFile<any[]>(EMPLOYEES_FILE, [])
+  const targetEmp = fileEmployees.find((e: any) => e.id === id || e.employeeId === id)
+  const filtered = fileEmployees.filter((e: any) => e.id !== id && e.employeeId !== id)
+  writeJsonFile(EMPLOYEES_FILE, filtered)
+
+  // Register in deleted_employees.json so they never resurrect from Prisma or backups
+  const keysToDel = [id]
+  if (targetEmp?.employeeId) keysToDel.push(targetEmp.employeeId)
+  if (targetEmp?.email) keysToDel.push(targetEmp.email)
+  saveDeletedEmployeeKey(keysToDel)
+
+  // Relational Integrity: Remove associated user account from users.json
+  try {
+    const USERS_FILE = path.join(DATA_DIR, 'users.json')
+    const users = readJsonFile<any[]>(USERS_FILE, [])
+    const cleanUsers = users.filter(u => u.id !== id && (!targetEmp || u.email !== targetEmp.email))
+    writeJsonFile(USERS_FILE, cleanUsers)
+  } catch {}
+
+  // Relational Integrity: Remove punch attendance logs for this employee
+  try {
+    removeAttendanceRecord(id)
+    if (targetEmp?.employeeId) {
+      removeAttendanceRecord(targetEmp.employeeId)
+    }
+  } catch {}
+
+  // Relational Integrity: Remove leave requests for this employee
+  try {
+    const LEAVE_FILE = path.join(DATA_DIR, 'hr_leaves.json')
+    const leaves = readJsonFile<any[]>(LEAVE_FILE, [])
+    const cleanLeaves = leaves.filter(l => l.employeeId !== id && (!targetEmp || (l.employeeId !== targetEmp.employeeId && l.employeeCode !== targetEmp.employeeId)))
+    writeJsonFile(LEAVE_FILE, cleanLeaves)
+  } catch {}
+
+  // Revoke any active session immediately so deleted employee cannot perform punches or login
+  try {
+    const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+    const revoked = readJsonFile<any[]>(REVOKED_FILE, [])
+    revoked.push({
+      id,
+      employeeId: targetEmp?.employeeId || id,
+      email: targetEmp?.email || targetEmp?.contactNo || '',
+      reason: 'Employee deleted from system',
+      revokedAt: new Date().toISOString(),
+    })
+    writeJsonFile(REVOKED_FILE, revoked)
+  } catch {}
+
+  revalidatePath('/hr/employees')
+  return { success: true }
+}
+
+export async function toggleEmployeeStatus(
+  id: string,
+  newStatus?: EmployeeStatus
+): Promise<{ success: boolean; status?: EmployeeStatus; error?: string }> {
+  const fileEmployees = readJsonFile<any[]>(EMPLOYEES_FILE, [])
+  const emp = fileEmployees.find((e: any) => e.id === id || e.employeeId === id)
+  const targetStatus = newStatus || (emp?.status === 'ACTIVE' ? 'RESIGNED' : 'ACTIVE')
+
+  try {
+    await prisma.employee?.updateMany({
+      where: {
+        OR: [
+          { id },
+          { employeeId: id },
+          ...(emp?.employeeId ? [{ employeeId: emp.employeeId }] : [])
+        ]
+      },
+      data: { status: targetStatus }
+    })
+  } catch (e) {
+    // fallback
+  }
+
+  if (emp) {
+    emp.status = targetStatus
+    emp.updatedAt = new Date().toISOString()
+    writeJsonFile(EMPLOYEES_FILE, fileEmployees)
+  }
+
+  // Manage deactivated registry
+  try {
+    const { markEmployeeDeactivated, unmarkEmployeeDeactivated } = await import('@/lib/employeeData')
+    const keys = [id, emp?.id, emp?.employeeId, emp?.email].filter(Boolean) as string[]
+    if (targetStatus !== 'ACTIVE') {
+      markEmployeeDeactivated(keys)
+    } else {
+      unmarkEmployeeDeactivated(keys)
+    }
+  } catch {}
+
+  const REVOKED_FILE = path.join(DATA_DIR, 'revoked_sessions.json')
+  const USERS_FILE = path.join(DATA_DIR, 'users.json')
+
+  if (targetStatus !== 'ACTIVE') {
+    // 1. Write to revoked_sessions.json
+    try {
+      const revoked = readJsonFile<any[]>(REVOKED_FILE, [])
+      revoked.push({
+        id: emp?.id || id,
+        employeeId: emp?.employeeId || id,
+        email: emp?.email || emp?.contactNo || '',
+        reason: 'Employee marked inactive/resigned in HR directory',
+        revokedAt: new Date().toISOString()
+      })
+      writeJsonFile(REVOKED_FILE, revoked)
+    } catch {}
+
+    // 2. Mark Inactive in users.json
+    try {
+      const users = readJsonFile<any[]>(USERS_FILE, [])
+      let changed = false
+      users.forEach((u: any) => {
+        if (
+          u.id === id ||
+          (emp?.email && u.email?.toLowerCase() === emp.email.toLowerCase()) ||
+          (emp?.employeeId && u.username?.toLowerCase() === emp.employeeId.toLowerCase())
+        ) {
+          u.status = 'Inactive'
+          changed = true
+        }
+      })
+      if (changed) writeJsonFile(USERS_FILE, users)
+    } catch {}
+  } else {
+    // Reactivated to ACTIVE: Remove from revoked_sessions.json and set user status to Active
+    try {
+      const revoked = readJsonFile<any[]>(REVOKED_FILE, [])
+      const cleanRevoked = revoked.filter(
+        (r: any) =>
+          r.id !== id &&
+          r.employeeId !== id &&
+          (!emp || (r.employeeId !== emp.employeeId && (!emp.email || r.email !== emp.email)))
+      )
+      writeJsonFile(REVOKED_FILE, cleanRevoked)
+    } catch {}
+
+    try {
+      const users = readJsonFile<any[]>(USERS_FILE, [])
+      let changed = false
+      users.forEach((u: any) => {
+        if (
+          u.id === id ||
+          (emp?.email && u.email?.toLowerCase() === emp.email.toLowerCase()) ||
+          (emp?.employeeId && u.username?.toLowerCase() === emp.employeeId.toLowerCase())
+        ) {
+          u.status = 'Active'
+          changed = true
+        }
+      })
+      if (changed) writeJsonFile(USERS_FILE, users)
+    } catch {}
+  }
+
+  revalidatePath('/hr/employees')
+  revalidatePath(`/hr/employees/${id}`)
+  revalidatePath('/users')
+  return { success: true, status: targetStatus }
+}

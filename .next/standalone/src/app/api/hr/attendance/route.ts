@@ -1,0 +1,238 @@
+import { NextRequest, NextResponse } from 'next/server'
+import fs from 'fs'
+import path from 'path'
+import { PrismaClient } from '@prisma/client'
+
+import { parseTimeToISTMinutes } from '@/app/api/hr/reports/route'
+import { getMergedAttendance } from '@/lib/attendanceStorage'
+import { getAllEmployees } from '@/lib/employeeData'
+
+const prisma = new PrismaClient()
+
+// GET /api/hr/attendance?date=2024-05-15
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
+  const dateStr = searchParams.get('date') || todayIST
+
+  try {
+    const employees = await getAllEmployees()
+    const allAttendance = getMergedAttendance()
+
+    // Query Prisma DB attendanceLog if connected
+    let dbLogs: any[] = []
+    try {
+      const startOfDay = new Date(`${dateStr}T00:00:00+05:30`)
+      const endOfDay = new Date(`${dateStr}T23:59:59+05:30`)
+      const prevDay = new Date(startOfDay.getTime() - 24 * 3600 * 1000)
+      const nextDay = new Date(endOfDay.getTime() + 24 * 3600 * 1000)
+
+      dbLogs = await prisma.attendanceLog.findMany({
+        where: {
+          OR: [
+            { date: { gte: prevDay, lte: nextDay } },
+            { punchIn: { gte: prevDay, lte: nextDay } }
+          ]
+        }
+      })
+    } catch {}
+
+    // Map Prisma DB logs to standard attendance structure
+    const mappedDbLogs = dbLogs.map(l => {
+      let d = ''
+      if (l.date instanceof Date) {
+        try {
+          d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(l.date)
+        } catch {
+          d = l.date.toISOString().slice(0, 10)
+        }
+      } else if (l.punchIn instanceof Date) {
+        try {
+          d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(l.punchIn)
+        } catch {
+          d = l.punchIn.toISOString().slice(0, 10)
+        }
+      }
+      return {
+        id: l.id,
+        employeeId: l.employeeId,
+        date: d || dateStr,
+        punchIn: l.punchIn instanceof Date ? l.punchIn.toISOString() : (l.punchIn || null),
+        punchOut: l.punchOut instanceof Date ? l.punchOut.toISOString() : (l.punchOut || null),
+        punchInMode: l.punchInMode || 'WEB',
+        punchOutMode: l.punchOutMode || null,
+        status: String(l.status || 'PRESENT'),
+        totalMinutes: l.totalMinutes || null,
+        notes: l.notes || null,
+      }
+    })
+
+    // Combine storage records and DB logs
+    const combinedRecords = [...allAttendance]
+    for (const dRec of mappedDbLogs) {
+      const key = `${(dRec.employeeId || '').toUpperCase()}_${dRec.date}`
+      const existingIdx = combinedRecords.findIndex(c => 
+        `${(c.employeeId || '').toUpperCase()}_${c.date}` === key ||
+        (c.punchIn && dRec.punchIn && c.employeeId.toUpperCase() === dRec.employeeId.toUpperCase())
+      )
+      if (existingIdx === -1) {
+        combinedRecords.push(dRec)
+      } else {
+        combinedRecords[existingIdx] = {
+          ...combinedRecords[existingIdx],
+          ...dRec,
+          punchIn: combinedRecords[existingIdx].punchIn || dRec.punchIn || null,
+          punchOut: dRec.punchOut || combinedRecords[existingIdx].punchOut || null,
+        }
+      }
+    }
+
+    const todayAttendance = combinedRecords.filter(a => {
+      if (a.date === dateStr) return true
+      if (a.punchIn) {
+        if (a.punchIn.slice(0, 10) === dateStr) return true
+        try {
+          const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
+          if (inDateIST === dateStr) return true
+        } catch {}
+      }
+      return false
+    })
+
+    // Combine employees with their attendance (filter out inactive staff unless they actually punched today)
+    const teamAttendance = employees
+      .filter(emp => {
+        const isEmpActive = emp.status === 'ACTIVE' || !emp.status
+        if (isEmpActive) return true
+
+        const empIdNorm = (emp.id || '').trim().toUpperCase()
+        const empCodeNorm = (emp.employeeId || '').trim().toUpperCase()
+        const empEmailNorm = (emp.email || '').trim().toUpperCase()
+        return todayAttendance.some(a => {
+          const aIdNorm = (a.employeeId || '').trim().toUpperCase()
+          return (aIdNorm && (aIdNorm === empIdNorm || aIdNorm === empCodeNorm || aIdNorm === empEmailNorm)) && a.punchIn
+        })
+      })
+      .map(emp => {
+      const empIdNorm = (emp.id || '').trim().toUpperCase()
+      const empCodeNorm = (emp.employeeId || '').trim().toUpperCase()
+      const empEmailNorm = (emp.email || '').trim().toUpperCase()
+      const empFullNameNorm = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().toUpperCase()
+
+      const record = todayAttendance.find(a => {
+        const aIdNorm = (a.employeeId || '').trim().toUpperCase()
+        const aNameNorm = (a.employeeName || '').trim().toUpperCase()
+
+        if (aIdNorm && (aIdNorm === empIdNorm || aIdNorm === empCodeNorm)) return true
+        if (empEmailNorm && aIdNorm === empEmailNorm) return true
+        if (empFullNameNorm && (aNameNorm === empFullNameNorm || aIdNorm === empFullNameNorm)) return true
+        return false
+      })
+
+      // STRICT RULE: You cannot mark late which is absent!
+      // An employee without a punchIn is ABSENT (or ON_LEAVE), NEVER LATE or PRESENT.
+      let status = 'ABSENT'
+      let isLate = false
+      let lateMinutes = 0
+      let isEarlyOut = false
+      let earlyOutMinutes = 0
+
+      if (record && record.punchIn) {
+        // Employee has arrived and punched in: Evaluate punctuality strictly against individual morningTime (default 09:00, NEVER 08:00)
+        const empStartTime = (emp.morningTime && String(emp.morningTime).trim()) || '09:00'
+        const isOffDay = empStartTime === 'OFF'
+        const shiftInMinutes = parseTimeToISTMinutes(empStartTime)
+        const punchInMinutes = parseTimeToISTMinutes(record.punchIn)
+        const diffMinutes = isOffDay ? 0 : Math.max(0, punchInMinutes - shiftInMinutes)
+        const graceMinutes = 15
+
+        isLate = !isOffDay && diffMinutes > graceMinutes
+        lateMinutes = isLate ? diffMinutes : 0
+        status = isLate ? 'LATE' : 'PRESENT'
+
+        // Half-day and Early-out check
+        if (record.punchOut) {
+          let totalMins = record.totalMinutes
+          if (totalMins === undefined || totalMins === null) {
+            try {
+              totalMins = Math.floor(
+                (new Date(record.punchOut).getTime() - new Date(record.punchIn).getTime()) / 60000
+              )
+            } catch {}
+          }
+
+          // Early departure check: Calculate against employee's individual eveningTime
+          const empEndTime = (emp.eveningTime && String(emp.eveningTime).trim()) || '18:00'
+          const shiftOutMinutes = parseTimeToISTMinutes(empEndTime)
+          const punchOutMinutes = parseTimeToISTMinutes(record.punchOut)
+          let diffEarly = 0
+          if (shiftOutMinutes < shiftInMinutes) {
+            const effShiftOut = shiftOutMinutes + 1440
+            const effPunchOut = punchOutMinutes < shiftInMinutes ? punchOutMinutes + 1440 : punchOutMinutes
+            diffEarly = Math.max(0, effShiftOut - effPunchOut)
+          } else {
+            diffEarly = Math.max(0, shiftOutMinutes - punchOutMinutes)
+          }
+          isEarlyOut = diffEarly > 15
+          earlyOutMinutes = isEarlyOut ? diffEarly : 0
+
+          if (typeof totalMins === 'number' && totalMins > 0 && totalMins <= 300) {
+            status = 'HALF_DAY'
+          } else if (isLate && isEarlyOut) {
+            status = 'LATE_AND_EARLY'
+          } else if (isLate) {
+            status = 'LATE'
+          } else if (isEarlyOut) {
+            status = 'EARLY_OUT'
+          }
+        }
+      } else {
+        // NO PUNCH-IN: Employee is ABSENT or ON_LEAVE. Strictly NEVER LATE and NEVER PRESENT.
+        const isApprovedLeave = record && (record.status === 'ON_LEAVE' || record.status === 'LEAVE')
+        status = isApprovedLeave ? 'ON_LEAVE' : 'ABSENT'
+        isLate = false
+        lateMinutes = 0
+        isEarlyOut = false
+        earlyOutMinutes = 0
+      }
+
+      // Format punchInMode: 'SECURITY' for Guard, employeeId (e.g. GG-1003) for self, 'ADMIN' for admin
+      let displayPunchMode: string | null = null
+      if (record && record.punchIn) {
+        const rawMode = (record.punchInMode || 'SECURITY').trim()
+        const mUpper = rawMode.toUpperCase()
+        if (mUpper === 'KIOSK' || mUpper === 'SECURITY' || mUpper.includes('GUARD') || mUpper.includes('SEC')) {
+          displayPunchMode = 'SECURITY'
+        } else if (mUpper === 'ADMIN' || mUpper === 'MANAGER' || mUpper === 'HR') {
+          displayPunchMode = 'ADMIN'
+        } else if (mUpper === 'SELF' || mUpper === 'MOBILE_GEOFENCE' || mUpper === 'WEB' || mUpper === 'GEO') {
+          displayPunchMode = emp.employeeId || emp.id
+        } else {
+          displayPunchMode = rawMode || emp.employeeId || emp.id
+        }
+      }
+
+      return {
+        employeeId: emp.employeeId || emp.id,
+        employeeName: `${emp.firstName || ''} ${emp.lastName || ''}`.trim(),
+        department: emp.department?.name || emp.departmentId || 'Unassigned',
+        designation: emp.designation || 'Staff',
+        status,
+        isLate,
+        lateMinutes,
+        isEarlyOut,
+        earlyOutMinutes,
+        scheduledTime: (emp.morningTime && String(emp.morningTime).trim()) || '09:00',
+        scheduledOutTime: (emp.eveningTime && String(emp.eveningTime).trim()) || '18:00',
+        punchIn: record && record.punchIn ? record.punchIn : null,
+        punchOut: record && record.punchIn && record.punchOut ? record.punchOut : null,
+        totalMinutes: record && record.punchIn && record.totalMinutes !== undefined ? record.totalMinutes : null,
+        punchInMode: displayPunchMode,
+      }
+    })
+
+    return NextResponse.json({ date: dateStr, logs: teamAttendance })
+  } catch (e) {
+    return NextResponse.json({ error: 'Failed to fetch attendance data' }, { status: 500 })
+  }
+}

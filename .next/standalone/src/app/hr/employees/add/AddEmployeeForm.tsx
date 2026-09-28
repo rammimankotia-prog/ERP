@@ -1,0 +1,1709 @@
+'use client'
+
+import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { EmploymentType, EmployeeStatus } from '@prisma/client'
+
+interface Branch {
+  id: string
+  name: string
+  prefix: string
+}
+
+interface Department {
+  id: string
+  name: string
+  branchId?: string
+}
+
+export default function AddEmployeeForm({
+  branches,
+  departments,
+}: {
+  branches: Branch[]
+  departments: Department[]
+}) {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(branches[0]?.id || '')
+  const [selectedShift, setSelectedShift] = useState<'MORNING' | 'AFTERNOON' | 'BREAK' | 'NIGHT'>('MORNING')
+  const [morningTime, setMorningTime] = useState('09:00')
+  const [eveningTime, setEveningTime] = useState('18:00')
+  const [breakStart, setBreakStart] = useState('14:00')
+  const [breakEnd, setBreakEnd] = useState('18:00')
+  const [autoGeneratePassword, setAutoGeneratePassword] = useState(true)
+  const [manualPassword, setManualPassword] = useState('')
+  const [createdResult, setCreatedResult] = useState<any | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [offDays, setOffDays] = useState<string[]>(['Sunday'])
+  const [swapShiftEligible, setSwapShiftEligible] = useState<boolean>(false)
+  const [dayShiftStart, setDayShiftStart] = useState('09:00')
+  const [dayShiftEnd, setDayShiftEnd] = useState('18:00')
+  const [nightShiftStart, setNightShiftStart] = useState('20:00')
+  const [nightShiftEnd, setNightShiftEnd] = useState('08:00')
+
+  const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+  const toggleOffDay = (day: string) => {
+    setOffDays(prev =>
+      prev.includes(day)
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    )
+  }
+
+  const selectedBranch = branches.find((b) => b.id === selectedBranchId)
+
+  // Filter departments by branch if departments have branchId, and deduplicate by name
+  const availableDepartments = departments
+    .filter((d) => {
+      if (!d.branchId || !selectedBranchId) return true
+      return d.branchId === selectedBranchId
+    })
+    .filter((d, idx, arr) => {
+      return arr.findIndex((item) => item.name.trim().toLowerCase() === d.name.trim().toLowerCase()) === idx
+    })
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    const formData = new FormData(e.currentTarget)
+
+    try {
+      const branchId = formData.get('branchId') as string
+      const departmentId = formData.get('departmentId') as string
+      const firstName = (formData.get('firstName') as string)?.trim()
+      const lastName = (formData.get('lastName') as string)?.trim()
+      const email = (formData.get('email') as string)?.trim()
+      const password = autoGeneratePassword ? '' : manualPassword.trim()
+      const contactNo = (formData.get('contactNo') as string)?.trim()
+      const designation = (formData.get('designation') as string)?.trim()
+      const dojStr = formData.get('doj') as string
+      const dobStr = formData.get('dob') as string
+
+      if (!firstName || !lastName || !email || (!autoGeneratePassword && !password) || !contactNo || !branchId || !departmentId || !designation) {
+        throw new Error('Please fill in all required fields.')
+      }
+
+      // Call robust REST API route (eliminates Next.js Server Action hash mismatch across builds)
+      const res = await fetch('/api/hr/employees/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          password,
+          contactNo,
+          branchId,
+          departmentId,
+          morningTime: (selectedShift === 'NIGHT' && (!morningTime || morningTime === '09:00')) ? (nightShiftStart || '20:00') : (morningTime || (formData.get('morningTime') as string) || '09:00'),
+          eveningTime: (selectedShift === 'NIGHT' && (!eveningTime || eveningTime === '18:00')) ? (nightShiftEnd || '08:00') : (eveningTime || (formData.get('eveningTime') as string) || '18:00'),
+          selectedShift,
+          shiftName: selectedShift === 'NIGHT' ? 'Night Shift' : selectedShift === 'AFTERNOON' ? 'Afternoon Shift' : selectedShift === 'BREAK' ? 'Break Shift' : 'Morning Shift',
+          shiftType: selectedShift,
+          isNightShift: selectedShift === 'NIGHT' || (morningTime || '').startsWith('2') || (eveningTime || '') === '08:00',
+          doj: dojStr || new Date().toISOString(),
+          dob: dobStr || undefined,
+          employmentType: (formData.get('employmentType') as string) || 'PERMANENT',
+          status: (formData.get('status') as string) || 'ACTIVE',
+          gender: (formData.get('gender') as string) || 'Male',
+          emergencyContact: (formData.get('emergencyContact') as string) || undefined,
+          address: (formData.get('address') as string) || undefined,
+          offDays: offDays.length > 0 ? offDays : ['Sunday'],
+          swapShiftEligible,
+          dayShiftStart: swapShiftEligible ? dayShiftStart : (selectedShift === 'NIGHT' ? '09:00' : ((formData.get('morningTime') as string) || '09:00')),
+          dayShiftEnd: swapShiftEligible ? dayShiftEnd : (selectedShift === 'NIGHT' ? '18:00' : ((formData.get('eveningTime') as string) || '18:00')),
+          nightShiftStart: selectedShift === 'NIGHT' ? (morningTime || nightShiftStart || '20:00') : (nightShiftStart || '20:00'),
+          nightShiftEnd: selectedShift === 'NIGHT' ? (eveningTime || nightShiftEnd || '08:00') : (nightShiftEnd || '08:00'),
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to create employee record')
+      }
+
+      const createdEmployee = data.employee
+      setCreatedResult(createdEmployee)
+
+      // Automatically sync new employee to localStorage to prevent data loss on refresh
+      try {
+        const LOCAL_STORAGE_KEY = 'godwin_erp_employees_v2'
+        const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY)
+        let cache = []
+        if (cachedStr) {
+          try { cache = JSON.parse(cachedStr) } catch {}
+        }
+        // Filter out any older record with the same employeeId or email (e.g. if ID was reassigned)
+        cache = cache.filter((c: any) =>
+          c &&
+          c.id !== createdEmployee.id &&
+          (!createdEmployee.employeeId || c.employeeId !== createdEmployee.employeeId) &&
+          (!createdEmployee.email || c.email?.toLowerCase() !== createdEmployee.email?.toLowerCase())
+        )
+        cache.push(createdEmployee)
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cache))
+        window.dispatchEvent(new Event('godwin-employees-updated'))
+      } catch (e) {
+        // ignore
+      }
+
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to create employee record')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      {/* Onboarding Success Modal */}
+      {createdResult && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1.25rem',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '16px',
+              maxWidth: '560px',
+              width: '100%',
+              padding: '2rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              animation: 'fadeIn 0.25s ease-out',
+            }}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                  color: '#10b981',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '2rem',
+                  margin: '0 auto 1rem auto',
+                }}
+              >
+                ✓
+              </div>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 0.4rem 0' }}>
+                Employee Onboarded Successfully
+              </h2>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: 0 }}>
+                Profile created, credentials generated, and synchronized across attendance and payroll systems.
+              </p>
+            </div>
+
+            {/* Credential summary card */}
+            <div
+              style={{
+                backgroundColor: 'var(--bg-main)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Staff Name:</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.95rem' }}>
+                  {createdResult.firstName} {createdResult.lastName}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Staff ID:</span>
+                <span style={{ fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace', fontSize: '1rem' }}>
+                  {createdResult.employeeId}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Official Email (Login ID):</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                  {createdResult.email}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>System Role:</span>
+                <span
+                  style={{
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                    color: 'var(--primary)',
+                  }}
+                >
+                  {createdResult.assignedRole || 'Employee'}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingTop: '0.6rem',
+                  borderTop: '1px dashed var(--border)',
+                }}
+              >
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Login Password:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <code
+                    style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: '6px',
+                      fontSize: '0.95rem',
+                      fontWeight: 800,
+                      letterSpacing: '1px',
+                      color: '#f59e0b',
+                    }}
+                  >
+                    {createdResult.generatedPassword || createdResult.password}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdResult.generatedPassword || createdResult.password)
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 2000)
+                    }}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '0.25rem 0.6rem',
+                      cursor: 'pointer',
+                      color: copied ? '#10b981' : 'var(--text-muted)',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Email dispatch alert */}
+            <div
+              style={{
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                color: '#10b981',
+                fontSize: '0.82rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginBottom: '1.5rem',
+              }}
+            >
+              <span>📧</span>
+              <span>
+                Login credentials have been securely emailed to <strong>{createdResult.email}</strong>.
+              </span>
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '0.75rem', flexDirection: 'column' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = `Godwin Hotels Staff Credentials:\nName: ${createdResult.firstName} ${createdResult.lastName}\nStaff ID: ${createdResult.employeeId}\nRole: ${createdResult.assignedRole}\nLogin Email: ${createdResult.email}\nPassword: ${createdResult.generatedPassword || createdResult.password}\nLogin URL: https://grandgodwin.com/login`
+                  navigator.clipboard.writeText(summary)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                }}
+              >
+                📋 {copied ? 'Credentials Copied to Clipboard!' : 'Copy All Credentials'}
+              </button>
+
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatedResult(null)
+                    setManualPassword('')
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ➕ Add Another
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push('/hr/employees')
+                    router.refresh()
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'var(--primary)',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  View Directory →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        {/* Error Alert */}
+        {error && (
+          <div
+            style={{
+              padding: '1rem 1.25rem',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              color: 'var(--error)',
+              borderRadius: '10px',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              fontSize: '0.92rem',
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
+      {/* SECTION 1: PERSONAL INFORMATION */}
+      <div
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: '14px',
+          padding: 'clamp(1rem, 3vw, 1.75rem)',
+          boxShadow: 'var(--shadow)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.65rem',
+            marginBottom: '1.5rem',
+            paddingBottom: '0.85rem',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(37, 99, 235, 0.1)',
+              color: 'var(--primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1rem',
+            }}
+          >
+            👤
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+              Personal Information
+            </h2>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Primary contact information and identification details.
+            </p>
+          </div>
+        </div>
+
+        <div className="responsive-form-grid">
+          {/* First Name */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              First Name <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <input
+              required
+              name="firstName"
+              type="text"
+              placeholder="e.g. Raman"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Last Name */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Last Name <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <input
+              required
+              name="lastName"
+              type="text"
+              placeholder="e.g. Mankotia"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Email Address */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Email (Kiosk Login) <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <input
+              required
+              name="email"
+              type="email"
+              placeholder="e.g. name@godwinhotels.com"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Password Section */}
+          <div className="form-group col-span-2">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-main)', margin: 0 }}>
+                <span>Portal &amp; Kiosk Login Password</span>
+                <span style={{ color: 'var(--error)' }}>*</span>
+              </label>
+              <label style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.82rem',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                background: 'rgba(37, 99, 235, 0.08)',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(37, 99, 235, 0.2)'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={autoGeneratePassword}
+                  onChange={(e) => setAutoGeneratePassword(e.target.checked)}
+                  style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                />
+                <span>Auto-generate secure password</span>
+              </label>
+            </div>
+
+            {autoGeneratePassword ? (
+              <div
+                style={{
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                  border: '1px dashed rgba(37, 99, 235, 0.35)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.86rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>🔐</span>
+                <span>
+                  <strong>Automatic Password Generation Active:</strong> A secure Godwin-standard credential will be auto-generated, synced to the user directory, and dispatched to the employee's official email address.
+                </span>
+              </div>
+            ) : (
+              <input
+                required
+                name="password"
+                type="text"
+                value={manualPassword}
+                onChange={(e) => setManualPassword(e.target.value)}
+                placeholder="Enter custom login password (e.g. Godwin@123)"
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            )}
+          </div>
+
+          {/* Contact Number */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Primary Contact Number <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <input
+              required
+              name="contactNo"
+              type="tel"
+              placeholder="e.g. 9876543210"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Gender */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Gender
+            </label>
+            <select
+              name="gender"
+              defaultValue="Male"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* Date of Birth */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Date of Birth
+            </label>
+            <input
+              name="dob"
+              type="date"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Emergency Contact */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Emergency Contact (Name & Phone)
+            </label>
+            <input
+              name="emergencyContact"
+              type="text"
+              placeholder="e.g. S. Mankotia (9811122233)"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Address */}
+          <div className="form-group col-span-full">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Residential Address
+            </label>
+            <input
+              name="address"
+              type="text"
+              placeholder="e.g. House No., Street, City, State, PIN"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 2: HOTEL & EMPLOYMENT DETAILS */}
+      <div
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: '14px',
+          padding: 'clamp(1rem, 3vw, 1.75rem)',
+          boxShadow: 'var(--shadow)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1.5rem',
+            paddingBottom: '0.85rem',
+            borderBottom: '1px solid var(--border)',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                color: 'var(--success)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1rem',
+              }}
+            >
+              🏨
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+                Employment & Role Details
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Assign hotel branch, department, designation, and employment status.
+              </p>
+            </div>
+          </div>
+
+          {selectedBranch && (
+            <span
+              style={{
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                color: 'var(--primary)',
+                backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                border: '1px solid rgba(37, 99, 235, 0.2)',
+              }}
+            >
+              ID Prefix: <strong>{selectedBranch.prefix}-XXXX</strong>
+            </span>
+          )}
+        </div>
+
+        <div className="responsive-form-grid">
+          {/* Branch */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Branch / Property <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <select
+              required
+              name="branchId"
+              value={selectedBranchId}
+              onChange={(e) => setSelectedBranchId(e.target.value)}
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} ({b.prefix})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Department */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Department <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <select
+              required
+              name="departmentId"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="">-- Select Department --</option>
+              {availableDepartments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Designation */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Designation / Title <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <input
+              required
+              name="designation"
+              type="text"
+              placeholder="e.g. Front Office Manager, Chef, Concierge"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Date of Joining */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Date of Joining <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <input
+              required
+              name="doj"
+              type="date"
+              defaultValue={new Date().toISOString().split('T')[0]}
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Employment Type */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Employment Type <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <select
+              required
+              name="employmentType"
+              defaultValue="PERMANENT"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="PERMANENT">Permanent (Full Time)</option>
+              <option value="CONTRACT">Contract Staff</option>
+              <option value="TRAINEE">Apprentice / Trainee</option>
+            </select>
+          </div>
+
+          {/* Initial Status */}
+          <div className="form-group">
+            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+              Initial Employment Status <span style={{ color: 'var(--error)' }}>*</span>
+            </label>
+            <select
+              required
+              name="status"
+              defaultValue="ACTIVE"
+              className="form-input"
+              style={{
+                width: '100%',
+                height: '42px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-main)',
+                color: 'var(--text-main)',
+                fontSize: '0.9rem',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="ACTIVE">Active (Working)</option>
+              <option value="ON_LEAVE">On Leave</option>
+              <option value="RESIGNED">Resigned / Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 3: SHIFT & WORKING TIMINGS */}
+      <div
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: '14px',
+          padding: 'clamp(1rem, 3vw, 1.75rem)',
+          boxShadow: 'var(--shadow)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.65rem',
+            marginBottom: '1.5rem',
+            paddingBottom: '0.85rem',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              color: 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1rem',
+            }}
+          >
+            ⏰
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+              Default Shift & Schedule
+            </h2>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Configure scheduled report and departure timings for punctuality tracking.
+            </p>
+          </div>
+        </div>
+
+        {/* Shift Toggle Buttons */}
+        <div className="shift-selector-grid" style={{ marginBottom: '1.25rem' }}>
+          {/* Morning Shift Toggle */}
+          <button
+            type="button"
+            className="shift-card-btn"
+            onClick={() => {
+              setSelectedShift('MORNING')
+              setMorningTime('08:00')
+              setEveningTime('20:00')
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '10px',
+              border: selectedShift === 'MORNING' ? '2px solid #10b981' : '1px solid var(--border)',
+              backgroundColor: selectedShift === 'MORNING' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-main)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.35rem',
+              transition: 'all 0.2s ease',
+              textAlign: 'center',
+            }}
+          >
+            <span className="shift-card-icon" style={{ fontSize: '1.4rem' }}>☀️</span>
+            <div className="shift-card-body">
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'MORNING' ? '#10b981' : 'var(--text-main)' }}>
+                Morning Shift
+              </span>
+              <span style={{ fontSize: '0.75rem', color: selectedShift === 'MORNING' ? '#10b981' : 'var(--text-muted)' }}>
+                08:00 AM – 08:00 PM
+              </span>
+            </div>
+          </button>
+
+          {/* Afternoon Shift Toggle */}
+          <button
+            type="button"
+            className="shift-card-btn"
+            onClick={() => {
+              setSelectedShift('AFTERNOON')
+              setMorningTime('13:00')
+              setEveningTime('23:00')
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '10px',
+              border: selectedShift === 'AFTERNOON' ? '2px solid #f59e0b' : '1px solid var(--border)',
+              backgroundColor: selectedShift === 'AFTERNOON' ? 'rgba(245, 158, 11, 0.12)' : 'var(--bg-main)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.35rem',
+              transition: 'all 0.2s ease',
+              textAlign: 'center',
+            }}
+          >
+            <span className="shift-card-icon" style={{ fontSize: '1.4rem' }}>🌆</span>
+            <div className="shift-card-body">
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'AFTERNOON' ? '#f59e0b' : 'var(--text-main)' }}>
+                Afternoon Shift
+              </span>
+              <span style={{ fontSize: '0.75rem', color: selectedShift === 'AFTERNOON' ? '#f59e0b' : 'var(--text-muted)' }}>
+                01:00 PM – 11:00 PM
+              </span>
+            </div>
+          </button>
+
+          {/* Break Shift Toggle */}
+          <button
+            type="button"
+            className="shift-card-btn"
+            onClick={() => {
+              setSelectedShift('BREAK')
+              setMorningTime('10:00')
+              setEveningTime('22:00')
+              setBreakStart('14:00')
+              setBreakEnd('18:00')
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '10px',
+              border: selectedShift === 'BREAK' ? '2px solid #0ea5e9' : '1px solid var(--border)',
+              backgroundColor: selectedShift === 'BREAK' ? 'rgba(14, 165, 233, 0.12)' : 'var(--bg-main)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.35rem',
+              transition: 'all 0.2s ease',
+              textAlign: 'center',
+            }}
+          >
+            <span className="shift-card-icon" style={{ fontSize: '1.4rem' }}>☕</span>
+            <div className="shift-card-body">
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'BREAK' ? '#38bdf8' : 'var(--text-main)' }}>
+                Break Shift
+              </span>
+              <span style={{ fontSize: '0.75rem', color: selectedShift === 'BREAK' ? '#38bdf8' : 'var(--text-muted)' }}>
+                10:00–14:00 & 18:00–22:00
+              </span>
+            </div>
+          </button>
+
+          {/* Night Shift Toggle */}
+          <button
+            type="button"
+            className="shift-card-btn"
+            onClick={() => {
+              setSelectedShift('NIGHT')
+              setMorningTime('20:00')
+              setEveningTime('08:00')
+            }}
+            style={{
+              padding: '0.85rem 1rem',
+              borderRadius: '10px',
+              border: selectedShift === 'NIGHT' ? '2px solid #8b5cf6' : '1px solid var(--border)',
+              backgroundColor: selectedShift === 'NIGHT' ? 'rgba(139, 92, 246, 0.12)' : 'var(--bg-main)',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.35rem',
+              transition: 'all 0.2s ease',
+              textAlign: 'center',
+            }}
+          >
+            <span className="shift-card-icon" style={{ fontSize: '1.4rem' }}>🌙</span>
+            <div className="shift-card-body">
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: selectedShift === 'NIGHT' ? '#8b5cf6' : 'var(--text-main)' }}>
+                Night Shift
+              </span>
+              <span style={{ fontSize: '0.75rem', color: selectedShift === 'NIGHT' ? '#8b5cf6' : 'var(--text-muted)' }}>
+                08:00 PM – 08:00 AM
+              </span>
+            </div>
+          </button>
+        </div>
+
+        {/* Selected Shift Timing Detail Card */}
+        {selectedShift === 'BREAK' ? (
+          <div
+            style={{
+              padding: '1.25rem',
+              backgroundColor: 'rgba(14, 165, 233, 0.05)',
+              border: '1px solid rgba(14, 165, 233, 0.25)',
+              borderRadius: '8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.95rem' }}>
+                ☕ Break Shift Timing Setup
+              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                4 hrs Morning Duty + 4 hrs Afternoon Break + 4 hrs Evening Duty
+              </span>
+            </div>
+
+            <div className="responsive-form-grid" style={{ gap: '1rem' }}>
+              {/* Part 1 (Morning) */}
+              <div style={{ padding: '0.85rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#38bdf8', marginBottom: '0.5rem' }}>
+                  🌅 Morning Slot (Part 1)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
+                    <input
+                      name="morningTime"
+                      type="time"
+                      value={morningTime}
+                      onChange={e => setMorningTime(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Out-Time</label>
+                    <input
+                      type="time"
+                      value={breakStart}
+                      onChange={e => setBreakStart(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Part 2 (Evening) */}
+              <div style={{ padding: '0.85rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f59e0b', marginBottom: '0.5rem' }}>
+                  🌆 Evening Slot (Part 2)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>In-Time</label>
+                    <input
+                      type="time"
+                      value={breakEnd}
+                      onChange={e => setBreakEnd(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Out-Time</label>
+                    <input
+                      name="eveningTime"
+                      type="time"
+                      value={eveningTime}
+                      onChange={e => setEveningTime(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+              <span>☕ <b>Afternoon Break Window:</b> {breakStart} – {breakEnd}</span>
+              <span>⏱ <b>Total Working Hours:</b> 8 Hours Duty</span>
+            </div>
+          </div>
+        ) : (
+          <div className="responsive-form-grid">
+            {/* Morning / Start Report Time */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                {selectedShift === 'NIGHT' ? '🌙 Night Shift In-Time' : selectedShift === 'AFTERNOON' ? '🌆 Afternoon Shift In-Time' : '☀️ Morning Shift In-Time'}
+              </label>
+              <input
+                name="morningTime"
+                type="time"
+                value={morningTime}
+                onChange={e => setMorningTime(e.target.value)}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Evening / End Departure Time */}
+            <div className="form-group">
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                {selectedShift === 'NIGHT' ? '🌙 Night Shift Out-Time (Next Day)' : selectedShift === 'AFTERNOON' ? '🌆 Afternoon Shift Out-Time' : '☀️ Morning Shift Out-Time'}
+              </label>
+              <input
+                name="eveningTime"
+                type="time"
+                value={eveningTime}
+                onChange={e => setEveningTime(e.target.value)}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  height: '42px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-main)',
+                  color: 'var(--text-main)',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Weekly Off Days Selection */}
+        <div style={{ marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', margin: 0 }}>
+                🏖️ Weekly Off Days (साप्ताहिक अवकाश)
+              </label>
+              <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Sunday is selected by default. Tick additional or alternate days off if this employee has other weekly off days. Roster will follow this schedule.
+              </p>
+            </div>
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)', background: 'rgba(37,99,235,0.1)', padding: '3px 9px', borderRadius: '6px' }}>
+              {offDays.length} Off Day{offDays.length !== 1 ? 's' : ''} Configured
+            </span>
+          </div>
+
+          <div className="weekly-off-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginTop: '0.75rem' }}>
+            {DAYS_OF_WEEK.map(day => {
+              const isChecked = offDays.includes(day)
+              const isDefaultSunday = day === 'Sunday'
+              return (
+                <label
+                  key={day}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    padding: '0.6rem 0.75rem',
+                    minHeight: '52px',
+                    borderRadius: '8px',
+                    border: isChecked
+                      ? (isDefaultSunday ? '2px solid #ef4444' : '2px solid var(--primary)')
+                      : '1px solid var(--border)',
+                    backgroundColor: isChecked
+                      ? (isDefaultSunday ? 'rgba(239, 68, 68, 0.08)' : 'rgba(37, 99, 235, 0.08)')
+                      : 'var(--bg-main)',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    transition: 'all 0.15s ease',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleOffDay(day)}
+                    style={{ width: '16px', height: '16px', accentColor: isDefaultSunday ? '#ef4444' : 'var(--primary)', cursor: 'pointer', flexShrink: 0 }}
+                  />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isChecked ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {day}
+                    </div>
+                    <div style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 600,
+                      lineHeight: '14px',
+                      color: isDefaultSunday ? '#ef4444' : (isChecked ? 'var(--primary)' : 'transparent'),
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {isDefaultSunday ? 'Default Off' : (isChecked ? 'Scheduled Off' : '\u00A0')}
+                    </div>
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 4: SHIFT ELIGIBILITY */}
+      <div
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: '14px',
+          padding: 'clamp(1rem, 3vw, 1.75rem)',
+          boxShadow: 'var(--shadow)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.65rem',
+            marginBottom: '1.25rem',
+            paddingBottom: '0.85rem',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <div
+            style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              color: '#8b5cf6',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1rem',
+            }}
+          >
+            🔄
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+              Shift Eligibility
+            </h2>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Define whether this employee can be rostered for both Day and Night shifts (Swap Shift).
+            </p>
+          </div>
+        </div>
+
+        {/* Swap Shift Toggle Card */}
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '1rem',
+            padding: '1.1rem 1.25rem',
+            borderRadius: '12px',
+            border: swapShiftEligible
+              ? '2px solid #8b5cf6'
+              : '1px solid var(--border)',
+            backgroundColor: swapShiftEligible
+              ? 'rgba(139, 92, 246, 0.08)'
+              : 'var(--bg-main)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            userSelect: 'none',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={swapShiftEligible}
+            onChange={(e) => setSwapShiftEligible(e.target.checked)}
+            style={{
+              width: '18px',
+              height: '18px',
+              marginTop: '2px',
+              accentColor: '#8b5cf6',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          />
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+              <span style={{ fontSize: '1.1rem' }}>☀️🌙</span>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: swapShiftEligible ? '#8b5cf6' : 'var(--text-main)' }}>
+                Swap Shift Eligible
+              </span>
+              {swapShiftEligible && (
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    backgroundColor: '#8b5cf6',
+                    color: '#fff',
+                    padding: '2px 8px',
+                    borderRadius: '20px',
+                  }}
+                >
+                  ENABLED
+                </span>
+              )}
+            </div>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+              {swapShiftEligible
+                ? '✅ This employee can be assigned to both Day Shift and Night Shift in the Duty Roster. Shift Manager will allow full shift rotation for this employee.'
+                : '🔒 This employee is locked to a single default shift. Shift Manager will restrict this employee\'s roster cell to their assigned shift only (no swap allowed).'}
+            </p>
+          </div>
+        </label>
+
+        {/* Dual Shift Hours Configuration (When Swap Shift is Enabled) */}
+        {swapShiftEligible && (
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '1.25rem',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(139, 92, 246, 0.05)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#8b5cf6', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <span>⚙️</span>
+              <span>Dual Shift Rotational Timings (दोनों शिफ्ट का समय सेट करें)</span>
+            </div>
+            <p style={{ margin: '0 0 1rem 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Set customized working hours for both shifts. When rotated in the duty roster, the security kiosk will automatically adjust reporting times and notify guards.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+              {/* ☀️ Day Shift Configuration */}
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--bg-main)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#10b981', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span>☀️ Day Shift (दिन की शिफ्ट)</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>
+                      Arrival (In-Time)
+                    </label>
+                    <input
+                      type="time"
+                      value={dayShiftStart}
+                      onChange={e => setDayShiftStart(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>
+                      Departure (Out-Time)
+                    </label>
+                    <input
+                      type="time"
+                      value={dayShiftEnd}
+                      onChange={e => setDayShiftEnd(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'block' }}>
+                  Standard Day Shift: 08:00 or 09:00 to 18:00 / 20:00
+                </span>
+              </div>
+
+              {/* 🌙 Night Shift Configuration */}
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '10px',
+                  backgroundColor: 'var(--bg-main)',
+                  border: '1px solid rgba(139, 92, 246, 0.4)',
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#8b5cf6', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span>🌙 Night Shift (रात की शिफ्ट)</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>
+                      Evening Arrival (In-Time)
+                    </label>
+                    <input
+                      type="time"
+                      value={nightShiftStart}
+                      onChange={e => setNightShiftStart(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.25rem', fontWeight: 600 }}>
+                      Morning Departure (Out)
+                    </label>
+                    <input
+                      type="time"
+                      value={nightShiftEnd}
+                      onChange={e => setNightShiftEnd(e.target.value)}
+                      className="form-input"
+                      style={{ width: '100%', height: '38px', padding: '0 8px', borderRadius: '6px', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.7rem', color: '#8b5cf6', marginTop: '0.5rem', display: 'block', fontWeight: 600 }}>
+                  Standard Night Shift: 08:00 PM to 08:00 AM (20:00 – 08:00)
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: '0.85rem',
+                padding: '0.55rem 0.85rem',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                border: '1px solid rgba(139, 92, 246, 0.25)',
+                fontSize: '0.76rem',
+                color: 'var(--text-main)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+              }}
+            >
+              <span>🔔</span>
+              <span>
+                <strong>Kiosk Instruction:</strong> Duty roster mein swap karte hi security kiosk par automated instruction dispatch hogi aur arrival time updated show hoga.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Info note */}
+        {!swapShiftEligible && (
+          <div
+            style={{
+              marginTop: '0.85rem',
+              padding: '0.65rem 1rem',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(245, 158, 11, 0.08)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              fontSize: '0.8rem',
+              color: '#d97706',
+              display: 'flex',
+              gap: '0.5rem',
+              alignItems: 'flex-start',
+            }}
+          >
+            <span>⚠️</span>
+            <span>
+              <strong>Single Shift Mode:</strong> In Shift Manager, this employee&apos;s roster cell will be locked (🔒). Their attendance will always be validated against their default shift timing ({' '}
+              <strong>{selectedShift === 'NIGHT' ? 'Night Shift' : selectedShift === 'BREAK' ? 'Break Shift' : selectedShift === 'AFTERNOON' ? 'Afternoon Shift' : 'Morning Shift'}</strong>).
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons */}
+      <div className="form-actions-bar">
+        <Link
+          href="/hr/employees"
+          style={{
+            padding: '0.75rem 1.5rem',
+            borderRadius: '8px',
+            border: '1px solid var(--border)',
+            backgroundColor: 'var(--bg-card)',
+            color: 'var(--text-main)',
+            fontWeight: 600,
+            fontSize: '0.92rem',
+            textDecoration: 'none',
+            textAlign: 'center',
+          }}
+        >
+          Cancel
+        </Link>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            padding: '0.75rem 2rem',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: 'var(--primary)',
+            color: '#ffffff',
+            fontWeight: 600,
+            fontSize: '0.95rem',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            boxShadow: '0 4px 14px rgba(37, 99, 235, 0.3)',
+            opacity: loading ? 0.7 : 1,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}
+        >
+          {loading ? (
+            <>
+              <span
+                style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  borderTopColor: '#ffffff',
+                  borderRadius: '50%',
+                  display: 'inline-block',
+                  animation: 'spin 0.8s linear infinite',
+                }}
+              />
+              Registering Employee...
+            </>
+          ) : (
+            <>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Save & Register Employee
+            </>
+          )}
+        </button>
+      </div>
+    </form>
+    </>
+  )
+}

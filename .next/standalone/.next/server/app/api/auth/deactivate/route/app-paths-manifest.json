@@ -1,0 +1,3 @@
+{
+  "/api/auth/deactivate/route": "app/api/auth/deactivate/route.js"
+}
