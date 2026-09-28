@@ -135,8 +135,8 @@ function triggerDeployment(triggerSource: string) {
     postDeployReconcile(workingDir);
 
     if (error) {
-      lastDeployStatus = `Failed: ${error.message}`;
-      appendDeployLog(`❌ Deployment ERROR: ${error.message}\n${stderr || ""}`);
+      lastDeployStatus = `Failed: ${error.message}\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`;
+      appendDeployLog(`❌ Deployment ERROR: ${error.message}\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`);
       console.error("Deployment failed:", error);
     } else {
       lastDeployStatus = `Success (Completed at ${new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata" })} IST)`;
