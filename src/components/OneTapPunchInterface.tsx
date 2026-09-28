@@ -446,14 +446,27 @@ export default function OneTapPunchInterface({
     }
   };
 
-  const handleFetchHistory = async () => {
+  const [historyMonth, setHistoryMonth] = useState<string>(() => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date()).slice(0, 7);
+    } catch {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+  });
+
+  const handleFetchHistory = async (targetMonth?: string | React.MouseEvent) => {
     setShowHistoryModal(true);
     setLoadingHistory(true);
+    const m = typeof targetMonth === 'string' ? targetMonth : historyMonth;
+    if (typeof targetMonth === 'string' && targetMonth !== historyMonth) {
+      setHistoryMonth(targetMonth);
+    }
     try {
       const empCode = employee.employeeId || employee.id;
       const empId = employee.id || '';
       const email = (employee as any).email || '';
-      const res = await fetch(`/api/kiosk/attendance?employeeId=${encodeURIComponent(empCode)}&id=${encodeURIComponent(empId)}&email=${encodeURIComponent(email)}`);
+      const res = await fetch(`/api/kiosk/attendance?employeeId=${encodeURIComponent(empCode)}&id=${encodeURIComponent(empId)}&email=${encodeURIComponent(email)}&month=${encodeURIComponent(m)}`);
       if (res.ok) {
         const data = await res.json();
         setHistoryLogs(data.logs || []);
@@ -463,6 +476,17 @@ export default function OneTapPunchInterface({
     } finally {
       setLoadingHistory(false);
     }
+  };
+
+  const changeHistoryMonth = (delta: number) => {
+    const [yStr, mStr] = historyMonth.split('-');
+    let y = parseInt(yStr, 10);
+    let m = parseInt(mStr, 10) + delta;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    const nextMonth = `${y}-${String(m).padStart(2, '0')}`;
+    setHistoryMonth(nextMonth);
+    handleFetchHistory(nextMonth);
   };
 
   const handleSubmitLeave = async (e: React.FormEvent) => {
@@ -1904,7 +1928,7 @@ export default function OneTapPunchInterface({
                     My Attendance History
                   </h3>
                   <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Last 30 days activity for {employee.firstName} {employee.lastName}
+                    Monthly activity for {employee.firstName} {employee.lastName}
                   </p>
                 </div>
               </div>
@@ -1927,6 +1951,67 @@ export default function OneTapPunchInterface({
                 }}
               >
                 ✕
+              </button>
+            </div>
+
+            {/* Month Navigator Toolbar */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.65rem 1.25rem',
+              background: isLight ? '#f1f5f9' : '#1e293b',
+              borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+              flexShrink: 0,
+            }}>
+              <button
+                type="button"
+                onClick={() => changeHistoryMonth(-1)}
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  borderRadius: '8px',
+                  border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
+                  background: isLight ? '#ffffff' : '#0f172a',
+                  color: isLight ? '#0f172a' : '#f8fafc',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                ◀ Prev
+              </button>
+              <div style={{ fontWeight: 800, fontSize: '0.92rem', color: isLight ? '#0f172a' : '#f8fafc', letterSpacing: '0.01em' }}>
+                📅 {(() => {
+                  try {
+                    return new Date(`${historyMonth}-01T12:00:00+05:30`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                  } catch {
+                    return historyMonth;
+                  }
+                })()}
+              </div>
+              <button
+                type="button"
+                onClick={() => changeHistoryMonth(1)}
+                style={{
+                  padding: '0.35rem 0.8rem',
+                  borderRadius: '8px',
+                  border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
+                  background: isLight ? '#ffffff' : '#0f172a',
+                  color: isLight ? '#0f172a' : '#f8fafc',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Next ▶
               </button>
             </div>
 
@@ -1960,10 +2045,12 @@ export default function OneTapPunchInterface({
                         const isOff = log.status === 'WEEKLY_OFF' || log.status === 'OFF';
                         const isLeave = log.status && (log.status.includes('LEAVE') || log.status === 'PAID_LEAVE' || log.status === 'UNPAID_LEAVE');
                         const isHalf = log.status === 'HALF_DAY';
+                        const isPending = log.status === 'PENDING';
+                        const isScheduled = log.status === 'SCHEDULED';
 
-                        const badgeColor = isLate ? '#f59e0b' : isAbsent ? '#ef4444' : isOff ? '#64748b' : isLeave ? '#2563eb' : isHalf ? '#8b5cf6' : '#10b981';
-                        const badgeBg = isLate ? 'rgba(245, 158, 11, 0.15)' : isAbsent ? 'rgba(239, 68, 68, 0.15)' : isOff ? 'rgba(100, 116, 139, 0.15)' : isLeave ? 'rgba(37, 99, 235, 0.15)' : isHalf ? 'rgba(139, 92, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)';
-                        const badgeText = isLate ? 'Late' : isAbsent ? 'Absent' : isOff ? 'Weekly Off' : isLeave ? (log.status.replace(/_/g, ' ')) : isHalf ? 'Half Day' : 'Present';
+                        const badgeColor = isLate ? '#f59e0b' : isAbsent ? '#ef4444' : isOff ? '#64748b' : isLeave ? '#2563eb' : isHalf ? '#8b5cf6' : isPending ? '#eab308' : isScheduled ? '#0ea5e9' : '#10b981';
+                        const badgeBg = isLate ? 'rgba(245, 158, 11, 0.15)' : isAbsent ? 'rgba(239, 68, 68, 0.15)' : isOff ? 'rgba(100, 116, 139, 0.15)' : isLeave ? 'rgba(37, 99, 235, 0.15)' : isHalf ? 'rgba(139, 92, 246, 0.15)' : isPending ? 'rgba(234, 179, 8, 0.15)' : isScheduled ? 'rgba(14, 165, 233, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+                        const badgeText = isLate ? 'Late' : isAbsent ? 'Absent' : isOff ? 'Weekly Off' : isLeave ? (log.status.replace(/_/g, ' ')) : isHalf ? 'Half Day' : isPending ? 'Pending' : isScheduled ? 'Scheduled' : 'Present';
 
                         let displayDate = log.date || '';
                         try {
@@ -1976,7 +2063,7 @@ export default function OneTapPunchInterface({
                               {displayDate}
                             </td>
                             <td style={{ padding: '0.65rem 0.5rem', color: log.punchIn ? '#10b981' : 'var(--text-muted)', fontWeight: 700 }}>
-                              {log.punchIn ? new Date(log.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
+                              {log.punchIn ? new Date(log.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : (log.remarks && isScheduled ? log.remarks : '—')}
                             </td>
                             <td style={{ padding: '0.65rem 0.5rem', color: log.punchOut ? '#ef4444' : 'var(--text-muted)', fontWeight: 700 }}>
                               {log.punchOut ? new Date(log.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}

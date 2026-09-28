@@ -145,27 +145,44 @@ export async function GET(req: NextRequest) {
       )
     } catch {}
 
-    // 4. Generate complete current month history from 1st of month up to today
+    // 4. Determine Target Year and Month (supports ?month=YYYY-MM, defaults dynamically to current IST month)
     const now = new Date()
     const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now)
-    const [currYearStr, currMonthStr] = todayIST.split('-')
+    const [todayYearStr, todayMonthStr, todayDayStr] = todayIST.split('-')
 
-    // Also include any older punches from the last 30 days
-    const combinedDaysMap = new Map<string, any>()
+    const monthParam = searchParams.get('month') || '' // format "YYYY-MM"
+    let targetYear = parseInt(todayYearStr, 10)
+    let targetMonth = parseInt(todayMonthStr, 10)
 
-    // First populate all real punches found
-    for (const [dStr, pRec] of punchesByDate.entries()) {
-      combinedDaysMap.set(dStr, pRec)
+    if (monthParam && /^\d{4}-\d{1,2}$/.test(monthParam.trim())) {
+      const parts = monthParam.trim().split('-')
+      targetYear = parseInt(parts[0], 10)
+      targetMonth = parseInt(parts[1], 10)
     }
 
-    // Then ensure EVERY DAY of the current month up to today is represented
-    const daysInMonth = parseInt(todayIST.split('-')[2], 10)
+    const targetYearStr = String(targetYear)
+    const targetMonthStr = String(targetMonth).padStart(2, '0')
+    const targetMonthPrefix = `${targetYearStr}-${targetMonthStr}`
+
+    // Total days in target month (e.g. 28, 29, 30, or 31)
+    const totalDaysInMonth = new Date(targetYear, targetMonth, 0).getDate()
+
+    // Combined days map for the target month
+    const combinedDaysMap = new Map<string, any>()
+
+    // Populate all real punches recorded for this target month
+    for (const [dStr, pRec] of punchesByDate.entries()) {
+      if (dStr.startsWith(targetMonthPrefix)) {
+        combinedDaysMap.set(dStr, pRec)
+      }
+    }
+
     const daysOfWeekNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+    // Generate every day of the month
+    for (let dayNum = 1; dayNum <= totalDaysInMonth; dayNum++) {
       const dayPad = String(dayNum).padStart(2, '0')
-      const dateStr = `${currYearStr}-${currMonthStr}-${dayPad}`
-      if (dateStr > todayIST) continue
+      const dateStr = `${targetYearStr}-${targetMonthStr}-${dayPad}`
 
       if (!combinedDaysMap.has(dateStr)) {
         const dObj = new Date(`${dateStr}T12:00:00+05:30`)
@@ -194,12 +211,16 @@ export async function GET(req: NextRequest) {
 
         // Check roster / off days
         let isOff = isSunday
+        let shiftLabel = 'Scheduled Duty'
         if (emp) {
           const rosterShift = getEmployeeRosterShift(emp, dateStr)
           if (rosterShift.isOff || rosterShift.startTime === 'OFF') {
             isOff = true
           } else if (Array.isArray(emp.offDays) && emp.offDays.length > 0) {
             isOff = emp.offDays.some((od: string) => od.toLowerCase() === dayOfWeek.toLowerCase())
+          }
+          if (rosterShift.shiftName) {
+            shiftLabel = `${rosterShift.shiftName} (${rosterShift.startTime} - ${rosterShift.endTime})`
           }
         }
 
@@ -223,20 +244,47 @@ export async function GET(req: NextRequest) {
             status: 'ABSENT',
             remarks: 'Absent'
           })
+        } else if (dateStr === todayIST) {
+          combinedDaysMap.set(dateStr, {
+            id: `pending-${dateStr}`,
+            employeeId: emp?.employeeId || emp?.id || employeeId,
+            date: dateStr,
+            punchIn: null,
+            punchOut: null,
+            status: 'PENDING',
+            remarks: 'Punch In Pending'
+          })
+        } else {
+          // Future scheduled day in current or future month
+          combinedDaysMap.set(dateStr, {
+            id: `sched-${dateStr}`,
+            employeeId: emp?.employeeId || emp?.id || employeeId,
+            date: dateStr,
+            punchIn: null,
+            punchOut: null,
+            status: 'SCHEDULED',
+            remarks: shiftLabel
+          })
         }
       }
     }
 
     const logs = Array.from(combinedDaysMap.values())
 
-    // Sort descending by date
+    // Sort descending by date (newest day first)
     logs.sort((a, b) => {
-      const tA = new Date(a.date || a.punchIn || 0).getTime()
-      const tB = new Date(b.date || b.punchIn || 0).getTime()
-      return tB - tA
+      const dateA = a.date || ''
+      const dateB = b.date || ''
+      return dateB.localeCompare(dateA)
     })
 
-    return NextResponse.json({ logs: logs.slice(0, 31) })
+    return NextResponse.json({
+      logs,
+      month: targetMonthPrefix,
+      totalDays: totalDaysInMonth,
+      employeeId: emp?.employeeId || emp?.id || employeeId,
+      employeeName: empFullName || `${emp?.firstName || ''} ${emp?.lastName || ''}`.trim()
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Failed to fetch attendance history' }, { status: 500 })
   }
