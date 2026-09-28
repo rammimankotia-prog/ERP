@@ -142,6 +142,12 @@ function triggerDeployment(triggerSource: string) {
       lastDeployStatus = `Success (Completed at ${new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata" })} IST)`;
       appendDeployLog(`✅ Deployment SUCCESS!\nStdout:\n${stdout.slice(-1000)}\n${stderr ? `Stderr:\n${stderr.slice(-500)}\n` : ""}`);
       console.log("Deployment completed successfully!");
+      setTimeout(() => {
+        try {
+          appendDeployLog("🔄 Process recycle: Respawning worker process to load new code...");
+        } catch {}
+        process.exit(0);
+      }, 1200);
     }
   });
 }
@@ -200,6 +206,12 @@ export async function POST(req: NextRequest) {
     if (!isSecretValid && !isManualTrigger) {
       appendDeployLog("⚠️ Unauthorized deploy attempt rejected (invalid secret / signature).");
       return NextResponse.json({ error: "Unauthorized: Invalid deploy secret or GitHub signature." }, { status: 401 });
+    }
+
+    if (searchParams.get("restart") === "true") {
+      appendDeployLog("🔄 Explicit worker restart requested via API.");
+      setTimeout(() => { process.exit(0); }, 500);
+      return NextResponse.json({ success: true, message: "Worker restart initiated." });
     }
 
     // 2. Parse GitHub Push Event (if sent from GitHub)
