@@ -103,6 +103,7 @@ export async function getAllEmployees(): Promise<any[]> {
             shiftType: (e as any).shiftType || (isNight ? 'NIGHT' : undefined),
             selectedShift: (e as any).selectedShift || (isNight ? 'NIGHT' : undefined),
             status: e.status || 'ACTIVE',
+            updatedAt: (e as any).updatedAt || null,
             role: (e as any).role || 'Employee',
             baseSalary: (e as any).baseSalary || 0,
             doj: (e as any).doj || new Date(),
@@ -119,6 +120,8 @@ export async function getAllEmployees(): Promise<any[]> {
   }
 
   // 2. Indestructible JSON multi-tier merge (reads permanent external vault, sibling versions, and local)
+  // JSON is treated as ground truth for status changes: if JSON has a newer updatedAt than Prisma,
+  // override the Prisma record's status (and other mutable fields) with the JSON version.
   const allDirs = getAllDataDirs()
   for (const dir of allDirs) {
     for (const filename of ['hr_employees.json', 'hr_employees_backup.json']) {
@@ -128,14 +131,16 @@ export async function getAllEmployees(): Promise<any[]> {
         for (const emp of list) {
           const key = (emp.employeeId || emp.id || '').toUpperCase().trim()
           if (!key || isEmployeeDeleted(emp, deletedKeys)) continue
-          if (!map.has(key)) {
-            const mTime = (emp.morningTime || '').trim()
-            const eTime = (emp.eveningTime || '').trim()
-            const isNight = emp.isNightShift === true ||
-              (emp.shiftName && String(emp.shiftName).toLowerCase().includes('night')) ||
-              emp.selectedShift === 'NIGHT' ||
-              isNightShiftTime(mTime, eTime)
 
+          const mTime = (emp.morningTime || '').trim()
+          const eTime = (emp.eveningTime || '').trim()
+          const isNight = emp.isNightShift === true ||
+            (emp.shiftName && String(emp.shiftName).toLowerCase().includes('night')) ||
+            emp.selectedShift === 'NIGHT' ||
+            isNightShiftTime(mTime, eTime)
+
+          if (!map.has(key)) {
+            // Employee not in Prisma — add from JSON
             map.set(key, {
               ...emp,
               id: emp.id || key,
@@ -154,6 +159,28 @@ export async function getAllEmployees(): Promise<any[]> {
               status: emp.status || 'ACTIVE',
               offDays: emp.offDays || [],
             })
+          } else {
+            // Employee exists in Prisma — JSON overrides status/mutable fields if JSON is newer
+            const existing = map.get(key)!
+            const prismaUpdatedAt = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0
+            const jsonUpdatedAt = emp.updatedAt ? new Date(emp.updatedAt).getTime() : 0
+
+            // If JSON was updated more recently than Prisma record, trust JSON for status and other mutable fields
+            if (jsonUpdatedAt > prismaUpdatedAt || (emp.status && emp.status !== existing.status)) {
+              map.set(key, {
+                ...existing,
+                // Override mutable operational fields from JSON
+                status: emp.status || existing.status,
+                offDays: emp.offDays || existing.offDays || [],
+                morningTime: emp.morningTime || existing.morningTime,
+                eveningTime: emp.eveningTime || existing.eveningTime,
+                isNightShift: isNight,
+                shiftName: emp.shiftName || existing.shiftName,
+                shiftType: emp.shiftType || existing.shiftType,
+                selectedShift: emp.selectedShift || existing.selectedShift,
+                updatedAt: emp.updatedAt || existing.updatedAt,
+              })
+            }
           }
         }
       }

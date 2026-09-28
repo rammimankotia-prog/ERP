@@ -229,10 +229,10 @@ export async function GET(req: NextRequest) {
         const punchInIso = attendanceRecord.punchIn
         const punchOutIso = attendanceRecord.punchOut || null
 
-        // Accurate IST minutes calculation relative to employee morningTime
-        const punchInMinutes = parseTimeToISTMinutes(punchInIso)
-        const computedLateMins = Math.max(0, punchInMinutes - shiftInMins)
-        const isLate = computedLateMins > 15
+        // On off days (weekly off, Sunday etc.) there is no late penalty —
+        // the employee voluntarily came in so treat as PRESENT / overtime only.
+        const computedLateMins = isOffDay ? 0 : Math.max(0, parseTimeToISTMinutes(punchInIso) - shiftInMins)
+        const isLate = !isOffDay && computedLateMins > 15
         const lateMins = isLate ? computedLateMins : 0
 
         let earlyOutMins = 0
@@ -241,8 +241,10 @@ export async function GET(req: NextRequest) {
 
         if (punchOutIso) {
           const punchOutMinutes = parseTimeToISTMinutes(punchOutIso)
-          earlyOutMins = Math.max(0, shiftOutMins - punchOutMinutes)
-          isEarlyOut = earlyOutMins > 15
+          const punchInMinutes = parseTimeToISTMinutes(punchInIso)
+          // On off days, no early-out penalty either
+          earlyOutMins = isOffDay ? 0 : Math.max(0, shiftOutMins - punchOutMinutes)
+          isEarlyOut = !isOffDay && earlyOutMins > 15
           if (!totalMins) {
             totalMins = punchOutMinutes >= punchInMinutes ? punchOutMinutes - punchInMinutes : (1440 - punchInMinutes) + punchOutMinutes
           }
@@ -262,7 +264,7 @@ export async function GET(req: NextRequest) {
           status = 'EARLY_OUT'
         }
 
-        let remarks = 'On Time (Present)'
+        let remarks = isOffDay ? 'Worked on Off Day (Present)' : 'On Time (Present)'
         if (status === 'HALF_DAY') {
           const latePart = isLate ? ` • Late by ${formatDurationHoursMinutes(lateMins)}` : ''
           remarks = `Half Day (worked ${formatDurationHoursMinutes(totalMins)} ≤ 5h)${latePart}`
@@ -273,7 +275,9 @@ export async function GET(req: NextRequest) {
         } else if (isEarlyOut) {
           remarks = `Early departure by ${formatDurationHoursMinutes(earlyOutMins)} (-${earlyOutMins}m)`
         } else if (otMins > 0) {
-          remarks = `Overtime +${formatDurationHoursMinutes(otMins)}`
+          remarks = isOffDay
+            ? `Worked on Off Day • Overtime +${formatDurationHoursMinutes(otMins)}`
+            : `Overtime +${formatDurationHoursMinutes(otMins)}`
         }
 
         record = {
