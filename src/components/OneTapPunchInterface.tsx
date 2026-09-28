@@ -71,6 +71,9 @@ export default function OneTapPunchInterface({
   const [countdown, setCountdown] = useState<number>(autoResetSeconds);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [geoLocating, setGeoLocating] = useState(false);
+  // Proactive GPS status: 'unknown' | 'granted' | 'denied' | 'off'
+  const [gpsStatus, setGpsStatus] = useState<'unknown' | 'granted' | 'denied' | 'off'>('unknown');
+  const [gpsWarningDismissed, setGpsWarningDismissed] = useState(false);
 
   // New features state
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -87,6 +90,47 @@ export default function OneTapPunchInterface({
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Proactive GPS permission check on mount (only for MOBILE_GEOFENCE / self-service mode)
+  useEffect(() => {
+    if (punchMode !== 'MOBILE_GEOFENCE') return;
+    // Check if employee is exempt (security / admin) — skip GPS check for them
+    const empAny = employee as any;
+    const empRole = String(empAny.role || '').toLowerCase();
+    const empDesig = String(employee.designation || '').toLowerCase();
+    const empDept = typeof employee.department === 'string'
+      ? employee.department.toLowerCase()
+      : String(empAny.department?.name || '').toLowerCase();
+    const isExemptEmp =
+      empRole.includes('security') || empRole.includes('admin') || empRole.includes('manager') ||
+      empDesig.includes('guard') || empDesig.includes('security') ||
+      empDept.includes('security') ||
+      empAny.departmentId === 'dept-4' || empAny.departmentId === 'dept-11';
+    if (isExemptEmp) { setGpsStatus('granted'); return; }
+
+    if (typeof navigator === 'undefined') return;
+    // Use Permissions API if available (Chrome/Android)
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then(result => {
+        if (result.state === 'granted') {
+          setGpsStatus('granted');
+        } else if (result.state === 'denied') {
+          setGpsStatus('denied');
+        } else {
+          // 'prompt' — permission not yet decided, don't warn yet
+          setGpsStatus('unknown');
+        }
+        // Listen for changes (e.g. user enables GPS after seeing the banner)
+        result.onchange = () => {
+          if (result.state === 'granted') setGpsStatus('granted');
+          else if (result.state === 'denied') setGpsStatus('denied');
+          else setGpsStatus('unknown');
+        };
+      }).catch(() => setGpsStatus('unknown'));
+    } else if (!navigator.geolocation) {
+      setGpsStatus('off');
+    }
+  }, [punchMode, employee]);
 
   // Dynamic Time-of-day greeting (☀️ Good Morning / 🌤️ Good Afternoon / 🌆 Good Evening / 🌙 Good Night)
   const timeGreeting = useMemo(() => {
@@ -562,6 +606,51 @@ export default function OneTapPunchInterface({
         >
           <span style={{ fontSize: '1.15rem' }}>⚠️</span>
           <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* Proactive GPS Warning Banner — shown when GPS is OFF or denied, before any punch attempt */}
+      {punchMode === 'MOBILE_GEOFENCE' && !gpsWarningDismissed && (gpsStatus === 'denied' || gpsStatus === 'off') && !errorMsg && (
+        <div
+          style={{
+            padding: '0.7rem 1rem',
+            backgroundColor: 'rgba(251, 191, 36, 0.12)',
+            color: isLight ? '#92400e' : '#fbbf24',
+            borderRadius: '10px',
+            border: '1px solid rgba(251, 191, 36, 0.4)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.6rem',
+            fontSize: '0.84rem',
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ fontSize: '1.1rem', flexShrink: 0, marginTop: '1px' }}>📍</span>
+          <span style={{ flex: 1, lineHeight: 1.45 }}>
+            GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within 80m of hotel premises.
+            {gpsStatus === 'denied' && (
+              <span style={{ display: 'block', marginTop: '3px', fontWeight: 500, fontSize: '0.8rem', opacity: 0.85 }}>
+                Tap the 🔒 icon in your browser address bar → Permissions → Allow Location.
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => setGpsWarningDismissed(true)}
+            title="Dismiss"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              padding: '0 2px',
+              flexShrink: 0,
+              opacity: 0.7,
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
 
