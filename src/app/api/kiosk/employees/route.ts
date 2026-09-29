@@ -57,11 +57,17 @@ export async function GET() {
           department: typeof emp.department === 'object' ? (emp.department?.name || 'General') : (emp.department || emp.departmentId || 'General'),
           branch: branchName,
           branchId: emp.branchId || (typeof emp.branch === 'object' ? emp.branch?.id : null),
-          morningTime: rosterShift.startTime,
-          eveningTime: rosterShift.endTime,
-          shiftName: rosterShift.shiftName,
-          shiftDisplay: rosterShift.formatted12H,
-          isNightShift: rosterShift.isNightShift,
+          morningTime: todayRecord?.scheduledTime || rosterShift.startTime,
+          eveningTime: todayRecord?.scheduledOutTime || rosterShift.endTime,
+          shiftName: todayRecord?.shiftName || rosterShift.shiftName,
+          shiftDisplay: todayRecord?.shiftName
+            ? (todayRecord.shiftName === 'Night Shift'
+                ? '🌙 Night Shift (08:00 PM – 08:00 AM)'
+                : todayRecord.shiftName === 'Double Duty'
+                ? '⚡ Double Duty (Day + Night Shift)'
+                : rosterShift.formatted12H)
+            : rosterShift.formatted12H,
+          isNightShift: todayRecord?.shiftName ? todayRecord.shiftName === 'Night Shift' : rosterShift.isNightShift,
           isOff: rosterShift.isOff,
           isShiftSwapped: rosterShift.isShiftSwapped,
           shiftChangeNotice: rosterShift.shiftChangeNotice,
@@ -78,6 +84,11 @@ export async function GET() {
           punchOutTime: todayRecord?.punchOut || null,
           punchInMode: todayRecord?.punchInMode || null,
           punchOutMode: todayRecord?.punchOutMode || null,
+          isDoubleDuty: !!(todayRecord && todayRecord.isDoubleDuty),
+          doubleDutyIn: todayRecord?.doubleDutyIn || null,
+          doubleDutyOut: todayRecord?.doubleDutyOut || null,
+          doubleDutyShift: todayRecord?.doubleDutyShift || null,
+          doubleDutyMinutes: todayRecord?.doubleDutyMinutes || null,
         }
       })
 

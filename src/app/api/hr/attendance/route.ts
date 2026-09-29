@@ -139,16 +139,18 @@ export async function GET(req: NextRequest) {
       let earlyOutMinutes = 0
 
       const rosterShift = getEmployeeRosterShift(emp, dateStr)
-      const empStartTime = (rosterShift.startTime && rosterShift.startTime !== 'OFF') ? rosterShift.startTime : ((emp.morningTime && String(emp.morningTime).trim()) || '09:00')
-      const empEndTime = (rosterShift.endTime && rosterShift.endTime !== 'OFF') ? rosterShift.endTime : ((emp.eveningTime && String(emp.eveningTime).trim()) || '18:00')
+      const empStartTime = record?.scheduledTime || ((rosterShift.startTime && rosterShift.startTime !== 'OFF') ? rosterShift.startTime : ((emp.morningTime && String(emp.morningTime).trim()) || '09:00'))
+      const empEndTime = record?.scheduledOutTime || ((rosterShift.endTime && rosterShift.endTime !== 'OFF') ? rosterShift.endTime : ((emp.eveningTime && String(emp.eveningTime).trim()) || '18:00'))
+      const effectiveShiftName = record?.shiftName || rosterShift.shiftName
+      const isNightDuty = effectiveShiftName === 'Night Shift' || rosterShift.isNightShift
       const isOffDay = rosterShift.isOff || empStartTime === 'OFF'
 
       if (record && record.punchIn) {
-        // Employee has arrived and punched in: Evaluate punctuality strictly against roster scheduled shift time
+        // Employee has arrived and punched in: Evaluate punctuality strictly against active scheduled shift time
         const shiftInMinutes = parseTimeToISTMinutes(empStartTime)
         const punchInMinutes = parseTimeToISTMinutes(record.punchIn)
         const diffMinutes = isOffDay ? 0 : Math.max(0, punchInMinutes - shiftInMinutes)
-        const graceMinutes = (rosterShift.shiftName === 'Night Shift' || rosterShift.isNightShift) ? 20 : 15
+        const graceMinutes = isNightDuty ? 20 : 15
 
         isLate = !isOffDay && diffMinutes > graceMinutes
         lateMinutes = isLate ? diffMinutes : 0
@@ -227,8 +229,13 @@ export async function GET(req: NextRequest) {
         earlyOutMinutes,
         scheduledTime: empStartTime,
         scheduledOutTime: empEndTime,
-        shiftName: record?.shiftName || rosterShift.shiftName || 'Morning Shift',
-        isNightShift: rosterShift.isNightShift,
+        shiftName: effectiveShiftName || 'Morning Shift',
+        isNightShift: isNightDuty,
+        isDoubleDuty: !!record?.isDoubleDuty,
+        doubleDutyIn: record?.doubleDutyIn || null,
+        doubleDutyOut: record?.doubleDutyOut || null,
+        doubleDutyShift: record?.doubleDutyShift || null,
+        doubleDutyMinutes: record?.doubleDutyMinutes || null,
         punchIn: record && record.punchIn ? record.punchIn : null,
         punchOut: record && record.punchIn && record.punchOut ? record.punchOut : null,
         totalMinutes: record && record.punchIn && record.totalMinutes !== undefined ? record.totalMinutes : null,

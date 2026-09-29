@@ -689,7 +689,7 @@ export default function ShiftsManager() {
       setMessage(`🔒 ${emp.name} is a Single Shift employee. Enable "Swap Shift Eligible" in Employee profile to allow shift changes.`)
       return
     }
-    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'OFF']
+    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'Double Duty', 'OFF']
     const current = roster[empId]?.[day] || 'Morning Shift'
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
     const nextShift = shiftOptions[nextIdx]
@@ -715,7 +715,7 @@ export default function ShiftsManager() {
       setMessage(`🔒 ${emp.name} is a Single Shift employee. Enable "Swap Shift Eligible" in Employee profile to allow shift changes.`)
       return
     }
-    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'OFF']
+    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'Double Duty', 'OFF']
     const current = monthlyRoster[empId]?.[dayNum] || 'Morning Shift'
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
     const nextShift = shiftOptions[nextIdx]
@@ -2316,6 +2316,7 @@ export default function ShiftsManager() {
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#f59e0b', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Afternoon Shifts">🌆 A</th>
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#0ea5e9', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Break Shifts">☕ B</th>
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#8b5cf6', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Night Shifts">🌙 N</th>
+                    <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#d946ef', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Double Duty (Day + Night)">⚡ 2D</th>
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#f43f5e', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Weekly Off Days">🏖️ OFF</th>
                     <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center', color: 'var(--text-main)', minWidth: '65px', borderBottom: '2px solid var(--border)', fontWeight: 700 }} title="Total Duty Days">Work Days</th>
                   </tr>
@@ -2328,6 +2329,7 @@ export default function ShiftsManager() {
                     let afternoonCount = 0
                     let breakCount = 0
                     let nightCount = 0
+                    let doubleDutyCount = 0
                     let offCount = 0
 
                     daysArray.forEach(d => {
@@ -2336,10 +2338,11 @@ export default function ShiftsManager() {
                       else if (s === 'Afternoon Shift') afternoonCount++
                       else if (s === 'Break Shift') breakCount++
                       else if (s === 'Night Shift') nightCount++
+                      else if (s === 'Double Duty' || s?.toLowerCase().includes('double')) doubleDutyCount++
                       else offCount++
                     })
 
-                    const totalWorkDays = morningCount + afternoonCount + breakCount + nightCount
+                    const totalWorkDays = morningCount + afternoonCount + breakCount + nightCount + doubleDutyCount
 
                     const isEmpDragged = draggedEmpId === emp.id
                     const isEmpDragOver = dragOverEmpId === emp.id
@@ -2491,6 +2494,11 @@ export default function ShiftsManager() {
                             badgeColor = '#8b5cf6'
                             badgeText = 'N'
                             title = 'Night Duty (20:00 - 08:00)'
+                          } else if (assignment === 'Double Duty' || assignment?.toLowerCase().includes('double')) {
+                            badgeBg = 'rgba(217, 70, 239, 0.22)'
+                            badgeColor = '#d946ef'
+                            badgeText = '2D'
+                            title = 'Double Duty (Day 08:00-20:00 + Night 20:00-08:00)'
                           } else if (assignment === 'OFF') {
                             badgeBg = isSun ? 'rgba(244, 63, 94, 0.18)' : isSat ? 'rgba(245, 158, 11, 0.18)' : 'rgba(100, 116, 139, 0.12)'
                             badgeColor = isSun ? '#f43f5e' : isSat ? '#f59e0b' : '#94a3b8'
@@ -2636,6 +2644,9 @@ export default function ShiftsManager() {
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: '#8b5cf6' }}>
                           {nightCount}
+                        </td>
+                        <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: '#d946ef' }}>
+                          {doubleDutyCount}
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: '#f43f5e' }}>
                           {offCount}
@@ -3006,6 +3017,7 @@ export default function ShiftsManager() {
                         const isNight = assignment === 'Night Shift'
                         const isBreak = assignment === 'Break Shift'
                         const isAfternoon = assignment === 'Afternoon Shift'
+                        const isDoubleDuty = assignment === 'Double Duty' || assignment?.toLowerCase().includes('double')
 
                         let bgColor = 'rgba(16, 185, 129, 0.12)'
                         let textColor = 'var(--success)'
@@ -3028,6 +3040,10 @@ export default function ShiftsManager() {
                           bgColor = 'rgba(139, 92, 246, 0.15)'
                           textColor = '#8b5cf6'
                           borderColor = 'rgba(139, 92, 246, 0.3)'
+                        } else if (isDoubleDuty) {
+                          bgColor = 'rgba(217, 70, 239, 0.18)'
+                          textColor = '#d946ef'
+                          borderColor = 'rgba(217, 70, 239, 0.35)'
                         } else if (isBreak) {
                           bgColor = 'rgba(14, 165, 233, 0.15)'
                           textColor = '#0ea5e9'
@@ -3146,7 +3162,7 @@ export default function ShiftsManager() {
                               }}
                               title={`Click to cycle shift • Drag & Drop to swap (${d.dayKey}: ${assignment})`}
                             >
-                              {isOff ? (d.isSun ? 'OFF' : d.isSat ? 'OFF' : '—') : assignment.replace(' Shift', '')}
+                              {isOff ? (d.isSun ? 'OFF' : d.isSat ? 'OFF' : '—') : isDoubleDuty ? '⚡ 2D' : assignment.replace(' Shift', '')}
                             </button>
                           </td>
                         )
@@ -3730,6 +3746,7 @@ export default function ShiftsManager() {
                         <option value="Morning Shift">Morning (Day)</option>
                         <option value="Afternoon Shift">Afternoon Shift</option>
                         <option value="Night Shift">Night Shift</option>
+                        <option value="Double Duty">⚡ Double Duty (Day + Night)</option>
                         <option value="Break Shift">Break Shift</option>
                         <option value="OFF">Weekly Off</option>
                       </select>

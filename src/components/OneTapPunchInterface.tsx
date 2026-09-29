@@ -32,6 +32,10 @@ export interface EmployeeInfo {
   punchOutTime?: string | null;
   punchInMode?: string | null;
   punchOutMode?: string | null;
+  isDoubleDuty?: boolean;
+  doubleDutyIn?: string | null;
+  doubleDutyOut?: string | null;
+  doubleDutyShift?: string | null;
 }
 
 interface Props {
@@ -63,6 +67,10 @@ export default function OneTapPunchInterface({
   const [punchOutTime, setPunchOutTime] = useState<string | null>(null);
   const [punchInMode, setPunchInMode] = useState<string | null>(employee.punchInMode || null);
   const [punchOutMode, setPunchOutMode] = useState<string | null>(employee.punchOutMode || null);
+  const [isDoubleDuty, setIsDoubleDuty] = useState(!!employee.isDoubleDuty);
+  const [doubleDutyIn, setDoubleDutyIn] = useState<string | null>(employee.doubleDutyIn || null);
+  const [doubleDutyOut, setDoubleDutyOut] = useState<string | null>(employee.doubleDutyOut || null);
+  const [doubleDutyShift, setDoubleDutyShift] = useState<string | null>(employee.doubleDutyShift || null);
 
   const [processing, setProcessing] = useState(false);
   const [punchSuccess, setPunchSuccess] = useState<string | null>(null);
@@ -209,6 +217,10 @@ export default function OneTapPunchInterface({
         setPunchOutTime(data.punchOutTime);
         setPunchInMode(data.punchInMode || null);
         setPunchOutMode(data.punchOutMode || null);
+        setIsDoubleDuty(!!data.isDoubleDuty);
+        setDoubleDutyIn(data.doubleDutyIn || null);
+        setDoubleDutyOut(data.doubleDutyOut || null);
+        setDoubleDutyShift(data.doubleDutyShift || null);
       } else {
         setCheckedIn(!!employee.checkedIn);
         setCheckedOut(!!employee.checkedOut);
@@ -216,6 +228,10 @@ export default function OneTapPunchInterface({
         setPunchOutTime(employee.punchOutTime || null);
         setPunchInMode(employee.punchInMode || null);
         setPunchOutMode(employee.punchOutMode || null);
+        setIsDoubleDuty(!!employee.isDoubleDuty);
+        setDoubleDutyIn(employee.doubleDutyIn || null);
+        setDoubleDutyOut(employee.doubleDutyOut || null);
+        setDoubleDutyShift(employee.doubleDutyShift || null);
       }
     } catch {
       setCheckedIn(!!employee.checkedIn);
@@ -224,6 +240,10 @@ export default function OneTapPunchInterface({
       setPunchOutTime(employee.punchOutTime || null);
       setPunchInMode(employee.punchInMode || null);
       setPunchOutMode(employee.punchOutMode || null);
+      setIsDoubleDuty(!!employee.isDoubleDuty);
+      setDoubleDutyIn(employee.doubleDutyIn || null);
+      setDoubleDutyOut(employee.doubleDutyOut || null);
+      setDoubleDutyShift(employee.doubleDutyShift || null);
     } finally {
       setLoadingStatus(false);
     }
@@ -240,30 +260,44 @@ export default function OneTapPunchInterface({
     setErrorMsg(null);
 
     // Duplicate Punch Prevention Guard (Zero Duplicate Tolerated)
-    if (action === 'IN' && checkedIn) {
-      const whoIn = (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
-        ? 'Security Guard'
-        : punchInMode === 'ADMIN'
-        ? 'Admin'
-        : punchInMode
-        ? `Employee (${punchInMode})`
-        : 'Staff / Security';
-      setErrorMsg(`Aapka Punch-In already ${whoIn} dwara ${formatTimeStr(punchInTime)} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`);
-      setProcessing(false);
-      return;
+    if (action === 'IN') {
+      if (checkedIn && !checkedOut) {
+        const whoIn = (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
+          ? 'Security Guard'
+          : punchInMode === 'ADMIN'
+          ? 'Admin'
+          : punchInMode
+          ? `Employee (${punchInMode})`
+          : 'Staff / Security';
+        setErrorMsg(`Aapka Punch-In already ${whoIn} dwara ${formatTimeStr(punchInTime)} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`);
+        setProcessing(false);
+        return;
+      }
+      if (checkedIn && checkedOut && doubleDutyIn) {
+        setErrorMsg(`Aapki Double Duty ka Punch-In already ${formatTimeStr(doubleDutyIn)} par record ho chuka hai.`);
+        setProcessing(false);
+        return;
+      }
     }
 
-    if (action === 'OUT' && checkedOut) {
-      const whoOut = (punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
-        ? 'Security Guard'
-        : punchOutMode === 'ADMIN'
-        ? 'Admin'
-        : punchOutMode
-        ? `Employee (${punchOutMode})`
-        : 'Staff / Security';
-      setErrorMsg(`Aapka Check-Out already ${whoOut} dwara ${formatTimeStr(punchOutTime)} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`);
-      setProcessing(false);
-      return;
+    if (action === 'OUT') {
+      if (checkedOut && doubleDutyOut) {
+        const whoOut = (punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
+          ? 'Security Guard'
+          : punchOutMode === 'ADMIN'
+          ? 'Admin'
+          : punchOutMode
+          ? `Employee (${punchOutMode})`
+          : 'Staff / Security';
+        setErrorMsg(`Aapka Check-Out already ${whoOut} dwara ${formatTimeStr(punchOutTime)} par record kiya ja chuka hai.`);
+        setProcessing(false);
+        return;
+      }
+      if (checkedOut && !doubleDutyIn) {
+        setErrorMsg(`Aapka Regular Shift Check-Out already ho chuka hai. Agar double duty karni hai to Double Duty Punch-In karein.`);
+        setProcessing(false);
+        return;
+      }
     }
 
     let lat: number | undefined;
@@ -392,34 +426,46 @@ export default function OneTapPunchInterface({
       const geoNote = punchMode === 'MOBILE_GEOFENCE' ? ` [📍 GPS Verified: ${data.record?.punchInCoordinates?.distanceMeters ?? 0}m]` : '';
 
       if (action === 'IN') {
-        setCheckedIn(true);
-        setPunchInTime(serverPunchInIso || new Date().toISOString());
-        setPunchInMode(effectivePunchedBy);
-        setPunchLateNotice(lateNoticeHindi);
-        if (isLatePunch) {
-          setPunchSuccess(`Check-In Recorded at ${timeFormatted} • ⚠️ Marked Late${geoNote}`);
+        if (checkedOut || data.isDoubleDuty) {
+          setIsDoubleDuty(true);
+          setDoubleDutyIn(serverPunchInIso || new Date().toISOString());
+          setDoubleDutyShift(data.shiftName || 'Double Duty');
+          setPunchSuccess(`⚡ Double Duty Punch-In Recorded at ${timeFormatted} • 🟢 2nd Shift Started${geoNote}`);
         } else {
-          setPunchSuccess(`Check-In Recorded at ${timeFormatted} • 🟢 On-Time / Present${geoNote}`);
+          setCheckedIn(true);
+          setPunchInTime(serverPunchInIso || new Date().toISOString());
+          setPunchInMode(effectivePunchedBy);
+          setPunchLateNotice(lateNoticeHindi);
+          if (isLatePunch) {
+            setPunchSuccess(`Check-In Recorded at ${timeFormatted} • ⚠️ Marked Late${geoNote}`);
+          } else {
+            setPunchSuccess(`Check-In Recorded at ${timeFormatted} • 🟢 On-Time / Present${geoNote}`);
+          }
         }
       } else {
-        setCheckedOut(true);
-        setPunchOutTime(serverPunchOutIso || new Date().toISOString());
-        setPunchOutMode(effectivePunchedBy);
-        const isEarly = data.isEarlyOut;
-        const earlyMins = data.earlyOutMinutes || 0;
-        const earlyDuration = earlyMins >= 60
-          ? `${Math.floor(earlyMins / 60)}h ${earlyMins % 60}m`
-          : `${earlyMins}m`;
-        const scheduledOutStr = data.scheduledOutTime || employee.eveningTime || '18:00';
-        const earlyNoticeHindi = isEarly
-          ? (data.earlyNotice || `Aaj aap apne scheduled departure time (${scheduledOutStr}) se ${earlyDuration} pehle checkout kar rahe hain.`)
-          : null;
-
-        setPunchLateNotice(earlyNoticeHindi);
-        if (isEarly) {
-          setPunchSuccess(`Check-Out Recorded at ${timeFormatted} • ⚠️ Early Departure${geoNote}`);
+        if (checkedOut || (doubleDutyIn && !doubleDutyOut) || data.doubleDutyCompleted) {
+          setDoubleDutyOut(serverPunchOutIso || new Date().toISOString());
+          setPunchSuccess(`⚡ Double Duty Check-Out Recorded at ${timeFormatted} • 🟢 All Duties Completed for Today!${geoNote}`);
         } else {
-          setPunchSuccess(`Check-Out (Departure) Recorded at ${timeFormatted} • 🟢 Shift Completed${geoNote}`);
+          setCheckedOut(true);
+          setPunchOutTime(serverPunchOutIso || new Date().toISOString());
+          setPunchOutMode(effectivePunchedBy);
+          const isEarly = data.isEarlyOut;
+          const earlyMins = data.earlyOutMinutes || 0;
+          const earlyDuration = earlyMins >= 60
+            ? `${Math.floor(earlyMins / 60)}h ${earlyMins % 60}m`
+            : `${earlyMins}m`;
+          const scheduledOutStr = data.scheduledOutTime || employee.eveningTime || '18:00';
+          const earlyNoticeHindi = isEarly
+            ? (data.earlyNotice || `Aaj aap apne scheduled departure time (${scheduledOutStr}) se ${earlyDuration} pehle checkout kar rahe hain.`)
+            : null;
+
+          setPunchLateNotice(earlyNoticeHindi);
+          if (isEarly) {
+            setPunchSuccess(`Check-Out Recorded at ${timeFormatted} • ⚠️ Early Departure${geoNote}`);
+          } else {
+            setPunchSuccess(`Check-Out (Departure) Recorded at ${timeFormatted} • 🟢 Shift Completed${geoNote}`);
+          }
         }
       }
 
@@ -560,11 +606,17 @@ export default function OneTapPunchInterface({
   // Dynamic single-action state:
   // 1. Not checked in yet -> 'IN' (Check-In Arrival)
   // 2. Checked in & not checked out -> 'OUT' (Check-Out Departure)
-  // 3. Checked out -> 'DONE' (Completed for Today)
-  const currentAction: 'IN' | 'OUT' | 'DONE' = !checkedIn
+  // 3. Checked out & not started Double Duty -> 'DOUBLE_IN' (Start Double Duty / Second Shift)
+  // 4. In Double Duty & not checked out -> 'DOUBLE_OUT' (End Double Duty)
+  // 5. Both completed -> 'DONE'
+  const currentAction: 'IN' | 'OUT' | 'DOUBLE_IN' | 'DOUBLE_OUT' | 'DONE' = !checkedIn
     ? 'IN'
     : !checkedOut
     ? 'OUT'
+    : !doubleDutyIn
+    ? 'DOUBLE_IN'
+    : !doubleDutyOut
+    ? 'DOUBLE_OUT'
     : 'DONE';
 
   return (
@@ -1224,26 +1276,33 @@ export default function OneTapPunchInterface({
 
 
       {/* ========================================================================= */}
-      {/* DYNAMIC ONE-TAP PUNCH ACTION (SPACE-SAVING AUTO-MORPH: IN -> OUT) */}
+      {/* DYNAMIC ONE-TAP PUNCH ACTION (SPACE-SAVING AUTO-MORPH: IN -> OUT -> DOUBLE_IN -> DOUBLE_OUT) */}
       {/* ========================================================================= */}
-      {!checkedOut ? (
+      {currentAction !== 'DONE' ? (
         <div
           style={{
             display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
             justifyContent: 'center',
             width: '100%',
+            gap: '0.65rem',
           }}
         >
           <button
             type="button"
             onClick={() => {
-              if (currentAction === 'IN') handlePunch('IN');
-              else if (currentAction === 'OUT') handlePunch('OUT');
+              if (currentAction === 'IN' || currentAction === 'DOUBLE_IN') handlePunch('IN');
+              else if (currentAction === 'OUT' || currentAction === 'DOUBLE_OUT') handlePunch('OUT');
             }}
             disabled={processing || loadingStatus}
             className={`punch-btn ${
               currentAction === 'IN'
                 ? 'punch-btn-in'
+                : currentAction === 'DOUBLE_IN'
+                ? 'punch-btn-double-in'
+                : currentAction === 'DOUBLE_OUT'
+                ? 'punch-btn-double-out'
                 : 'punch-btn-out'
             }`}
             style={{
@@ -1254,9 +1313,17 @@ export default function OneTapPunchInterface({
               borderRadius: '18px',
               border: currentAction === 'IN'
                 ? '3px solid #10b981'
+                : currentAction === 'DOUBLE_IN'
+                ? '3px solid #c084fc'
+                : currentAction === 'DOUBLE_OUT'
+                ? '3px solid #fb7185'
                 : '3px solid #ef4444',
               background: currentAction === 'IN'
                 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                : currentAction === 'DOUBLE_IN'
+                ? 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)'
+                : currentAction === 'DOUBLE_OUT'
+                ? 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)'
                 : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
               color: '#ffffff',
               cursor: (processing || loadingStatus) ? 'not-allowed' : 'pointer',
@@ -1267,6 +1334,8 @@ export default function OneTapPunchInterface({
               gap: '0.4rem',
               boxShadow: currentAction === 'IN' && !processing
                 ? '0 0 0 5px rgba(16, 185, 129, 0.25), 0 12px 28px rgba(16, 185, 129, 0.4)'
+                : currentAction === 'DOUBLE_IN' && !processing
+                ? '0 0 0 5px rgba(168, 85, 247, 0.3), 0 12px 28px rgba(168, 85, 247, 0.45)'
                 : '0 0 0 5px rgba(239, 68, 68, 0.25), 0 12px 28px rgba(239, 68, 68, 0.4)',
               opacity: processing ? 0.75 : 1,
               transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -1293,6 +1362,44 @@ export default function OneTapPunchInterface({
               >
                 ★ ONE-TAP ACTION (ARRIVAL)
               </div>
+            ) : currentAction === 'DOUBLE_IN' ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-11px',
+                  background: '#6d28d9',
+                  color: '#ffffff',
+                  border: '2px solid #c084fc',
+                  padding: '2px 14px',
+                  borderRadius: '99px',
+                  fontSize: '0.72rem',
+                  fontWeight: 900,
+                  letterSpacing: '0.05em',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+                  animation: 'pulseGlow 2s infinite',
+                }}
+              >
+                ★ 2ND SHIFT (DOUBLE DUTY / डबल ड्यूटी शुरू करें)
+              </div>
+            ) : currentAction === 'DOUBLE_OUT' ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '-11px',
+                  background: '#9f1239',
+                  color: '#ffffff',
+                  border: '2px solid #fb7185',
+                  padding: '2px 14px',
+                  borderRadius: '99px',
+                  fontSize: '0.72rem',
+                  fontWeight: 900,
+                  letterSpacing: '0.05em',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+                  animation: 'pulseGlowRed 2s infinite',
+                }}
+              >
+                ★ DOUBLE DUTY DEPARTURE (डबल ड्यूटी समाप्त करें)
+              </div>
             ) : (
               <div
                 style={{
@@ -1315,12 +1422,16 @@ export default function OneTapPunchInterface({
             )}
 
             <div style={{ fontSize: '2rem', lineHeight: 1 }}>
-              {currentAction === 'IN' ? '🟢' : '🔴'}
+              {currentAction === 'IN' ? '🟢' : currentAction === 'DOUBLE_IN' ? '⚡' : '🔴'}
             </div>
 
-            <div style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.01em' }}>
+            <div style={{ fontSize: '1.35rem', fontWeight: 900, letterSpacing: '-0.01em' }}>
               {currentAction === 'IN'
                 ? 'Check-In (Arrival)'
+                : currentAction === 'DOUBLE_IN'
+                ? 'Start Double Duty (Clock-In 2nd Shift)'
+                : currentAction === 'DOUBLE_OUT'
+                ? 'End Double Duty (Check-Out)'
                 : 'Check-Out (Departure)'}
             </div>
 
@@ -1333,16 +1444,42 @@ export default function OneTapPunchInterface({
               }}
             >
               {processing
-                ? (currentAction === 'IN' ? 'Recording Arrival Punch...' : 'Recording Departure Punch...')
+                ? 'Recording Punch...'
                 : currentAction === 'IN'
                 ? 'One-Tap Arrival Punch • Tap to Clock In'
+                : currentAction === 'DOUBLE_IN'
+                ? 'Regular Shift Completed • Tap to Punch In for Double Duty'
+                : currentAction === 'DOUBLE_OUT'
+                ? `Double Duty In at ${formatTimeStr(doubleDutyIn)} • Tap to Check Out`
                 : `Checked In at ${formatTimeStr(punchInTime)} • Tap to Clock Out`}
             </div>
           </button>
+
+          {currentAction === 'DOUBLE_IN' && (
+            <button
+              type="button"
+              onClick={onBack}
+              style={{
+                padding: '0.45rem 1rem',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+              }}
+            >
+              ← Back to Staff List (No Double Duty today)
+            </button>
+          )}
         </div>
       ) : (
         /* When shift is complete: provide quick return button for Kiosk */
-        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: '0.25rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '0.25rem', gap: '0.5rem' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#10b981' }}>
+            🎉 Regular Shift & Double Duty Both Completed Today!
+          </div>
           <button
             type="button"
             onClick={onBack}
