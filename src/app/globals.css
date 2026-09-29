@@ -239,6 +239,18 @@ p { font-size: 1rem; color: var(--text-muted); }
   min-height: 44px;
 }
 
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: block;
+  cursor: pointer;
+  opacity: 0.8;
+  filter: invert(0.4);
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.9);
+}
+
 /* Force 16px on ALL inputs/selects/textareas to prevent iOS auto-zoom */
 input, select, textarea {
   font-size: 16px !important;

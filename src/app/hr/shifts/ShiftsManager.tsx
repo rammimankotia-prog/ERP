@@ -251,6 +251,15 @@ export default function ShiftsManager() {
   const [selectedMonth, setSelectedMonth] = useState<number>(8) // September (0-indexed)
   const [selectedYear, setSelectedYear] = useState<number>(2026)
 
+  // Days in selected month
+  const daysInMonth = useMemo(() => {
+    return new Date(selectedYear, selectedMonth + 1, 0).getDate()
+  }, [selectedYear, selectedMonth])
+
+  const daysArray = useMemo(() => {
+    return Array.from({ length: daysInMonth }, (_, i) => i + 1)
+  }, [daysInMonth])
+
   // Dynamic available years list: supports past and future years indefinitely
   const availableYears = useMemo(() => {
     const startY = 2024
@@ -315,6 +324,17 @@ export default function ShiftsManager() {
   const [swapSecondEmpId, setSwapSecondEmpId] = useState<string>('')
   const [swapFromDay, setSwapFromDay] = useState<number>(1)
   const [swapToDay, setSwapToDay] = useState<number>(15)
+  const [swapFromDate, setSwapFromDate] = useState<string>('2026-09-01')
+  const [swapToDate, setSwapToDate] = useState<string>('2026-09-15')
+
+  // Synchronize dynamic calendar inputs whenever month, year, or day range changes
+  useEffect(() => {
+    const mStr = String(selectedMonth + 1).padStart(2, '0')
+    const safeFrom = Math.min(Math.max(Number(swapFromDay) || 1, 1), daysInMonth)
+    const safeTo = Math.min(Math.max(Number(swapToDay) || 1, 1), daysInMonth)
+    setSwapFromDate(`${selectedYear}-${mStr}-${String(safeFrom).padStart(2, '0')}`)
+    setSwapToDate(`${selectedYear}-${mStr}-${String(safeTo).padStart(2, '0')}`)
+  }, [selectedYear, selectedMonth, daysInMonth])
 
   useEffect(() => {
     const updateClock = () => {
@@ -745,10 +765,52 @@ export default function ShiftsManager() {
     setMessage(`✨ Auto-populated standard hotel duty patterns for ${MONTH_NAMES[selectedMonth]} ${selectedYear}.`)
   }
 
+  // Dynamic Date Calendar Handlers for Shift Swap Modal
+  const handleSwapFromDateChange = (val: string) => {
+    setSwapFromDate(val)
+    if (!val) return
+    const parts = val.split('-')
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10)
+      const m = parseInt(parts[1], 10) - 1
+      const d = parseInt(parts[2], 10)
+      setSwapFromDay(d)
+      if (y !== selectedYear || m !== selectedMonth) {
+        handleMonthChange(m, y)
+      }
+    }
+  }
+
+  const handleSwapToDateChange = (val: string) => {
+    setSwapToDate(val)
+    if (!val) return
+    const parts = val.split('-')
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10)
+      const m = parseInt(parts[1], 10) - 1
+      const d = parseInt(parts[2], 10)
+      setSwapToDay(d)
+      if (y !== selectedYear || m !== selectedMonth) {
+        handleMonthChange(m, y)
+      }
+    }
+  }
+
   // Shift Swap Handler across Date Range
   const handleApplyShiftSwap = () => {
-    const minDay = Math.min(Number(swapFromDay) || 1, Number(swapToDay) || 1)
-    const maxDay = Math.min(Math.max(Number(swapFromDay) || 1, Number(swapToDay) || 1), daysInMonth)
+    let fromD = Number(swapFromDay) || 1
+    let toD = Number(swapToDay) || 1
+    if (swapFromDate) {
+      const parts = swapFromDate.split('-')
+      if (parts.length === 3) fromD = parseInt(parts[2], 10)
+    }
+    if (swapToDate) {
+      const parts = swapToDate.split('-')
+      if (parts.length === 3) toD = parseInt(parts[2], 10)
+    }
+
+    const minDay = Math.min(fromD, toD)
+    const maxDay = Math.min(Math.max(fromD, toD), daysInMonth)
 
     let targetEmps: EmployeeItem[] = []
     if (swapScope === 'ALL_VISIBLE') {
@@ -864,14 +926,6 @@ export default function ShiftsManager() {
     })
   }
 
-  // Days in selected month
-  const daysInMonth = useMemo(() => {
-    return new Date(selectedYear, selectedMonth + 1, 0).getDate()
-  }, [selectedYear, selectedMonth])
-
-  const daysArray = useMemo(() => {
-    return Array.from({ length: daysInMonth }, (_, i) => i + 1)
-  }, [daysInMonth])
 
   // Filter employees by Branch (Grand Godwin, Godwin Deluxe, Cafe Brownie) and Department (Housekeeping, Front Office, Security Guard)
   const filteredEmployees = useMemo(() => {
@@ -3240,69 +3294,176 @@ export default function ShiftsManager() {
             </div>
 
             {/* Date Range Selection */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                  2. Date Range ({MONTH_NAMES[selectedMonth]} {selectedYear})
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>📅</span> 2. Date Range ({MONTH_NAMES[selectedMonth]} {selectedYear})
                 </label>
-                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn btn-outline"
-                    onClick={() => { setSwapFromDay(1); setSwapToDay(15); }}
-                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
+                    onClick={() => {
+                      const mStr = String(selectedMonth + 1).padStart(2, '0')
+                      setSwapFromDay(1)
+                      setSwapToDay(15)
+                      setSwapFromDate(`${selectedYear}-${mStr}-01`)
+                      setSwapToDate(`${selectedYear}-${mStr}-15`)
+                    }}
+                    style={{ padding: '0.18rem 0.55rem', fontSize: '0.72rem', borderRadius: '6px' }}
+                    title="Select 1st to 15th"
                   >
                     1–15
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline"
-                    onClick={() => { setSwapFromDay(16); setSwapToDay(daysInMonth); }}
-                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
+                    onClick={() => {
+                      const mStr = String(selectedMonth + 1).padStart(2, '0')
+                      setSwapFromDay(16)
+                      setSwapToDay(daysInMonth)
+                      setSwapFromDate(`${selectedYear}-${mStr}-16`)
+                      setSwapToDate(`${selectedYear}-${mStr}-${String(daysInMonth).padStart(2, '0')}`)
+                    }}
+                    style={{ padding: '0.18rem 0.55rem', fontSize: '0.72rem', borderRadius: '6px' }}
+                    title={`Select 16th to ${daysInMonth}th`}
                   >
                     16–{daysInMonth}
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline"
-                    onClick={() => { setSwapFromDay(1); setSwapToDay(daysInMonth); }}
-                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
+                    onClick={() => {
+                      const mStr = String(selectedMonth + 1).padStart(2, '0')
+                      setSwapFromDay(1)
+                      setSwapToDay(daysInMonth)
+                      setSwapFromDate(`${selectedYear}-${mStr}-01`)
+                      setSwapToDate(`${selectedYear}-${mStr}-${String(daysInMonth).padStart(2, '0')}`)
+                    }}
+                    style={{ padding: '0.18rem 0.55rem', fontSize: '0.72rem', borderRadius: '6px' }}
+                    title="Select full month"
                   >
                     Full Month
                   </button>
                 </div>
               </div>
 
+              {/* Dynamic Active Date Calendars */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
-                  <label style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>From Day:</label>
-                  <select
-                    className="form-input"
-                    value={swapFromDay}
-                    onChange={e => setSwapFromDay(Number(e.target.value))}
-                    style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.825rem' }}
-                  >
-                    {daysArray.map(d => (
-                      <option key={d} value={d}>
-                        {d.toString().padStart(2, '0')} {MONTH_NAMES[selectedMonth].slice(0, 3)}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <label style={{ fontSize: '0.775rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                      From Date (Calendar):
+                    </label>
+                    <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: 700, backgroundColor: 'rgba(99, 102, 241, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                      Day {swapFromDay}
+                    </span>
+                  </div>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={swapFromDate}
+                      onChange={e => handleSwapFromDateChange(e.target.value)}
+                      onClick={e => {
+                        try {
+                          // @ts-ignore
+                          e.currentTarget.showPicker?.()
+                        } catch {}
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.65rem 0.5rem 2.3rem',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        borderRadius: '8px',
+                        border: '1.5px solid rgba(99, 102, 241, 0.45)',
+                        backgroundColor: 'var(--bg-main)',
+                        color: 'var(--text-main)',
+                        height: '42px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                      }}
+                      title="Click anywhere to open dynamic calendar"
+                    />
+                    <span
+                      onClick={e => {
+                        const input = e.currentTarget.parentElement?.querySelector('input')
+                        try {
+                          // @ts-ignore
+                          input?.showPicker?.()
+                        } catch {}
+                      }}
+                      style={{
+                        position: 'absolute',
+                        left: '0.7rem',
+                        fontSize: '1.05rem',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                      }}
+                      title="Open dynamic calendar"
+                    >
+                      📅
+                    </span>
+                  </div>
                 </div>
+
                 <div>
-                  <label style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>To Day:</label>
-                  <select
-                    className="form-input"
-                    value={swapToDay}
-                    onChange={e => setSwapToDay(Number(e.target.value))}
-                    style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.825rem' }}
-                  >
-                    {daysArray.map(d => (
-                      <option key={d} value={d}>
-                        {d.toString().padStart(2, '0')} {MONTH_NAMES[selectedMonth].slice(0, 3)}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <label style={{ fontSize: '0.775rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                      To Date (Calendar):
+                    </label>
+                    <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: 700, backgroundColor: 'rgba(99, 102, 241, 0.1)', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                      Day {swapToDay}
+                    </span>
+                  </div>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={swapToDate}
+                      onChange={e => handleSwapToDateChange(e.target.value)}
+                      onClick={e => {
+                        try {
+                          // @ts-ignore
+                          e.currentTarget.showPicker?.()
+                        } catch {}
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.65rem 0.5rem 2.3rem',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        borderRadius: '8px',
+                        border: '1.5px solid rgba(99, 102, 241, 0.45)',
+                        backgroundColor: 'var(--bg-main)',
+                        color: 'var(--text-main)',
+                        height: '42px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                      }}
+                      title="Click anywhere to open dynamic calendar"
+                    />
+                    <span
+                      onClick={e => {
+                        const input = e.currentTarget.parentElement?.querySelector('input')
+                        try {
+                          // @ts-ignore
+                          input?.showPicker?.()
+                        } catch {}
+                      }}
+                      style={{
+                        position: 'absolute',
+                        left: '0.7rem',
+                        fontSize: '1.05rem',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                      }}
+                      title="Open dynamic calendar"
+                    >
+                      📅
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3454,7 +3615,7 @@ export default function ShiftsManager() {
                 lineHeight: 1.4
               }}
             >
-              ℹ️ <b>Summary:</b> From Day <b>{Math.min(swapFromDay, swapToDay)}</b> to <b>{Math.max(swapFromDay, swapToDay)} {MONTH_NAMES[selectedMonth]} {selectedYear}</b>,{' '}
+              ℹ️ <b>Summary:</b> From <b>{swapFromDate || `Day ${Math.min(swapFromDay, swapToDay)}`}</b> to <b>{swapToDate || `Day ${Math.max(swapFromDay, swapToDay)} ${MONTH_NAMES[selectedMonth]} ${selectedYear}`}</b> ({Math.abs(Math.max(swapFromDay, swapToDay) - Math.min(swapFromDay, swapToDay)) + 1} days),{' '}
               {swapScope === 'TWO'
                 ? `swap schedules between selected two staff members.`
                 : swapAction === 'DAY_NIGHT_FLIP'
