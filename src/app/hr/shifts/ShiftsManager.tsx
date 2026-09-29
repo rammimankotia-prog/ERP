@@ -260,15 +260,15 @@ export default function ShiftsManager() {
     return Array.from({ length: daysInMonth }, (_, i) => i + 1)
   }, [daysInMonth])
 
-  // Dynamic available years list: supports past and future years indefinitely
+  // Dynamic available years list: starts from 2026 onwards
   const availableYears = useMemo(() => {
-    const startY = 2024
+    const startY = 2026
     const endY = Math.max(new Date().getFullYear() + 25, selectedYear + 10, 2050)
     const list: number[] = []
     for (let y = startY; y <= endY; y++) {
       list.push(y)
     }
-    if (!list.includes(selectedYear)) {
+    if (selectedYear >= 2026 && !list.includes(selectedYear)) {
       list.push(selectedYear)
       list.sort((a, b) => a - b)
     }
