@@ -378,7 +378,7 @@ export default function ShiftsManager() {
             branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
             dept: e.department?.name || e.department || e.dept || 'Front Office',
             offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
-            swapShiftEligible: e.swapShiftEligible === true,
+            swapShiftEligible: e.swapShiftEligible !== false,
             morningTime: e.morningTime || '09:00',
             eveningTime: e.eveningTime || '18:00',
           }))
@@ -407,7 +407,7 @@ export default function ShiftsManager() {
           if (!swapSelectedEmpId) setSwapSelectedEmpId(mapped[0].id)
           if (!swapSecondEmpId && mapped.length > 1) setSwapSecondEmpId(mapped[1].id)
 
-          // 1. Monthly Roster Sync
+          // 1. Monthly Roster Sync: Read local cache first, then verify live from server
           let mRoster = generateInitialMonthlyRoster(selectedYear, selectedMonth, mapped)
           if (typeof window !== 'undefined') {
             const savedMonthly = localStorage.getItem(getMonthlyStorageKey(selectedYear, selectedMonth))
@@ -421,7 +421,25 @@ export default function ShiftsManager() {
             }
           }
           setMonthlyRoster(mRoster)
-          saveMonthlyToStorage(selectedYear, selectedMonth, mRoster)
+
+          // Fetch server-persisted roster (e.g. from Hostinger permanent storage)
+          fetch(`/api/hr/roster?year=${selectedYear}&month=${selectedMonth}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data && data.roster && Object.keys(data.roster).length > 0) {
+                setMonthlyRoster(prev => ({ ...prev, ...data.roster }))
+                if (typeof window !== 'undefined') {
+                  try {
+                    localStorage.setItem(getMonthlyStorageKey(selectedYear, selectedMonth), JSON.stringify(data.roster))
+                  } catch {}
+                }
+              } else {
+                saveMonthlyToStorage(selectedYear, selectedMonth, mRoster)
+              }
+            })
+            .catch(() => {
+              saveMonthlyToStorage(selectedYear, selectedMonth, mRoster)
+            })
 
           // 2. Weekly Roster Sync
           let wRoster = generateInitialWeeklyRoster(mapped)
@@ -726,14 +744,39 @@ export default function ShiftsManager() {
           const parsed = JSON.parse(saved)
           if (parsed && Object.keys(parsed).length > 0) {
             setMonthlyRoster(parsed)
-            return
           }
         } catch {}
       }
     }
-    const generated = generateInitialMonthlyRoster(newYear, newMonth, employeesList)
-    setMonthlyRoster(generated)
-    saveMonthlyToStorage(newYear, newMonth, generated)
+
+    // Always sync with server for the chosen month
+    fetch(`/api/hr/roster?year=${newYear}&month=${newMonth}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.roster && Object.keys(data.roster).length > 0) {
+          setMonthlyRoster(data.roster)
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(getMonthlyStorageKey(newYear, newMonth), JSON.stringify(data.roster))
+            } catch {}
+          }
+        } else {
+          setMonthlyRoster(prev => {
+            if (Object.keys(prev).length > 0) return prev
+            const generated = generateInitialMonthlyRoster(newYear, newMonth, employeesList)
+            saveMonthlyToStorage(newYear, newMonth, generated)
+            return generated
+          })
+        }
+      })
+      .catch(() => {
+        setMonthlyRoster(prev => {
+          if (Object.keys(prev).length > 0) return prev
+          const generated = generateInitialMonthlyRoster(newYear, newMonth, employeesList)
+          saveMonthlyToStorage(newYear, newMonth, generated)
+          return generated
+        })
+      })
   }
 
   const handlePrevMonth = () => {

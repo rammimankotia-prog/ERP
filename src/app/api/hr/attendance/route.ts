@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client'
 import { parseTimeToISTMinutes } from '@/app/api/hr/reports/route'
 import { getMergedAttendance } from '@/lib/attendanceStorage'
 import { getAllEmployees } from '@/lib/employeeData'
+import { getEmployeeRosterShift } from '@/lib/shiftStorage'
 
 const prisma = new PrismaClient()
 
@@ -137,14 +138,17 @@ export async function GET(req: NextRequest) {
       let isEarlyOut = false
       let earlyOutMinutes = 0
 
+      const rosterShift = getEmployeeRosterShift(emp, dateStr)
+      const empStartTime = (rosterShift.startTime && rosterShift.startTime !== 'OFF') ? rosterShift.startTime : ((emp.morningTime && String(emp.morningTime).trim()) || '09:00')
+      const empEndTime = (rosterShift.endTime && rosterShift.endTime !== 'OFF') ? rosterShift.endTime : ((emp.eveningTime && String(emp.eveningTime).trim()) || '18:00')
+      const isOffDay = rosterShift.isOff || empStartTime === 'OFF'
+
       if (record && record.punchIn) {
-        // Employee has arrived and punched in: Evaluate punctuality strictly against individual morningTime (default 09:00, NEVER 08:00)
-        const empStartTime = (emp.morningTime && String(emp.morningTime).trim()) || '09:00'
-        const isOffDay = empStartTime === 'OFF'
+        // Employee has arrived and punched in: Evaluate punctuality strictly against roster scheduled shift time
         const shiftInMinutes = parseTimeToISTMinutes(empStartTime)
         const punchInMinutes = parseTimeToISTMinutes(record.punchIn)
         const diffMinutes = isOffDay ? 0 : Math.max(0, punchInMinutes - shiftInMinutes)
-        const graceMinutes = 15
+        const graceMinutes = (rosterShift.shiftName === 'Night Shift' || rosterShift.isNightShift) ? 20 : 15
 
         isLate = !isOffDay && diffMinutes > graceMinutes
         lateMinutes = isLate ? diffMinutes : 0
@@ -161,8 +165,7 @@ export async function GET(req: NextRequest) {
             } catch {}
           }
 
-          // Early departure check: Calculate against employee's individual eveningTime
-          const empEndTime = (emp.eveningTime && String(emp.eveningTime).trim()) || '18:00'
+          // Early departure check: Calculate against employee's active shift time
           const shiftOutMinutes = parseTimeToISTMinutes(empEndTime)
           const punchOutMinutes = parseTimeToISTMinutes(record.punchOut)
           let diffEarly = 0
@@ -189,7 +192,7 @@ export async function GET(req: NextRequest) {
       } else {
         // NO PUNCH-IN: Employee is ABSENT or ON_LEAVE. Strictly NEVER LATE and NEVER PRESENT.
         const isApprovedLeave = record && (record.status === 'ON_LEAVE' || record.status === 'LEAVE')
-        status = isApprovedLeave ? 'ON_LEAVE' : 'ABSENT'
+        status = isApprovedLeave ? 'ON_LEAVE' : (isOffDay ? 'OFF' : 'ABSENT')
         isLate = false
         lateMinutes = 0
         isEarlyOut = false
@@ -222,8 +225,10 @@ export async function GET(req: NextRequest) {
         lateMinutes,
         isEarlyOut,
         earlyOutMinutes,
-        scheduledTime: (emp.morningTime && String(emp.morningTime).trim()) || '09:00',
-        scheduledOutTime: (emp.eveningTime && String(emp.eveningTime).trim()) || '18:00',
+        scheduledTime: empStartTime,
+        scheduledOutTime: empEndTime,
+        shiftName: record?.shiftName || rosterShift.shiftName || 'Morning Shift',
+        isNightShift: rosterShift.isNightShift,
         punchIn: record && record.punchIn ? record.punchIn : null,
         punchOut: record && record.punchIn && record.punchOut ? record.punchOut : null,
         totalMinutes: record && record.punchIn && record.totalMinutes !== undefined ? record.totalMinutes : null,

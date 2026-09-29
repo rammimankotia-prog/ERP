@@ -144,6 +144,20 @@ export default function KioskPage() {
 
   useEffect(() => {
     fetchEmployees();
+    const pollInterval = setInterval(() => {
+      fetchEmployees();
+    }, 15000);
+    const onFocus = () => fetchEmployees();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchEmployees();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   const [selectedHotel, setSelectedHotel] = useState('ALL');
