@@ -57,7 +57,9 @@ function generateInitialMonthlyRoster(year: number, month: number, employees: Em
   employees.forEach(emp => {
     res[emp.id] = {}
     const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
+    const isPawan = emp.code === 'GG-1015' || emp.id === 'emp-1790086852112' || (emp.name && emp.name.toLowerCase().includes('pawan'))
     const isNightProfile =
+      isPawan ||
       (emp as any).isNightShift === true ||
       (emp as any).shiftName?.toLowerCase().includes('night') ||
       (emp as any).shift?.toLowerCase().includes('night') ||
@@ -106,7 +108,9 @@ function generateInitialWeeklyRoster(employees: EmployeeItem[] = DEFAULT_ROSTER_
   employees.forEach(emp => {
     res[emp.id] = {}
     const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
+    const isPawan = emp.code === 'GG-1015' || emp.id === 'emp-1790086852112' || (emp.name && emp.name.toLowerCase().includes('pawan'))
     const isNightProfile =
+      isPawan ||
       (emp as any).isNightShift === true ||
       (emp as any).shiftName?.toLowerCase().includes('night') ||
       (emp as any).shift?.toLowerCase().includes('night') ||
@@ -370,18 +374,28 @@ export default function ShiftsManager() {
         const rawList = Array.isArray(d) ? d : (Array.isArray(d?.employees) ? d.employees : [])
         const mapped: EmployeeItem[] = rawList
           .filter((e: any) => e.status === 'ACTIVE' || !e.status)
-          .map((e: any) => ({
-            id: e.id,
-            code: e.employeeId || e.code || 'EMP',
-            name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff',
-            designation: e.designation || 'Staff',
-            branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
-            dept: e.department?.name || e.department || e.dept || 'Front Office',
-            offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
-            swapShiftEligible: e.swapShiftEligible !== false,
-            morningTime: e.morningTime || '09:00',
-            eveningTime: e.eveningTime || '18:00',
-          }))
+          .map((e: any) => {
+            const isPawan = (e.employeeId === 'GG-1015' || e.code === 'GG-1015' || e.id === 'emp-1790086852112' || `${e.firstName || ''} ${e.lastName || ''} ${e.name || ''}`.toLowerCase().includes('pawan'))
+            const isNight = isPawan || e.isNightShift === true || (e.shiftName && String(e.shiftName).toLowerCase().includes('night')) || (e.morningTime || '').startsWith('2') || (e.eveningTime || '') === '08:00'
+            const mTime = isNight ? (e.nightShiftStart || e.morningTime || '20:00') : (e.morningTime || '09:00')
+            const eTime = isNight ? (e.nightShiftEnd || e.eveningTime || '08:00') : (e.eveningTime || '18:00')
+            return {
+              id: e.id,
+              code: e.employeeId || e.code || 'EMP',
+              name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff',
+              designation: e.designation || 'Staff',
+              branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
+              dept: e.department?.name || e.department || e.dept || 'Front Office',
+              offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
+              swapShiftEligible: e.swapShiftEligible !== false,
+              morningTime: mTime,
+              eveningTime: eTime,
+              shiftName: isNight ? 'Night Shift' : (e.shiftName || 'Morning Shift'),
+              isNightShift: isNight,
+              nightShiftStart: e.nightShiftStart || (isNight ? mTime : '20:00'),
+              nightShiftEnd: e.nightShiftEnd || (isNight ? eTime : '08:00'),
+            }
+          })
 
         // Restore custom employee sort order from localStorage if present
         if (typeof window !== 'undefined') {
@@ -420,6 +434,22 @@ export default function ShiftsManager() {
               } catch {}
             }
           }
+          // Ensure designated night employees (like Pawan Pawan) have Night Shift on working days in mRoster
+          mapped.forEach(emp => {
+            if (emp.isNightShift && mRoster[emp.id]) {
+              const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
+              for (let d = 1; d <= daysInMonth; d++) {
+                const dt = new Date(selectedYear, selectedMonth, d)
+                const dayName = WEEK_DAY_NAMES[dt.getDay()]
+                const isOff = empOffDays.some(od => od.toLowerCase() === dayName.toLowerCase())
+                if (isOff) {
+                  mRoster[emp.id][d] = 'OFF'
+                } else if (!mRoster[emp.id][d] || mRoster[emp.id][d] === 'Morning Shift' || mRoster[emp.id][d] === 'General Shift') {
+                  mRoster[emp.id][d] = 'Night Shift'
+                }
+              }
+            }
+          })
           setMonthlyRoster(mRoster)
 
           // Fetch server-persisted roster (e.g. from Hostinger permanent storage)
@@ -427,10 +457,26 @@ export default function ShiftsManager() {
             .then(res => res.json())
             .then(data => {
               if (data && data.roster && Object.keys(data.roster).length > 0) {
-                setMonthlyRoster(prev => ({ ...prev, ...data.roster }))
+                const mergedRoster = { ...data.roster }
+                mapped.forEach(emp => {
+                  if (emp.isNightShift && mergedRoster[emp.id]) {
+                    const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
+                    for (let d = 1; d <= daysInMonth; d++) {
+                      const dt = new Date(selectedYear, selectedMonth, d)
+                      const dayName = WEEK_DAY_NAMES[dt.getDay()]
+                      const isOff = empOffDays.some(od => od.toLowerCase() === dayName.toLowerCase())
+                      if (isOff) {
+                        mergedRoster[emp.id][d] = 'OFF'
+                      } else if (!mergedRoster[emp.id][d] || mergedRoster[emp.id][d] === 'Morning Shift') {
+                        mergedRoster[emp.id][d] = 'Night Shift'
+                      }
+                    }
+                  }
+                })
+                setMonthlyRoster(prev => ({ ...prev, ...mergedRoster }))
                 if (typeof window !== 'undefined') {
                   try {
-                    localStorage.setItem(getMonthlyStorageKey(selectedYear, selectedMonth), JSON.stringify(data.roster))
+                    localStorage.setItem(getMonthlyStorageKey(selectedYear, selectedMonth), JSON.stringify(mergedRoster))
                   } catch {}
                 }
               } else {
@@ -454,6 +500,21 @@ export default function ShiftsManager() {
               } catch {}
             }
           }
+          mapped.forEach(emp => {
+            if (emp.isNightShift && wRoster[emp.id]) {
+              const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
+              const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+              days.forEach(day => {
+                const fullDayName = SHORT_TO_FULL_DAYS[day] || day
+                const isOff = empOffDays.some(od => od.toLowerCase() === fullDayName.toLowerCase())
+                if (isOff) {
+                  wRoster[emp.id][day] = 'OFF'
+                } else if (!wRoster[emp.id][day] || wRoster[emp.id][day] === 'Morning Shift') {
+                  wRoster[emp.id][day] = 'Night Shift'
+                }
+              })
+            }
+          })
           setRoster(wRoster)
           saveWeeklyToStorage(selectedMonday, wRoster)
         } else {

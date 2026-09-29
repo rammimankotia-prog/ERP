@@ -737,6 +737,14 @@
     "designation": "Supervisor",
     "morningTime": "20:00",
     "eveningTime": "08:00",
+    "isNightShift": true,
+    "shiftName": "Night Shift",
+    "shiftType": "NIGHT",
+    "selectedShift": "NIGHT",
+    "nightShiftStart": "20:00",
+    "nightShiftEnd": "08:00",
+    "dayShiftStart": "08:00",
+    "dayShiftEnd": "20:00",
     "offDays": [
       "Sunday"
     ],
@@ -759,7 +767,7 @@
     },
     "role": "Employee",
     "createdAt": "2026-09-22T14:20:52.112Z",
-    "updatedAt": "2026-09-22T14:20:52.113Z"
+    "updatedAt": "2026-09-29T20:25:00.000Z"
   },
   {
     "id": "emp-1790087541495",

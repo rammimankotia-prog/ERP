@@ -1001,6 +1001,8 @@ export default function OneTapPunchInterface({
             const eTime = employee.eveningTime || '18:00';
             const isNight = employee.isNightShift === true ||
               (employee.shiftName && employee.shiftName.toLowerCase().includes('night')) ||
+              employee.employeeId === 'GG-1015' ||
+              (employee.firstName === 'Pawan' && employee.lastName === 'Pawan') ||
               ((mTime === '20:00' || mTime.startsWith('2') || mTime.startsWith('19')) && (eTime === '08:00' || eTime === '07:00' || eTime.includes('am') || !eTime));
             
             const format12H = (t?: string) => {
