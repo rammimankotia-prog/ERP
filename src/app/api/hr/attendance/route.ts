@@ -4,7 +4,7 @@ import path from 'path'
 import { PrismaClient } from '@prisma/client'
 
 import { parseTimeToISTMinutes } from '@/app/api/hr/reports/route'
-import { getMergedAttendance } from '@/lib/attendanceStorage'
+import { getMergedAttendance, findActiveAttendanceForEmployee } from '@/lib/attendanceStorage'
 import { getAllEmployees } from '@/lib/employeeData'
 import { getEmployeeRosterShift } from '@/lib/shiftStorage'
 
@@ -119,16 +119,31 @@ export async function GET(req: NextRequest) {
       const empCodeNorm = (emp.employeeId || '').trim().toUpperCase()
       const empEmailNorm = (emp.email || '').trim().toUpperCase()
       const empFullNameNorm = `${emp.firstName || ''} ${emp.lastName || ''}`.trim().toUpperCase()
+      const rosterShift = getEmployeeRosterShift(emp, dateStr)
 
-      const record = todayAttendance.find(a => {
-        const aIdNorm = (a.employeeId || '').trim().toUpperCase()
-        const aNameNorm = (a.employeeName || '').trim().toUpperCase()
+      const record = dateStr === todayIST
+        ? (findActiveAttendanceForEmployee(
+            combinedRecords,
+            [empIdNorm, empCodeNorm, empEmailNorm, empFullNameNorm].filter(Boolean),
+            todayIST,
+            rosterShift.isNightShift
+          ) || todayAttendance.find(a => {
+            const aIdNorm = (a.employeeId || '').trim().toUpperCase()
+            const aNameNorm = (a.employeeName || '').trim().toUpperCase()
+            if (aIdNorm && (aIdNorm === empIdNorm || aIdNorm === empCodeNorm)) return true
+            if (empEmailNorm && aIdNorm === empEmailNorm) return true
+            if (empFullNameNorm && (aNameNorm === empFullNameNorm || aIdNorm === empFullNameNorm)) return true
+            return false
+          }))
+        : todayAttendance.find(a => {
+            const aIdNorm = (a.employeeId || '').trim().toUpperCase()
+            const aNameNorm = (a.employeeName || '').trim().toUpperCase()
 
-        if (aIdNorm && (aIdNorm === empIdNorm || aIdNorm === empCodeNorm)) return true
-        if (empEmailNorm && aIdNorm === empEmailNorm) return true
-        if (empFullNameNorm && (aNameNorm === empFullNameNorm || aIdNorm === empFullNameNorm)) return true
-        return false
-      })
+            if (aIdNorm && (aIdNorm === empIdNorm || aIdNorm === empCodeNorm)) return true
+            if (empEmailNorm && aIdNorm === empEmailNorm) return true
+            if (empFullNameNorm && (aNameNorm === empFullNameNorm || aIdNorm === empFullNameNorm)) return true
+            return false
+          })
 
       // STRICT RULE: You cannot mark late which is absent!
       // An employee without a punchIn is ABSENT (or ON_LEAVE), NEVER LATE or PRESENT.
@@ -137,8 +152,6 @@ export async function GET(req: NextRequest) {
       let lateMinutes = 0
       let isEarlyOut = false
       let earlyOutMinutes = 0
-
-      const rosterShift = getEmployeeRosterShift(emp, dateStr)
       const empStartTime = record?.scheduledTime || ((rosterShift.startTime && rosterShift.startTime !== 'OFF') ? rosterShift.startTime : ((emp.morningTime && String(emp.morningTime).trim()) || '09:00'))
       const empEndTime = record?.scheduledOutTime || ((rosterShift.endTime && rosterShift.endTime !== 'OFF') ? rosterShift.endTime : ((emp.eveningTime && String(emp.eveningTime).trim()) || '18:00'))
       const effectiveShiftName = record?.shiftName || rosterShift.shiftName

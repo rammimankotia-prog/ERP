@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAllEmployees } from '@/lib/employeeData'
-import { getMergedAttendance } from '@/lib/attendanceStorage'
-import { getEmployeeRosterShift } from '@/lib/shiftStorage'
+import { getMergedAttendance, findActiveAttendanceForEmployee } from '@/lib/attendanceStorage'
+import { getEmployeeRosterShift, formatShiftTimingLabel } from '@/lib/shiftStorage'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,25 +10,25 @@ export async function GET() {
     const employees = await getAllEmployees()
     const allAttendance = getMergedAttendance()
     const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date())
-    const dateStr = todayIST
 
     const activeList = employees
       .filter(e => e.status === 'ACTIVE' || !e.status)
       .map(emp => {
         const empIdNorm = (emp.employeeId || emp.id || '').trim().toUpperCase()
-        const todayRecord = allAttendance.find(a => {
-          const aIdNorm = (a.employeeId || '').trim().toUpperCase()
-          const matchId = aIdNorm === empIdNorm || (emp.id && aIdNorm === emp.id.trim().toUpperCase())
-          if (!matchId) return false
-          if (a.date === dateStr) return true
-          if (a.punchIn) {
-            if (a.punchIn.slice(0, 10) === dateStr) return true
-            try {
-              if (new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn)) === dateStr) return true
-            } catch {}
-          }
-          return false
-        })
+        const idAliases = new Set<string>([empIdNorm])
+        if (emp.id) idAliases.add(emp.id.trim().toUpperCase())
+        if (emp.employeeId) idAliases.add(emp.employeeId.trim().toUpperCase())
+
+        // Dynamically resolve today's shift from roster (including Night Shift: 7 PM to 7 AM or 8 PM to 8 AM)
+        const rosterShift = getEmployeeRosterShift(emp, todayIST)
+
+        // Resolve active attendance record (including ongoing cross-midnight Night Shift from yesterday)
+        const todayRecord = findActiveAttendanceForEmployee(
+          allAttendance,
+          idAliases,
+          todayIST,
+          rosterShift.isNightShift
+        )
 
         let branchName = 'Hotel Grand Godwin'
         if (typeof emp.branch === 'object' && emp.branch?.name) {
@@ -43,8 +43,8 @@ export async function GET() {
           branchName = 'Cafe Brownie'
         }
 
-        // Dynamically resolve today's shift from roster (including Night Shift swap: 8 PM to 8 AM)
-        const rosterShift = getEmployeeRosterShift(emp, todayIST)
+        const effectiveStart = todayRecord?.scheduledTime || rosterShift.startTime
+        const effectiveEnd = todayRecord?.scheduledOutTime || rosterShift.endTime
 
         return {
           id: emp.id,
@@ -57,12 +57,12 @@ export async function GET() {
           department: typeof emp.department === 'object' ? (emp.department?.name || 'General') : (emp.department || emp.departmentId || 'General'),
           branch: branchName,
           branchId: emp.branchId || (typeof emp.branch === 'object' ? emp.branch?.id : null),
-          morningTime: todayRecord?.scheduledTime || rosterShift.startTime,
-          eveningTime: todayRecord?.scheduledOutTime || rosterShift.endTime,
+          morningTime: effectiveStart,
+          eveningTime: effectiveEnd,
           shiftName: todayRecord?.shiftName || rosterShift.shiftName,
           shiftDisplay: todayRecord?.shiftName
             ? (todayRecord.shiftName === 'Night Shift'
-                ? '🌙 Night Shift (08:00 PM – 08:00 AM)'
+                ? `🌙 ${formatShiftTimingLabel(effectiveStart, effectiveEnd, 'Night Shift')}`
                 : todayRecord.shiftName === 'Double Duty'
                 ? '⚡ Double Duty (Day + Night Shift)'
                 : rosterShift.formatted12H)

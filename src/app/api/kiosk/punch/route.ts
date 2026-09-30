@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
-import { getMergedAttendance, saveAttendanceRecord } from '@/lib/attendanceStorage'
+import { getMergedAttendance, saveAttendanceRecord, findActiveAttendanceForEmployee } from '@/lib/attendanceStorage'
 import { getMergedShifts, getEmployeeRosterShift, updateEmployeeRosterShift } from '@/lib/shiftStorage'
 import { getAllEmployees } from '@/lib/employeeData'
 
@@ -212,21 +212,24 @@ export async function GET(req: NextRequest) {
     if (empIdUpper) idAliases.add(empIdUpper)
     if (empCodeUpper) idAliases.add(empCodeUpper)
 
-    const record = allAttendance.find(a => {
-      const aEmp = (a.employeeId || '').trim().toUpperCase()
-      const empMatch = idAliases.has(aEmp)
-      if (!empMatch) return false
+    // Dynamic shift info for dateStr
+    const rosterShift = getRosterShiftTimes(emp, dateStr)
 
-      if (a.date === dateStr) return true
-      if (a.punchIn) {
-        if (a.punchIn.slice(0, 10) === dateStr) return true
-        try {
-          const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
-          if (inDateIST === dateStr) return true
-        } catch {}
-      }
-      return false
-    })
+    const record = dateStr === todayIST
+      ? findActiveAttendanceForEmployee(allAttendance, idAliases, todayIST, rosterShift.isNightShift)
+      : allAttendance.find(a => {
+          const aEmp = (a.employeeId || '').trim().toUpperCase()
+          if (!idAliases.has(aEmp)) return false
+          if (a.date === dateStr) return true
+          if (a.punchIn) {
+            if (a.punchIn.slice(0, 10) === dateStr) return true
+            try {
+              const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
+              if (inDateIST === dateStr) return true
+            } catch {}
+          }
+          return false
+        })
 
     const checkedIn = !!(record && record.punchIn)
     const checkedOut = !!(record && record.punchOut)
@@ -234,12 +237,10 @@ export async function GET(req: NextRequest) {
     const lateMinutes = isLate ? (record?.lateMinutes || 0) : 0
     const effectiveStatus = !checkedIn ? 'ABSENT' : (record?.status || 'PRESENT')
 
-    // Dynamic shift info for dateStr
-    const rosterShift = getRosterShiftTimes(emp, dateStr)
-
     return NextResponse.json({
       checkedIn,
       checkedOut,
+      activeShiftDate: record?.date || dateStr,
       punchInTime: checkedIn ? record?.punchIn : null,
       punchOutTime: checkedOut ? record?.punchOut : null,
       totalMinutes: checkedOut ? record?.totalMinutes : null,
@@ -258,7 +259,7 @@ export async function GET(req: NextRequest) {
       shiftEndTime: record?.scheduledOutTime || rosterShift.endTime,
       shiftName: record?.shiftName || rosterShift.shiftName,
       shiftDisplay: rosterShift.shiftDisplay,
-      isNightShift: rosterShift.isNightShift,
+      isNightShift: record?.shiftName === 'Night Shift' || rosterShift.isNightShift,
       isOff: rosterShift.isOff,
     })
   } catch (err: any) {
@@ -456,23 +457,26 @@ export async function POST(req: NextRequest) {
     const dateStr = todayIST
 
     const allAttendance = getMergedAttendance()
+    const rosterShift = getRosterShiftTimes(emp, dateStr)
 
-    let existingIndex = allAttendance.findIndex(a => {
-      const aEmp = (a.employeeId || '').trim().toUpperCase()
-      const normEmp = normalizedEmpId.trim().toUpperCase()
-      const empIdMatch = aEmp === normEmp || (emp && (aEmp === emp.id?.trim().toUpperCase() || aEmp === emp.employeeId?.trim().toUpperCase()))
-      if (!empIdMatch) return false
+    const idAliases = new Set<string>([
+      normalizedEmpId.trim().toUpperCase(),
+      employeeId.trim().toUpperCase(),
+    ])
+    if (emp?.id) idAliases.add(emp.id.trim().toUpperCase())
+    if (emp?.employeeId) idAliases.add(emp.employeeId.trim().toUpperCase())
 
-      if (a.date === dateStr) return true
-      if (a.punchIn) {
-        if (a.punchIn.slice(0, 10) === dateStr) return true
-        try {
-          const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
-          if (inDateIST === dateStr) return true
-        } catch {}
-      }
-      return false
-    })
+    const activeRecord = findActiveAttendanceForEmployee(
+      allAttendance,
+      idAliases,
+      dateStr,
+      rosterShift.isNightShift,
+      now
+    )
+
+    let existingIndex = activeRecord
+      ? allAttendance.findIndex(a => a === activeRecord || (a.id && a.id === activeRecord.id) || (a.employeeId === activeRecord.employeeId && a.date === activeRecord.date))
+      : -1
 
     if (action === 'IN') {
       if (existingIndex !== -1 && allAttendance[existingIndex].punchIn) {
@@ -560,7 +564,7 @@ export async function POST(req: NextRequest) {
             ddEnd = '23:00'
             ddGrace = 15
           } else {
-            // 18:30 to 04:30 -> Night Shift
+            // 16:30 to 04:59 -> Night Shift
             ddShift = 'Night Shift'
             ddStart = emp?.nightShiftStart || '20:00'
             ddEnd = emp?.nightShiftEnd || '08:00'
@@ -571,7 +575,6 @@ export async function POST(req: NextRequest) {
           const ddLateMinutes = Math.max(0, punchInMinutes - scheduledInMinutes)
           const isDdLate = ddLateMinutes > ddGrace
           const ddStatus = isDdLate ? 'LATE' : 'PRESENT'
-          const formattedLate = formatDurationHoursMinutes(ddLateMinutes)
 
           existRec.isDoubleDuty = true
           existRec.doubleDutyIn = nowIso
@@ -586,12 +589,13 @@ export async function POST(req: NextRequest) {
           saveAttendanceRecord(existRec)
 
           // Auto-sync with Duty Roster
-          updateEmployeeRosterShift(normalizedEmpId, dateStr, 'Double Duty', emp?.id)
+          updateEmployeeRosterShift(normalizedEmpId, existRec.date || dateStr, 'Double Duty', emp?.id)
 
           // Record Audit Trail
           logAudit({
             id: `audit-${Date.now()}`,
             timestamp: nowIso,
+            shiftDate: existRec.date || dateStr,
             employeeId: normalizedEmpId,
             employeeName,
             action: 'IN',
@@ -623,7 +627,7 @@ export async function POST(req: NextRequest) {
         }
 
         return NextResponse.json({
-          error: `Aapka Punch-In already ${whoIn} dwara ${formattedInTime} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`,
+          error: `Aapka Punch-In already ${whoIn} dwara ${formattedInTime} par record kiya ja chuka hai. Shift complete hone par Check-Out karein.`,
           alreadyPunched: true,
           alreadyPunchedIn: true,
           whoPunched: whoIn,
@@ -633,7 +637,6 @@ export async function POST(req: NextRequest) {
       }
 
       // AUTO-LATE FLAGGING & FLEXIBLE SHIFT DETECTION:
-      const rosterShift = getRosterShiftTimes(emp, dateStr)
       const punchInMinutes = parseTimeToISTMinutes(nowIso)
       const todayDayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(now)
 
@@ -643,20 +646,24 @@ export async function POST(req: NextRequest) {
       let shiftEndTime = rosterShift.endTime
       let graceMinutes = (activeShiftName === 'Night Shift' || rosterShift.isNightShift) ? 20 : 15
 
-      // Night reporting window: 18:30 (6:30 PM) to 04:30 AM
-      if (punchInMinutes >= 1110 || punchInMinutes <= 270) {
+      // Night reporting window: 17:30 (5:30 PM) to 04:30 AM (or >= 16:00 if employee is assigned Night Shift)
+      if (punchInMinutes >= 1050 || punchInMinutes <= 270 || (rosterShift.isNightShift && punchInMinutes >= 960)) {
         activeShiftName = 'Night Shift'
-        shiftStartTime = emp?.nightShiftStart || '20:00'
-        shiftEndTime = emp?.nightShiftEnd || '08:00'
+        shiftStartTime = (rosterShift.isNightShift && rosterShift.startTime && rosterShift.startTime !== 'OFF')
+          ? rosterShift.startTime
+          : (emp?.nightShiftStart || '20:00')
+        shiftEndTime = (rosterShift.isNightShift && rosterShift.endTime && rosterShift.endTime !== 'OFF')
+          ? rosterShift.endTime
+          : (emp?.nightShiftEnd || '08:00')
         graceMinutes = 20
       } else if (punchInMinutes >= 300 && punchInMinutes <= 750) {
         // Morning/Day reporting window: 05:00 AM to 12:30 PM
         activeShiftName = 'Morning Shift'
-        shiftStartTime = emp?.dayShiftStart || emp?.morningTime || '08:00'
-        shiftEndTime = emp?.dayShiftEnd || emp?.eveningTime || '20:00'
+        shiftStartTime = emp?.dayShiftStart || (!rosterShift.isNightShift ? emp?.morningTime : null) || '08:00'
+        shiftEndTime = emp?.dayShiftEnd || (!rosterShift.isNightShift ? emp?.eveningTime : null) || '20:00'
         graceMinutes = 15
-      } else if (punchInMinutes > 750 && punchInMinutes <= 990) {
-        // Afternoon reporting window: 12:30 PM to 16:30 PM
+      } else if (punchInMinutes > 750 && punchInMinutes < 960) {
+        // Afternoon reporting window: 12:30 PM to 16:00 PM
         activeShiftName = 'Afternoon Shift'
         shiftStartTime = '13:00'
         shiftEndTime = '23:00'
@@ -674,9 +681,13 @@ export async function POST(req: NextRequest) {
           : todayDayName === 'Sunday')
 
       const scheduledInMinutes = parseTimeToISTMinutes(shiftStartTime)
+      // Handle post-midnight check-in for a Night Shift that started the previous evening (e.g., 19:00 or 20:00)
+      const effectivePunchInMinutes = (punchInMinutes <= 270 && scheduledInMinutes >= 960)
+        ? punchInMinutes + 1440
+        : punchInMinutes
       
       // On an off day (e.g. Sunday or roster off), working is voluntary — employee is NEVER late!
-      const lateMinutes = isOffDay ? 0 : Math.max(0, punchInMinutes - scheduledInMinutes)
+      const lateMinutes = isOffDay ? 0 : Math.max(0, effectivePunchInMinutes - scheduledInMinutes)
       const isLate = !isOffDay && lateMinutes > graceMinutes
       const attendanceStatus = isLate ? 'LATE' : 'PRESENT'
 
@@ -699,6 +710,7 @@ export async function POST(req: NextRequest) {
         totalMinutes: null,
         shiftName: activeShiftName,
         scheduledTime: shiftStartTime,
+        scheduledOutTime: shiftEndTime,
         remarks: isOffDay 
           ? `Worked on Off Day (${todayDayName}) • Present`
           : (isLate ? `Late arrival by ${formattedLate} (+${lateMinutes}m) [${activeShiftName}]` : `Present [${activeShiftName}]`)
@@ -710,6 +722,7 @@ export async function POST(req: NextRequest) {
       logAudit({
         id: `audit-${Date.now()}`,
         timestamp: nowIso,
+        shiftDate: dateStr,
         employeeId: normalizedEmpId,
         employeeName,
         action: 'IN',
@@ -769,6 +782,7 @@ export async function POST(req: NextRequest) {
           logAudit({
             id: `audit-${Date.now()}`,
             timestamp: nowIso,
+            shiftDate: existRec.date || dateStr,
             employeeId: normalizedEmpId,
             employeeName,
             action: 'OUT',
@@ -848,16 +862,17 @@ export async function POST(req: NextRequest) {
       const punchOutTime = now.getTime()
       const totalMinutes = Math.max(0, Math.floor((punchOutTime - punchInTime) / 60000))
 
-      // Compute early departure against employee's active shift time
-      const rosterShiftOut = getRosterShiftTimes(emp, dateStr)
+      // Compute early departure against employee's active shift time (using the shift's actual date)
+      const recDate = allAttendance[existingIndex].date || dateStr
+      const rosterShiftOut = getRosterShiftTimes(emp, recDate)
       const recordedShiftName = allAttendance[existingIndex].shiftName
       const isNightRecorded = recordedShiftName === 'Night Shift' || (!recordedShiftName && rosterShiftOut.isNightShift)
       const activeShiftNameOut = recordedShiftName || rosterShiftOut.shiftName
       const shiftEndTime = isNightRecorded
-        ? (emp?.nightShiftEnd || '08:00')
+        ? (allAttendance[existingIndex].scheduledOutTime || (rosterShiftOut.isNightShift ? rosterShiftOut.endTime : null) || emp?.nightShiftEnd || '08:00')
         : (allAttendance[existingIndex].scheduledOutTime || rosterShiftOut.endTime || (emp?.eveningTime && String(emp.eveningTime).trim()) || '20:00')
       const shiftStartTimeOut = isNightRecorded
-        ? (emp?.nightShiftStart || '20:00')
+        ? (allAttendance[existingIndex].scheduledTime || (rosterShiftOut.isNightShift ? rosterShiftOut.startTime : null) || emp?.nightShiftStart || '20:00')
         : (allAttendance[existingIndex].scheduledTime || rosterShiftOut.startTime || (emp?.morningTime && String(emp.morningTime).trim()) || '08:00')
       const shiftOutMinutes = parseTimeToISTMinutes(shiftEndTime)
       const shiftInMinutes = parseTimeToISTMinutes(shiftStartTimeOut)
@@ -865,7 +880,7 @@ export async function POST(req: NextRequest) {
 
       let earlyOutMinutes = 0
       if (shiftOutMinutes < shiftInMinutes) {
-        // Cross-midnight shift (e.g. 20:00 to 08:00)
+        // Cross-midnight shift (e.g. 19:00 to 07:00 or 20:00 to 08:00)
         const effShiftOut = shiftOutMinutes + 1440
         const effPunchOut = punchOutMinutes < shiftInMinutes ? punchOutMinutes + 1440 : punchOutMinutes
         earlyOutMinutes = Math.max(0, effShiftOut - effPunchOut)
@@ -905,6 +920,7 @@ export async function POST(req: NextRequest) {
       logAudit({
         id: `audit-${Date.now()}`,
         timestamp: nowIso,
+        shiftDate: recDate,
         employeeId: normalizedEmpId,
         employeeName,
         action: 'OUT',

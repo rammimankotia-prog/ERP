@@ -258,11 +258,11 @@ export function isEmployeeProfileNight(emp: any): boolean {
   if (sName.includes('night')) return true
   if (emp.selectedShift === 'NIGHT') return true
 
-  // Specific permanent check for Pawan Pawan (GG-1015)
+  // Specific permanent check for Night Shift supervisors/managers (GG-1015 Pawan, IG-1003 Lalit Kumar Thakur)
   const code = (emp.employeeId || emp.code || '').toString().toUpperCase().trim()
-  if (code === 'GG-1015') return true
+  if (code === 'GG-1015' || code === 'IG-1003') return true
   const fullName = `${emp.firstName || ''} ${emp.lastName || ''} ${emp.name || ''}`.toLowerCase()
-  if (fullName.includes('pawan')) return true
+  if (fullName.includes('pawan') || fullName.includes('lalit')) return true
 
   // Check if primary configured hours are night shift hours
   const mTime = (emp.morningTime || emp.startTime || '').trim()

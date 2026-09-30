@@ -663,6 +663,14 @@
     "designation": "Manager",
     "morningTime": "20:00",
     "eveningTime": "08:00",
+    "isNightShift": true,
+    "shiftName": "Night Shift",
+    "shiftType": "NIGHT",
+    "selectedShift": "NIGHT",
+    "nightShiftStart": "20:00",
+    "nightShiftEnd": "08:00",
+    "dayShiftStart": "08:00",
+    "dayShiftEnd": "20:00",
     "offDays": [
       "Sunday"
     ],
@@ -685,7 +693,7 @@
     },
     "role": "Employee",
     "createdAt": "2026-09-22T14:05:13.327Z",
-    "updatedAt": "2026-09-22T14:12:07.386Z"
+    "updatedAt": "2026-09-30T12:35:00.000Z"
   },
   {
     "id": "emp-1790086302683",
@@ -700,6 +708,14 @@
     "designation": "Manager",
     "morningTime": "20:00",
     "eveningTime": "08:00",
+    "isNightShift": true,
+    "shiftName": "Night Shift",
+    "shiftType": "NIGHT",
+    "selectedShift": "NIGHT",
+    "nightShiftStart": "20:00",
+    "nightShiftEnd": "08:00",
+    "dayShiftStart": "08:00",
+    "dayShiftEnd": "20:00",
     "offDays": [
       "Sunday"
     ],
@@ -722,7 +738,7 @@
     },
     "role": "Employee",
     "createdAt": "2026-09-22T14:11:42.683Z",
-    "updatedAt": "2026-09-22T14:11:42.683Z"
+    "updatedAt": "2026-09-30T12:35:00.000Z"
   },
   {
     "id": "emp-1790086852112",
@@ -782,6 +798,14 @@
     "designation": "Supervisor",
     "morningTime": "19:00",
     "eveningTime": "07:00",
+    "isNightShift": true,
+    "shiftName": "Night Shift",
+    "shiftType": "NIGHT",
+    "selectedShift": "NIGHT",
+    "nightShiftStart": "19:00",
+    "nightShiftEnd": "07:00",
+    "dayShiftStart": "08:00",
+    "dayShiftEnd": "20:00",
     "offDays": [
       "Sunday"
     ],
@@ -804,7 +828,7 @@
     },
     "role": "Employee",
     "createdAt": "2026-09-22T14:32:21.495Z",
-    "updatedAt": "2026-09-22T14:32:21.495Z"
+    "updatedAt": "2026-09-30T12:35:00.000Z"
   },
   {
     "id": "emp-1790088126074",
