@@ -249,10 +249,34 @@ export async function getAllEmployees(): Promise<any[]> {
     }
   }
 
-  // Final enforcement: Any employee in deactivatedKeys MUST have non-active status
+  // Final enforcement: Any employee in deactivatedKeys MUST have non-active status,
+  // and Smita Tamang (CB-1001) is always on fixed 8 AM to 6 PM (08:00 - 18:00) shift.
   for (const [key, emp] of map.entries()) {
+    let updatedEmp = emp
     if (isEmployeeDeactivated(emp, deactivatedKeys) && emp.status === 'ACTIVE') {
-      map.set(key, { ...emp, status: 'RESIGNED' })
+      updatedEmp = { ...updatedEmp, status: 'RESIGNED' }
+    }
+    const fullNameLower = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase()
+    if (
+      key === 'CB-1001' ||
+      emp.id === 'emp-1789894008834' ||
+      fullNameLower.includes('smita tamang') ||
+      (emp.email && String(emp.email).toLowerCase().includes('smita.tamang'))
+    ) {
+      updatedEmp = {
+        ...updatedEmp,
+        morningTime: '08:00',
+        eveningTime: '18:00',
+        dayShiftStart: '08:00',
+        dayShiftEnd: '18:00',
+        isNightShift: false,
+        shiftName: 'Morning Shift',
+        shiftType: 'FIXED',
+        selectedShift: 'MORNING',
+      }
+    }
+    if (updatedEmp !== emp) {
+      map.set(key, updatedEmp)
     }
   }
 

@@ -65,9 +65,12 @@ function generateInitialMonthlyRoster(year: number, month: number, employees: Em
       (emp.morningTime || '').startsWith('19') ||
       (emp.eveningTime || '') === '08:00' ||
       (emp.eveningTime || '') === '07:00'
+    const isSmitaTamang =
+      emp.id === 'emp-1789894008834' ||
+      emp.code === 'CB-1001' ||
+      emp.name.toLowerCase().includes('smita tamang')
     const isSecurity = emp.dept.toLowerCase().includes('security') || emp.designation.toLowerCase().includes('security')
     const isHousekeeping = emp.dept.toLowerCase().includes('housekeeping')
-    const isCafe = emp.branch.toLowerCase().includes('cafe') || emp.dept.toLowerCase().includes('beverage')
 
     for (let day = 1; day <= daysInMonth; day++) {
       const d = new Date(year, month, day)
@@ -77,12 +80,12 @@ function generateInitialMonthlyRoster(year: number, month: number, employees: Em
 
       if (isConfiguredOff) {
         res[emp.id][day] = 'OFF'
+      } else if (isSmitaTamang) {
+        res[emp.id][day] = 'Morning Shift'
       } else if (isNightProfile) {
         res[emp.id][day] = 'Night Shift'
       } else if (isSecurity) {
         res[emp.id][day] = day % 2 === 0 ? 'Night Shift' : 'Morning Shift'
-      } else if (isCafe) {
-        res[emp.id][day] = day % 3 === 0 ? 'Break Shift' : 'Morning Shift'
       } else if (isHousekeeping) {
         res[emp.id][day] = (dayOfWeek === 5 || dayOfWeek === 6) ? 'Night Shift' : 'Morning Shift'
       } else {
@@ -97,6 +100,33 @@ function generateInitialMonthlyRoster(year: number, month: number, employees: Em
   return res
 }
 
+function sanitizeSmitaTamangRoster(
+  rosterMap: Record<string, Record<number, string>>,
+  employees: EmployeeItem[]
+): Record<string, Record<number, string>> {
+  const next = { ...rosterMap }
+  const smitaIds = new Set<string>(['emp-1789894008834', 'CB-1001'])
+  employees.forEach(e => {
+    if (e.id === 'emp-1789894008834' || e.code === 'CB-1001' || e.name.toLowerCase().includes('smita tamang')) {
+      if (e.id) smitaIds.add(e.id)
+      if (e.code) smitaIds.add(e.code)
+    }
+  })
+  smitaIds.forEach(key => {
+    if (next[key]) {
+      const cleaned: Record<number, string> = { ...next[key] }
+      Object.keys(cleaned).forEach(dKey => {
+        const dNum = Number(dKey)
+        if (cleaned[dNum] && cleaned[dNum] !== 'OFF') {
+          cleaned[dNum] = 'Morning Shift'
+        }
+      })
+      next[key] = cleaned
+    }
+  })
+  return next
+}
+
 const SHORT_TO_FULL_DAYS: Record<string, string> = {
   'Sun': 'Sunday', 'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday', 'Thu': 'Thursday', 'Fri': 'Friday', 'Sat': 'Saturday'
 }
@@ -109,6 +139,10 @@ function generateInitialWeeklyRoster(employees: EmployeeItem[] = DEFAULT_ROSTER_
   employees.forEach(emp => {
     res[emp.id] = {}
     const empOffDays = Array.isArray(emp.offDays) && emp.offDays.length > 0 ? emp.offDays : ['Sunday']
+    const isSmitaTamang =
+      emp.id === 'emp-1789894008834' ||
+      emp.code === 'CB-1001' ||
+      emp.name.toLowerCase().includes('smita tamang')
     const isNightProfile =
       (emp as any).isNightShift === true ||
       (emp as any).shiftName?.toLowerCase().includes('night') ||
@@ -119,7 +153,6 @@ function generateInitialWeeklyRoster(employees: EmployeeItem[] = DEFAULT_ROSTER_
       (emp.eveningTime || '') === '07:00'
     const isSecurity = emp.dept.toLowerCase().includes('security') || emp.designation.toLowerCase().includes('security')
     const isHousekeeping = emp.dept.toLowerCase().includes('housekeeping')
-    const isCafe = emp.branch.toLowerCase().includes('cafe') || emp.dept.toLowerCase().includes('beverage')
 
     days.forEach((day, idx) => {
       const fullDayName = SHORT_TO_FULL_DAYS[day] || day
@@ -127,12 +160,12 @@ function generateInitialWeeklyRoster(employees: EmployeeItem[] = DEFAULT_ROSTER_
 
       if (isConfiguredOff) {
         res[emp.id][day] = 'OFF'
+      } else if (isSmitaTamang) {
+        res[emp.id][day] = 'Morning Shift'
       } else if (isNightProfile) {
         res[emp.id][day] = 'Night Shift'
       } else if (isSecurity) {
         res[emp.id][day] = idx % 2 === 0 ? 'Night Shift' : 'Morning Shift'
-      } else if (isCafe) {
-        res[emp.id][day] = (day === 'Fri' || day === 'Sat') ? 'Break Shift' : 'Morning Shift'
       } else if (isHousekeeping) {
         res[emp.id][day] = (day === 'Fri' || day === 'Sat') ? 'Night Shift' : 'Morning Shift'
       } else {
@@ -388,28 +421,42 @@ export default function ShiftsManager() {
         const mapped: EmployeeItem[] = rawList
           .filter((e: any) => e.status === 'ACTIVE' || !e.status)
           .map((e: any) => {
+            const fullName = `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff'
+            const empCode = e.employeeId || e.code || 'EMP'
+            const isSmitaTamang =
+              e.id === 'emp-1789894008834' ||
+              empCode === 'CB-1001' ||
+              fullName.toLowerCase().includes('smita tamang')
             const isNight =
-              e.isNightShift === true ||
-              (e.shiftName && String(e.shiftName).toLowerCase().includes('night')) ||
-              (e.morningTime || '').startsWith('2') ||
-              (e.morningTime || '').startsWith('19') ||
-              (e.eveningTime || '') === '08:00' ||
-              (e.eveningTime || '') === '07:00'
-            const mTime = isNight ? (e.nightShiftStart || e.morningTime || '20:00') : (e.morningTime || '09:00')
-            const eTime = isNight ? (e.nightShiftEnd || e.eveningTime || '08:00') : (e.eveningTime || '18:00')
+              !isSmitaTamang &&
+              (e.isNightShift === true ||
+                (e.shiftName && String(e.shiftName).toLowerCase().includes('night')) ||
+                (e.morningTime || '').startsWith('2') ||
+                (e.morningTime || '').startsWith('19') ||
+                (e.eveningTime || '') === '08:00' ||
+                (e.eveningTime || '') === '07:00')
+            const mTime = isSmitaTamang
+              ? '08:00'
+              : isNight
+              ? (e.nightShiftStart || e.morningTime || '20:00')
+              : (e.morningTime || '09:00')
+            const eTime = isSmitaTamang
+              ? '18:00'
+              : isNight
+              ? (e.nightShiftEnd || e.eveningTime || '08:00')
+              : (e.eveningTime || '18:00')
             return {
               id: e.id,
-              code: e.employeeId || e.code || 'EMP',
-              name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff',
+              code: empCode,
+              name: fullName,
               designation: e.designation || 'Staff',
               branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
               dept: e.department?.name || e.department || e.dept || 'Front Office',
               offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
-              // Every employee is unlocked for custom date shift swaps (no fixed shifts)
-              swapShiftEligible: true,
+              swapShiftEligible: !isSmitaTamang,
               morningTime: mTime,
               eveningTime: eTime,
-              shiftName: isNight ? 'Night Shift' : (e.shiftName || 'Morning Shift'),
+              shiftName: isSmitaTamang ? 'Morning Shift' : isNight ? 'Night Shift' : (e.shiftName || 'Morning Shift'),
               isNightShift: isNight,
               nightShiftStart: e.nightShiftStart || (isNight ? mTime : '20:00'),
               nightShiftEnd: e.nightShiftEnd || (isNight ? eTime : '08:00'),
@@ -461,6 +508,7 @@ export default function ShiftsManager() {
               } catch {}
             }
           }
+          mRoster = sanitizeSmitaTamangRoster(mRoster, mapped)
           setMonthlyRoster(mRoster)
 
           // Fetch server-persisted roster (e.g. from Hostinger permanent storage)
@@ -468,7 +516,7 @@ export default function ShiftsManager() {
             .then(res => res.json())
             .then(data => {
               if (data && data.roster && Object.keys(data.roster).length > 0) {
-                const mergedRoster: Record<string, Record<number, string>> = { ...defaultMonthly, ... data.roster }
+                let mergedRoster: Record<string, Record<number, string>> = { ...defaultMonthly, ...data.roster }
                 mapped.forEach(emp => {
                   const serverEmp = data.roster[emp.id] || (emp.code ? data.roster[emp.code] : undefined)
                   if (serverEmp) {
@@ -476,7 +524,8 @@ export default function ShiftsManager() {
                     if (emp.code) mergedRoster[emp.code] = { ...mergedRoster[emp.id] }
                   }
                 })
-                setMonthlyRoster(prev => ({ ...prev, ...mergedRoster }))
+                mergedRoster = sanitizeSmitaTamangRoster(mergedRoster, mapped)
+                setMonthlyRoster(prev => sanitizeSmitaTamangRoster({ ...prev, ...mergedRoster }, mapped))
                 if (typeof window !== 'undefined') {
                   try {
                     localStorage.setItem(getMonthlyStorageKey(selectedYear, selectedMonth), JSON.stringify(mergedRoster))
@@ -818,7 +867,7 @@ export default function ShiftsManager() {
         try {
           const parsed = JSON.parse(saved)
           if (parsed && Object.keys(parsed).length > 0) {
-            setMonthlyRoster(parsed)
+            setMonthlyRoster(sanitizeSmitaTamangRoster(parsed, employeesList))
           }
         } catch {}
       }
@@ -830,7 +879,7 @@ export default function ShiftsManager() {
       .then(data => {
         if (data && data.roster && Object.keys(data.roster).length > 0) {
           const defaultMonthly = generateInitialMonthlyRoster(newYear, newMonth, employeesList)
-          const merged: Record<string, Record<number, string>> = { ...defaultMonthly, ...data.roster }
+          let merged: Record<string, Record<number, string>> = { ...defaultMonthly, ...data.roster }
           employeesList.forEach(emp => {
             const serverEmp = data.roster[emp.id] || (emp.code ? data.roster[emp.code] : undefined)
             if (serverEmp) {
@@ -838,6 +887,7 @@ export default function ShiftsManager() {
               if (emp.code) merged[emp.code] = { ...merged[emp.id] }
             }
           })
+          merged = sanitizeSmitaTamangRoster(merged, employeesList)
           setMonthlyRoster(merged)
           if (typeof window !== 'undefined') {
             try {
@@ -2619,9 +2669,15 @@ export default function ShiftsManager() {
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                                 {emp.name}
-                                <span style={{ fontSize: '0.6rem', fontWeight: 700, backgroundColor: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.25)', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
-                                  ☀️🌙 Custom Swap
-                                </span>
+                                {(emp.id === 'emp-1789894008834' || emp.code === 'CB-1001' || emp.name.toLowerCase().includes('smita tamang')) ? (
+                                  <span style={{ fontSize: '0.6rem', fontWeight: 700, backgroundColor: 'rgba(16, 185, 129, 0.14)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                    ☀️ 8 AM – 6 PM
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '0.6rem', fontWeight: 700, backgroundColor: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.25)', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                    ☀️🌙 Custom Swap
+                                  </span>
+                                )}
                               </div>
                               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                                 <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{emp.code}</span> • {emp.designation}
@@ -2653,7 +2709,9 @@ export default function ShiftsManager() {
                           let badgeBg = 'rgba(16, 185, 129, 0.18)'
                           let badgeColor = '#10b981'
                           let badgeText = 'M'
-                          let title = 'Morning Shift (08:00 - 20:00)'
+                          let title = (emp.id === 'emp-1789894008834' || emp.code === 'CB-1001' || emp.name.toLowerCase().includes('smita tamang'))
+                            ? 'Morning Shift (8 AM - 6 PM / 08:00 - 18:00)'
+                            : `Morning Shift (${emp.morningTime || '08:00'} - ${emp.eveningTime || '20:00'})`
 
                           if (assignment === 'Afternoon Shift') {
                             badgeBg = 'rgba(245, 158, 11, 0.18)'

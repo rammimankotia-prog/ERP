@@ -322,8 +322,43 @@ export function getEmployeeRosterShift(
 
     const empId = emp?.id
     const empCode = emp?.employeeId
+    const fullNameLower = `${emp?.firstName || ''} ${emp?.lastName || ''} ${emp?.name || ''}`.toLowerCase()
+    const isSmitaTamang =
+      empId === 'emp-1789894008834' ||
+      empCode === 'CB-1001' ||
+      fullNameLower.includes('smita tamang') ||
+      (emp?.email && String(emp.email).toLowerCase().includes('smita.tamang'))
+
     const empRoster = (empId && roster[empId]) || (empCode && roster[empCode]) || {}
     const assignedShiftName: string = empRoster[dayNum] || empRoster[String(dayNum)] || ''
+
+    // Smita Tamang is always in shift 8 AM to 6 PM (08:00 - 18:00)
+    if (isSmitaTamang) {
+      if (assignedShiftName === 'OFF') {
+        return {
+          startTime: 'OFF',
+          endTime: 'OFF',
+          shiftName: 'Weekly Off',
+          formatted12H: '🏖️ Weekly Off',
+          isNightShift: false,
+          isOff: true,
+          isShiftSwapped: false,
+          shiftChangeNotice: '🏖️ Weekly Off Today',
+          shiftInstruction: 'Today is scheduled as Weekly Off in duty roster.',
+        }
+      }
+      return {
+        startTime: '08:00',
+        endTime: '18:00',
+        shiftName: 'Morning Shift',
+        formatted12H: formatShiftTimingLabel('08:00', '18:00', 'Morning Shift'),
+        isNightShift: false,
+        isOff: false,
+        isShiftSwapped: false,
+        shiftChangeNotice: null,
+        shiftInstruction: null,
+      }
+    }
 
     const isProfileDefaultNight = isEmployeeProfileNight(emp)
 

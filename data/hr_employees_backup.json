@@ -515,10 +515,16 @@
     "designation": "Manager",
     "morningTime": "08:00",
     "eveningTime": "18:00",
+    "dayShiftStart": "08:00",
+    "dayShiftEnd": "18:00",
+    "shiftName": "Morning Shift",
+    "shiftType": "FIXED",
+    "selectedShift": "MORNING",
+    "isNightShift": false,
     "offDays": [
       "Sunday"
     ],
-    "swapShiftEligible": true,
+    "swapShiftEligible": false,
     "doj": "2026-09-20",
     "dob": null,
     "employmentType": "PERMANENT",
@@ -537,7 +543,7 @@
     },
     "role": "Manager",
     "createdAt": "2026-09-21T05:23:10.676Z",
-    "updatedAt": "2026-09-21T05:23:10.676Z"
+    "updatedAt": "2026-09-30T14:00:00.000Z"
   },
   {
     "id": "emp-1789903391165",
