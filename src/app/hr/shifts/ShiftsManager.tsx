@@ -250,9 +250,21 @@ export default function ShiftsManager() {
   const [rosterViewMode, setRosterViewMode] = useState<'MONTHLY' | 'WEEKLY'>('MONTHLY')
   const [isRosterFullscreen, setIsRosterFullscreen] = useState(false)
 
-  // Monthly Roster State
-  const [selectedMonth, setSelectedMonth] = useState<number>(8) // September (0-indexed)
-  const [selectedYear, setSelectedYear] = useState<number>(2026)
+  // Monthly Roster State (Dynamic — never hardcoded to September)
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const savedM = localStorage.getItem('GODWIN_ROSTER_ACTIVE_MONTH')
+      if (savedM !== null && !isNaN(Number(savedM))) return Number(savedM)
+    }
+    return new Date().getMonth()
+  })
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const savedY = localStorage.getItem('GODWIN_ROSTER_ACTIVE_YEAR')
+      if (savedY !== null && !isNaN(Number(savedY))) return Number(savedY)
+    }
+    return new Date().getFullYear()
+  })
 
   // Days in selected month
   const daysInMonth = useMemo(() => {
@@ -263,24 +275,25 @@ export default function ShiftsManager() {
     return Array.from({ length: daysInMonth }, (_, i) => i + 1)
   }, [daysInMonth])
 
-  // Dynamic available years list: starts from 2026 onwards
+  // Dynamic available years list: 2024 to 2050+
   const availableYears = useMemo(() => {
-    const startY = 2026
+    const startY = 2024
     const endY = Math.max(new Date().getFullYear() + 25, selectedYear + 10, 2050)
     const list: number[] = []
     for (let y = startY; y <= endY; y++) {
       list.push(y)
     }
-    if (selectedYear >= 2026 && !list.includes(selectedYear)) {
+    if (!list.includes(selectedYear)) {
       list.push(selectedYear)
       list.sort((a, b) => a - b)
     }
     return list
   }, [selectedYear])
 
-  const [monthlyRoster, setMonthlyRoster] = useState<Record<string, Record<number, string>>>(() =>
-    generateInitialMonthlyRoster(2026, 8, DEFAULT_ROSTER_EMPLOYEES)
-  )
+  const [monthlyRoster, setMonthlyRoster] = useState<Record<string, Record<number, string>>>(() => {
+    const now = new Date()
+    return generateInitialMonthlyRoster(now.getFullYear(), now.getMonth(), DEFAULT_ROSTER_EMPLOYEES)
+  })
 
   // Branch & Department Filters: Grand Godwin, Godwin Deluxe, Cafe Brownie & Housekeeping, Front Office, Security Guard
   const [branchFilter, setBranchFilter] = useState<string>('ALL')
@@ -762,11 +775,44 @@ export default function ShiftsManager() {
     })
   }
 
+  // Helper to sync Swap Modal calendar & custom date inputs to any chosen Month & Year
+  const syncSwapCalendarToMonth = (newMonth: number, newYear: number) => {
+    setSwapCalMonth(newMonth)
+    setSwapCalYear(newYear)
+    const maxDays = new Date(newYear, newMonth + 1, 0).getDate()
+    const mStr = String(newMonth + 1).padStart(2, '0')
+    setSwapFromDate(prev => {
+      const prevDay = prev ? parseInt(prev.split('-')[2] || '1', 10) : 1
+      const clampedDay = Math.min(Math.max(1, isNaN(prevDay) ? 1 : prevDay), maxDays)
+      setSwapFromDay(clampedDay)
+      return `${newYear}-${mStr}-${String(clampedDay).padStart(2, '0')}`
+    })
+    setSwapToDate(prev => {
+      const prevDay = prev ? parseInt(prev.split('-')[2] || '1', 10) : 1
+      const clampedDay = Math.min(Math.max(1, isNaN(prevDay) ? 1 : prevDay), maxDays)
+      setSwapToDay(clampedDay)
+      return `${newYear}-${mStr}-${String(clampedDay).padStart(2, '0')}`
+    })
+  }
+
+  const openSwapModal = () => {
+    // Ensure Swap Modal calendar matches the active Roster month/year (never stuck on September)
+    syncSwapCalendarToMonth(selectedMonth, selectedYear)
+    setShowSwapModal(true)
+  }
+
   // Month navigation handlers
-  const handleMonthChange = (newMonth: number, newYear: number) => {
+  const handleMonthChange = (newMonth: number, newYear: number, syncSwapDates: boolean = true) => {
     setSelectedMonth(newMonth)
     setSelectedYear(newYear)
+    if (syncSwapDates) {
+      syncSwapCalendarToMonth(newMonth, newYear)
+    }
     if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('GODWIN_ROSTER_ACTIVE_MONTH', String(newMonth))
+        localStorage.setItem('GODWIN_ROSTER_ACTIVE_YEAR', String(newYear))
+      } catch {}
       const saved = localStorage.getItem(getMonthlyStorageKey(newYear, newMonth))
       if (saved) {
         try {
@@ -863,7 +909,7 @@ export default function ShiftsManager() {
         setSwapToDay(d)
       }
       if (y !== selectedYear || m !== selectedMonth) {
-        handleMonthChange(m, y)
+        handleMonthChange(m, y, false)
       }
     }
   }
@@ -889,14 +935,16 @@ export default function ShiftsManager() {
   // Interactive Inline Calendar Day Click Handler inside Swap Modal
   const handleSwapCalendarDayClick = (dayNum: number) => {
     const dateStr = `${swapCalYear}-${String(swapCalMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
-    if (swapClickStep === 'FROM' || !swapFromDate || (swapFromDate && swapToDate && swapFromDate !== swapToDate)) {
+    if (swapClickStep === 'FROM' || !swapFromDate) {
       setSwapFromDate(dateStr)
-      setSwapToDate(dateStr)
+      if (!swapToDate || dateStr > swapToDate) {
+        setSwapToDate(dateStr)
+        setSwapToDay(dayNum)
+      }
       setSwapFromDay(dayNum)
-      setSwapToDay(dayNum)
       setSwapClickStep('TO')
       if (swapCalYear !== selectedYear || swapCalMonth !== selectedMonth) {
-        handleMonthChange(swapCalMonth, swapCalYear)
+        handleMonthChange(swapCalMonth, swapCalYear, false)
       }
     } else {
       if (dateStr < swapFromDate) {
@@ -1992,7 +2040,7 @@ export default function ShiftsManager() {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => setShowSwapModal(true)}
+              onClick={openSwapModal}
               style={{
                 padding: '0.35rem 0.85rem',
                 fontSize: '0.8rem',
@@ -2202,7 +2250,7 @@ export default function ShiftsManager() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => setShowSwapModal(true)}
+                  onClick={openSwapModal}
                   style={{
                     padding: '0.35rem 0.75rem',
                     fontSize: '0.8rem',
@@ -3657,12 +3705,9 @@ export default function ShiftsManager() {
                           <button
                             type="button"
                             onClick={() => {
-                              if (swapCalMonth === 0) {
-                                setSwapCalMonth(11)
-                                setSwapCalYear(swapCalYear - 1)
-                              } else {
-                                setSwapCalMonth(swapCalMonth - 1)
-                              }
+                              const nextM = swapCalMonth === 0 ? 11 : swapCalMonth - 1
+                              const nextY = swapCalMonth === 0 ? swapCalYear - 1 : swapCalYear
+                              handleMonthChange(nextM, nextY)
                             }}
                             style={{
                               padding: '0.25rem 0.55rem',
@@ -3683,7 +3728,7 @@ export default function ShiftsManager() {
                             <select
                               className="form-input"
                               value={swapCalMonth}
-                              onChange={e => setSwapCalMonth(Number(e.target.value))}
+                              onChange={e => handleMonthChange(Number(e.target.value), swapCalYear)}
                               style={{ padding: '0.15rem 0.45rem', fontSize: '0.78rem', fontWeight: 700, height: '28px', borderRadius: '6px' }}
                             >
                               {MONTH_NAMES.map((m, idx) => (
@@ -3693,7 +3738,7 @@ export default function ShiftsManager() {
                             <select
                               className="form-input"
                               value={swapCalYear}
-                              onChange={e => setSwapCalYear(Number(e.target.value))}
+                              onChange={e => handleMonthChange(swapCalMonth, Number(e.target.value))}
                               style={{ padding: '0.15rem 0.45rem', fontSize: '0.78rem', fontWeight: 700, height: '28px', borderRadius: '6px' }}
                             >
                               {availableYears.map(y => (
@@ -3705,12 +3750,9 @@ export default function ShiftsManager() {
                           <button
                             type="button"
                             onClick={() => {
-                              if (swapCalMonth === 11) {
-                                setSwapCalMonth(0)
-                                setSwapCalYear(swapCalYear + 1)
-                              } else {
-                                setSwapCalMonth(swapCalMonth + 1)
-                              }
+                              const nextM = swapCalMonth === 11 ? 0 : swapCalMonth + 1
+                              const nextY = swapCalMonth === 11 ? swapCalYear + 1 : swapCalYear
+                              handleMonthChange(nextM, nextY)
                             }}
                             style={{
                               padding: '0.25rem 0.55rem',
@@ -3728,10 +3770,40 @@ export default function ShiftsManager() {
                           </button>
                         </div>
 
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '0.4rem' }}>
-                          {swapClickStep === 'FROM'
-                            ? '👆 Click any date below to set Custom Start Date (or use date inputs above)'
-                            : '👆 Now click Custom End Date (or click same date for 1-day custom shift)'}
+                        {/* Interactive Selection Mode Toggle (Start Date vs End Date) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginBottom: '0.45rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => setSwapClickStep('FROM')}
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '6px',
+                              border: swapClickStep === 'FROM' ? '1.5px solid #6366f1' : '1px solid var(--border)',
+                              backgroundColor: swapClickStep === 'FROM' ? 'rgba(99, 102, 241, 0.14)' : 'var(--bg-main)',
+                              color: swapClickStep === 'FROM' ? '#6366f1' : 'var(--text-muted)',
+                              fontSize: '0.71rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            1️⃣ Pick Start: {fmtDisplayDate(startIso)}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSwapClickStep('TO')}
+                            style={{
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '6px',
+                              border: swapClickStep === 'TO' ? '1.5px solid #6366f1' : '1px solid var(--border)',
+                              backgroundColor: swapClickStep === 'TO' ? 'rgba(99, 102, 241, 0.14)' : 'var(--bg-main)',
+                              color: swapClickStep === 'TO' ? '#6366f1' : 'var(--text-muted)',
+                              fontSize: '0.71rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            2️⃣ Pick End: {fmtDisplayDate(endIso)}
+                          </button>
                         </div>
 
                         {/* Weekday Headers */}

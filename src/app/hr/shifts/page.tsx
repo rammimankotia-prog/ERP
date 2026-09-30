@@ -1,5 +1,7 @@
 import ShiftsManager from './ShiftsManager'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'Shift & Roster Manager | Godwin ERP',
   description: 'Manage staff schedules with interactive weekly and monthly rosters across Hotel Grand Godwin & Hotel Godwin Deluxe'
