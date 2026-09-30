@@ -1195,8 +1195,6 @@ export default function KioskPage() {
                             const eTime = (emp.eveningTime || '').trim()
                             const isNight = emp.isNightShift === true ||
                               (emp.shiftName && emp.shiftName.toLowerCase().includes('night')) ||
-                              emp.employeeId === 'GG-1015' ||
-                              (emp.firstName === 'Pawan' && emp.lastName === 'Pawan') ||
                               ((mTime === '20:00' || mTime.startsWith('2') || mTime.startsWith('19')) && (eTime === '08:00' || eTime === '07:00' || eTime.includes('am') || !eTime))
 
                             const format12H = (t?: string) => {

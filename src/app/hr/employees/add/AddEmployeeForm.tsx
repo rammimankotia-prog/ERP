@@ -38,7 +38,7 @@ export default function AddEmployeeForm({
   const [createdResult, setCreatedResult] = useState<any | null>(null)
   const [copied, setCopied] = useState(false)
   const [offDays, setOffDays] = useState<string[]>(['Sunday'])
-  const [swapShiftEligible, setSwapShiftEligible] = useState<boolean>(false)
+  const [swapShiftEligible, setSwapShiftEligible] = useState<boolean>(true)
   const [dayShiftStart, setDayShiftStart] = useState('09:00')
   const [dayShiftEnd, setDayShiftEnd] = useState('18:00')
   const [nightShiftStart, setNightShiftStart] = useState('20:00')

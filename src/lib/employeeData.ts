@@ -121,14 +121,9 @@ export async function getAllEmployees(): Promise<any[]> {
         if (isEmployeeDeleted(e, deletedKeys)) continue
         const key = (e.employeeId || e.id || '').toUpperCase().trim()
         if (key) {
-          const isPermanentNightStaff =
-            key === 'GG-1015' ||
-            key === 'IG-1003' ||
-            `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase().includes('pawan') ||
-            `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase().includes('lalit')
-          const defaultNightStart = key === 'IG-1003' || `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase().includes('lalit') ? '19:00' : '20:00'
-          const defaultNightEnd = key === 'IG-1003' || `${e.firstName || ''} ${e.lastName || ''}`.toLowerCase().includes('lalit') ? '07:00' : '08:00'
-          const isNight = isPermanentNightStaff || (e as any).isNightShift === true || (e as any).selectedShift === 'NIGHT' || isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined)
+          const isNight = (e as any).isNightShift === true || (e as any).selectedShift === 'NIGHT' || isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined)
+          const defaultNightStart = '20:00'
+          const defaultNightEnd = '08:00'
           map.set(key, {
             id: e.id,
             employeeId: e.employeeId || e.id,
@@ -150,7 +145,7 @@ export async function getAllEmployees(): Promise<any[]> {
             dayShiftEnd: (e as any).dayShiftEnd || e.eveningTime || '18:00',
             nightShiftStart: (e as any).nightShiftStart || (isNight ? ((isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined) ? e.morningTime : null) || defaultNightStart) : '20:00'),
             nightShiftEnd: (e as any).nightShiftEnd || (isNight ? ((isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined) ? e.eveningTime : null) || defaultNightEnd) : '08:00'),
-            swapShiftEligible: (e as any).swapShiftEligible === true,
+            swapShiftEligible: (e as any).swapShiftEligible !== false,
             isNightShift: isNight,
             shiftName: (e as any).shiftName || (isNight ? 'Night Shift' : 'Morning Shift'),
             shiftType: (e as any).shiftType || (isNight ? 'NIGHT' : undefined),
@@ -192,14 +187,9 @@ export async function getAllEmployees(): Promise<any[]> {
 
           const mTime = (emp.morningTime || '').trim()
           const eTime = (emp.eveningTime || '').trim()
-          const empCodeNorm = (emp.employeeId || emp.id || '').toUpperCase().trim()
-          const fullNameLower = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase()
-          const isPermanentNightStaff =
-            key === 'GG-1015' || empCodeNorm === 'GG-1015' || fullNameLower.includes('pawan') ||
-            key === 'IG-1003' || empCodeNorm === 'IG-1003' || fullNameLower.includes('lalit')
-          const defaultNightStart = (key === 'IG-1003' || empCodeNorm === 'IG-1003' || fullNameLower.includes('lalit')) ? '19:00' : '20:00'
-          const defaultNightEnd = (key === 'IG-1003' || empCodeNorm === 'IG-1003' || fullNameLower.includes('lalit')) ? '07:00' : '08:00'
-          const isNight = isPermanentNightStaff || emp.isNightShift === true ||
+          const defaultNightStart = '20:00'
+          const defaultNightEnd = '08:00'
+          const isNight = emp.isNightShift === true ||
             (emp.shiftName && String(emp.shiftName).toLowerCase().includes('night')) ||
             emp.selectedShift === 'NIGHT' ||
             isNightShiftTime(mTime, eTime)
@@ -216,7 +206,7 @@ export async function getAllEmployees(): Promise<any[]> {
               dayShiftEnd: emp.dayShiftEnd || (isNight ? '18:00' : (emp.eveningTime || '18:00')),
               nightShiftStart: emp.nightShiftStart || (isNight ? (emp.morningTime || defaultNightStart) : '20:00'),
               nightShiftEnd: emp.nightShiftEnd || (isNight ? (emp.eveningTime || defaultNightEnd) : '08:00'),
-              swapShiftEligible: emp.swapShiftEligible === true,
+              swapShiftEligible: emp.swapShiftEligible !== false,
               isNightShift: isNight,
               shiftName: emp.shiftName || (isNight ? 'Night Shift' : 'Morning Shift'),
               shiftType: emp.shiftType || (isNight ? 'NIGHT' : 'FIXED'),
@@ -236,7 +226,7 @@ export async function getAllEmployees(): Promise<any[]> {
               ? (existing.status === 'TERMINATED' || empStatus === 'TERMINATED' ? 'TERMINATED' : 'RESIGNED')
               : (jsonUpdatedAt >= prismaUpdatedAt ? empStatus : existing.status)
 
-            if (jsonUpdatedAt > prismaUpdatedAt || isDeactivated || existingIsDeactivated || isPermanentNightStaff || isNight) {
+            if (jsonUpdatedAt > prismaUpdatedAt || isDeactivated || existingIsDeactivated || isNight) {
               map.set(key, {
                 ...existing,
                 // Override mutable operational fields from JSON
