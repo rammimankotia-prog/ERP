@@ -43,9 +43,9 @@ export default function RootLayout({
           <AuthProvider>
             <SidebarProvider>
               <Sidebar />
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: '100dvh', height: '100dvh', overflow: 'hidden' }}>
                 <TopNavbar />
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', WebkitOverflowScrolling: 'touch' }}>
                   {children}
                 </div>
               </div>

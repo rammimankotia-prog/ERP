@@ -624,53 +624,6 @@ export default function LoginPage() {
           <a href="mailto:mail@godwinhotels.com" className="lp-footer-link"> mail@godwinhotels.com</a>
         </div>
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        .lp-wrap {
-          min-height: 100vh; min-height: 100dvh; width: 100%; max-width: 100vw;
-          background: radial-gradient(ellipse at 50% 0%, #0f1e2e 0%, #070d14 70%) !important;
-          display: flex; align-items: center; justify-content: center;
-          padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-          position: relative; overflow-x: hidden; overflow-y: auto;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          color: #f8fafc;
-        }
-        .lp-card {
-          width: 100%; max-width: 490px; margin: auto;
-          background: rgba(10, 18, 30, 0.94);
-          backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
-          border: 1px solid rgba(255,255,255,0.1); border-radius: 24px;
-          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.85);
-          padding: clamp(1.4rem, 4.5vw, 2.4rem); position: relative; z-index: 1;
-        }
-        .lp-accent-bar { position: absolute; top: 0; left: 0; right: 0; height: 4px; border-top-left-radius: 24px; border-top-right-radius: 24px; }
-        .bar-green { background: linear-gradient(90deg, #059669, #10b981, #06b6d4); }
-        .bar-blue { background: linear-gradient(90deg, #2563eb, #3b82f6, #6366f1); }
-        .lp-brand { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.35rem; padding-bottom: 1.15rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .lp-brand-name { font-size: 1rem; font-weight: 800; color: #f1f5f9; line-height: 1.25; }
-        .lp-brand-sub { font-size: 0.72rem; color: #64748b; font-weight: 500; }
-        .lp-mode-switcher { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 0.35rem; margin-bottom: 1.5rem; }
-        .lp-mode-btn { display: flex; align-items: center; gap: 0.55rem; padding: 0.7rem 0.6rem; border-radius: 10px; border: 1px solid transparent; background: transparent; color: #64748b; cursor: pointer; min-height: 54px; }
-        .mode-active-green { background: rgba(16,185,129,0.14); border-color: rgba(16,185,129,0.35); color: #34d399; }
-        .mode-active-blue { background: rgba(59,130,246,0.14); border-color: rgba(59,130,246,0.35); color: #60a5fa; }
-        .lp-section-header { text-align: center; margin-bottom: 1.35rem; }
-        .lp-badge { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.65rem; }
-        .badge-green { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.28); color: #34d399; }
-        .badge-blue { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.28); color: #60a5fa; }
-        .lp-title { font-size: clamp(1.4rem, 4.5vw, 1.85rem); font-weight: 900; color: #ffffff; margin: 0 0 0.35rem 0; }
-        .lp-subtitle { font-size: 0.82rem; color: #64748b; line-height: 1.45; }
-        .lp-form { display: flex; flex-direction: column; gap: 1rem; width: 100%; }
-        .lp-field { display: flex; flex-direction: column; width: 100%; }
-        .lp-label { font-size: 0.72rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.45rem; }
-        .lp-input-wrap { display: flex; align-items: center; background: rgba(2,6,23,0.75); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 0 0.85rem; min-height: 48px; width: 100%; }
-        .lp-input-icon { font-size: 1rem; color: #64748b; margin-right: 0.65rem; flex-shrink: 0; }
-        .lp-input { width: 100%; background: transparent; border: none; padding: 0.85rem 0; color: #ffffff; font-size: 16px; outline: none; }
-        .lp-remember-box { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.9rem; border-radius: 12px; background: rgba(16, 185, 129, 0.07); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399; }
-        .lp-submit-btn { color: #fff; border: none; border-radius: 12px; padding: 0.95rem 1.25rem; font-size: 0.96rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.6rem; min-height: 50px; width: 100%; }
-        .btn-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-        .btn-blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
-      `}} />
     </div>
   );
 }

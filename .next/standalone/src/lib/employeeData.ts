@@ -121,7 +121,9 @@ export async function getAllEmployees(): Promise<any[]> {
         if (isEmployeeDeleted(e, deletedKeys)) continue
         const key = (e.employeeId || e.id || '').toUpperCase().trim()
         if (key) {
-          const isNight = (e as any).isNightShift === true || isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined)
+          const isNight = (e as any).isNightShift === true || (e as any).selectedShift === 'NIGHT' || isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined)
+          const defaultNightStart = '20:00'
+          const defaultNightEnd = '08:00'
           map.set(key, {
             id: e.id,
             employeeId: e.employeeId || e.id,
@@ -137,13 +139,13 @@ export async function getAllEmployees(): Promise<any[]> {
             departmentId: e.departmentId || null,
             branch: e.branch || null,
             branchId: e.branchId || null,
-            morningTime: e.morningTime || '09:00',
-            eveningTime: e.eveningTime || '18:00',
+            morningTime: isNight ? ((e as any).nightShiftStart || (isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined) ? e.morningTime : null) || defaultNightStart) : (e.morningTime || '09:00'),
+            eveningTime: isNight ? ((e as any).nightShiftEnd || (isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined) ? e.eveningTime : null) || defaultNightEnd) : (e.eveningTime || '18:00'),
             dayShiftStart: (e as any).dayShiftStart || e.morningTime || '09:00',
             dayShiftEnd: (e as any).dayShiftEnd || e.eveningTime || '18:00',
-            nightShiftStart: (e as any).nightShiftStart || '20:00',
-            nightShiftEnd: (e as any).nightShiftEnd || '08:00',
-            swapShiftEligible: (e as any).swapShiftEligible === true,
+            nightShiftStart: (e as any).nightShiftStart || (isNight ? ((isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined) ? e.morningTime : null) || defaultNightStart) : '20:00'),
+            nightShiftEnd: (e as any).nightShiftEnd || (isNight ? ((isNightShiftTime(e.morningTime || undefined, e.eveningTime || undefined) ? e.eveningTime : null) || defaultNightEnd) : '08:00'),
+            swapShiftEligible: (e as any).swapShiftEligible !== false,
             isNightShift: isNight,
             shiftName: (e as any).shiftName || (isNight ? 'Night Shift' : 'Morning Shift'),
             shiftType: (e as any).shiftType || (isNight ? 'NIGHT' : undefined),
@@ -185,6 +187,8 @@ export async function getAllEmployees(): Promise<any[]> {
 
           const mTime = (emp.morningTime || '').trim()
           const eTime = (emp.eveningTime || '').trim()
+          const defaultNightStart = '20:00'
+          const defaultNightEnd = '08:00'
           const isNight = emp.isNightShift === true ||
             (emp.shiftName && String(emp.shiftName).toLowerCase().includes('night')) ||
             emp.selectedShift === 'NIGHT' ||
@@ -196,13 +200,13 @@ export async function getAllEmployees(): Promise<any[]> {
               ...emp,
               id: emp.id || key,
               employeeId: emp.employeeId || key,
-              morningTime: emp.morningTime || (isNight ? (emp.nightShiftStart || '20:00') : '09:00'),
-              eveningTime: emp.eveningTime || (isNight ? (emp.nightShiftEnd || '08:00') : '18:00'),
+              morningTime: emp.morningTime || (isNight ? (emp.nightShiftStart || defaultNightStart) : '09:00'),
+              eveningTime: emp.eveningTime || (isNight ? (emp.nightShiftEnd || defaultNightEnd) : '18:00'),
               dayShiftStart: emp.dayShiftStart || (isNight ? '09:00' : (emp.morningTime || '09:00')),
               dayShiftEnd: emp.dayShiftEnd || (isNight ? '18:00' : (emp.eveningTime || '18:00')),
-              nightShiftStart: emp.nightShiftStart || (isNight ? (emp.morningTime || '20:00') : '20:00'),
-              nightShiftEnd: emp.nightShiftEnd || (isNight ? (emp.eveningTime || '08:00') : '08:00'),
-              swapShiftEligible: emp.swapShiftEligible === true,
+              nightShiftStart: emp.nightShiftStart || (isNight ? (emp.morningTime || defaultNightStart) : '20:00'),
+              nightShiftEnd: emp.nightShiftEnd || (isNight ? (emp.eveningTime || defaultNightEnd) : '08:00'),
+              swapShiftEligible: emp.swapShiftEligible !== false,
               isNightShift: isNight,
               shiftName: emp.shiftName || (isNight ? 'Night Shift' : 'Morning Shift'),
               shiftType: emp.shiftType || (isNight ? 'NIGHT' : 'FIXED'),
@@ -222,7 +226,7 @@ export async function getAllEmployees(): Promise<any[]> {
               ? (existing.status === 'TERMINATED' || empStatus === 'TERMINATED' ? 'TERMINATED' : 'RESIGNED')
               : (jsonUpdatedAt >= prismaUpdatedAt ? empStatus : existing.status)
 
-            if (jsonUpdatedAt > prismaUpdatedAt || isDeactivated || existingIsDeactivated) {
+            if (jsonUpdatedAt > prismaUpdatedAt || isDeactivated || existingIsDeactivated || isNight) {
               map.set(key, {
                 ...existing,
                 // Override mutable operational fields from JSON
@@ -234,6 +238,8 @@ export async function getAllEmployees(): Promise<any[]> {
                 shiftName: emp.shiftName || existing.shiftName,
                 shiftType: emp.shiftType || existing.shiftType,
                 selectedShift: emp.selectedShift || existing.selectedShift,
+                nightShiftStart: emp.nightShiftStart || (isNight && isNightShiftTime(mTime, eTime) ? mTime : existing.nightShiftStart) || defaultNightStart,
+                nightShiftEnd: emp.nightShiftEnd || (isNight && isNightShiftTime(mTime, eTime) ? eTime : existing.nightShiftEnd) || defaultNightEnd,
                 updatedAt: emp.updatedAt || existing.updatedAt,
               })
             }

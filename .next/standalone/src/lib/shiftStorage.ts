@@ -343,7 +343,7 @@ export function getEmployeeRosterShift(
       if (assignedShiftName === 'Night Shift' || (matched && (matched.type === 'NIGHT' || matched.name.toLowerCase().includes('night')))) {
         const sTime = baseNightStart || matched?.startTime || '20:00'
         const eTime = baseNightEnd || matched?.endTime || '08:00'
-        const isSwapped = !isProfileDefaultNight || emp?.swapShiftEligible === true
+        const isSwapped = !isProfileDefaultNight
         return {
           startTime: sTime,
           endTime: eTime,
@@ -351,32 +351,18 @@ export function getEmployeeRosterShift(
           formatted12H: formatShiftTimingLabel(sTime, eTime, 'Night Shift'),
           isNightShift: true,
           isOff: false,
-          isShiftSwapped: isSwapped && !isProfileDefaultNight,
-          shiftChangeNotice: (isSwapped && !isProfileDefaultNight) ? `🌙 Swapped to Night Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})` : null,
-          shiftInstruction: (isSwapped && !isProfileDefaultNight) ? `Shift changed to Night Duty (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)}). Reporting time is ${formatTime12Hour(sTime)}.` : null,
+          isShiftSwapped: isSwapped,
+          shiftChangeNotice: isSwapped ? `🌙 Swapped to Night Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})` : null,
+          shiftInstruction: isSwapped ? `Shift changed to Night Duty (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)}). Reporting time is ${formatTime12Hour(sTime)}.` : null,
         }
       }
 
       // If assignedShiftName is Morning Shift:
-      // If the employee is configured for Night Shift, they remain on Night Shift duty!
+      // Respect Morning Shift even if employee profile default was Night Shift (flexible duty)
       if (assignedShiftName === 'Morning Shift' || (matched && (matched.name.toLowerCase().includes('morning') || matched.name.toLowerCase().includes('day')))) {
-        if (isProfileDefaultNight) {
-          // Designated Night Shift employee
-          return {
-            startTime: baseNightStart,
-            endTime: baseNightEnd,
-            shiftName: 'Night Shift',
-            formatted12H: formatShiftTimingLabel(baseNightStart, baseNightEnd, 'Night Shift'),
-            isNightShift: true,
-            isOff: false,
-            isShiftSwapped: false,
-            shiftChangeNotice: null,
-            shiftInstruction: null,
-          }
-        }
-
-        const sTime = (emp?.dayShiftStart || emp?.morningTime) || (matched?.startTime) || '08:00'
-        const eTime = (emp?.dayShiftEnd || emp?.eveningTime) || (matched?.endTime) || '20:00'
+        const sTime = emp?.dayShiftStart || (!isProfileDefaultNight ? (emp?.morningTime || '08:00') : '08:00') || (matched?.startTime) || '08:00'
+        const eTime = emp?.dayShiftEnd || (!isProfileDefaultNight ? (emp?.eveningTime || '20:00') : '20:00') || (matched?.endTime) || '20:00'
+        const isSwapped = isProfileDefaultNight
         return {
           startTime: sTime,
           endTime: eTime,
@@ -384,9 +370,32 @@ export function getEmployeeRosterShift(
           formatted12H: formatShiftTimingLabel(sTime, eTime, 'Morning Shift'),
           isNightShift: false,
           isOff: false,
-          isShiftSwapped: false,
-          shiftChangeNotice: null,
-          shiftInstruction: null,
+          isShiftSwapped: isSwapped,
+          shiftChangeNotice: isSwapped ? `☀️ Swapped to Day Shift (${formatTime12Hour(sTime)} – ${formatTime12Hour(eTime)})` : null,
+          shiftInstruction: isSwapped ? `Shift changed to Day Duty. Reporting time is ${formatTime12Hour(sTime)}.` : null,
+        }
+      }
+
+      // If assignedShiftName is Double Duty:
+      // Supports both Day Shift & Night Shift consecutive duties in 24 hours
+      if (assignedShiftName === 'Double Duty' || assignedShiftName.toLowerCase().includes('double')) {
+        const curHourIST = parseInt(
+          new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }).format(new Date()),
+          10
+        )
+        const isNightPhase = (curHourIST >= 19 || curHourIST < 6)
+        const sTime = isNightPhase ? (baseNightStart || '20:00') : (baseDayStart || '08:00')
+        const eTime = isNightPhase ? (baseNightEnd || '08:00') : (baseDayEnd || '20:00')
+        return {
+          startTime: sTime,
+          endTime: eTime,
+          shiftName: 'Double Duty',
+          formatted12H: `⚡ Double Duty (Day 08:00-20:00 + Night 20:00-08:00)`,
+          isNightShift: isNightPhase,
+          isOff: false,
+          isShiftSwapped: true,
+          shiftChangeNotice: `⚡ Double Duty Assigned (Day + Night Shift Active)`,
+          shiftInstruction: `Double Duty: Active phase reporting at ${formatTime12Hour(sTime)}.`,
         }
       }
 
@@ -508,6 +517,55 @@ export function getEmployeeRosterShift(
       shiftChangeNotice: null,
       shiftInstruction: null,
     }
+  }
+}
+
+/**
+ * Update an employee's shift in the monthly duty roster and persist across all storage tiers.
+ * If employee has both id and employeeId (or if an altKey is passed), it syncs both keys.
+ */
+export function updateEmployeeRosterShift(
+  empIdOrCode: string,
+  dateStr: string,
+  newShiftName: string,
+  altKey?: string
+): boolean {
+  try {
+    const [yStr, mStr, dStr] = dateStr.split('-')
+    const year = parseInt(yStr, 10)
+    const month = parseInt(mStr, 10) - 1 // 0-indexed month
+    const dayNum = parseInt(dStr, 10)
+
+    if (isNaN(year) || isNaN(month) || isNaN(dayNum)) return false
+
+    const allDirs = getAllDataDirs()
+    let roster: Record<string, Record<string, string>> = {}
+    const filename = `hr_roster_${year}_${month}.json`
+
+    for (const dir of allDirs) {
+      const rosterFile = path.join(dir, filename)
+      const data = safeReadJsonFile<Record<string, Record<string, string>>>(rosterFile, {})
+      if (data && Object.keys(data).length > 0) {
+        roster = data
+        break
+      }
+    }
+
+    const keysToUpdate = [empIdOrCode]
+    if (altKey && altKey !== empIdOrCode) keysToUpdate.push(altKey)
+
+    for (const k of keysToUpdate) {
+      if (!k) continue
+      if (!roster[k]) roster[k] = {}
+      roster[k][dayNum] = newShiftName
+      roster[k][String(dayNum)] = newShiftName
+    }
+
+    writeToAllTiers(filename, roster)
+    return true
+  } catch (err) {
+    console.error('Failed to update employee roster shift:', err)
+    return false
   }
 }
 

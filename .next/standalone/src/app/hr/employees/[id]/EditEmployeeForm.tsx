@@ -44,7 +44,7 @@ export default function EditEmployeeForm({
     : 'MORNING'
 
   const [selectedShift, setSelectedShift] = useState<'MORNING' | 'AFTERNOON' | 'BREAK' | 'NIGHT'>(initialShift)
-  const [swapShiftEligible, setSwapShiftEligible] = useState<boolean>(employee.swapShiftEligible === true)
+  const [swapShiftEligible, setSwapShiftEligible] = useState<boolean>(employee.swapShiftEligible !== false)
   const [dayShiftStart, setDayShiftStart] = useState(employee.dayShiftStart || employee.morningTime || '09:00')
   const [dayShiftEnd, setDayShiftEnd] = useState(employee.dayShiftEnd || employee.eveningTime || '18:00')
   const [nightShiftStart, setNightShiftStart] = useState(employee.nightShiftStart || '20:00')

@@ -26,6 +26,144 @@ export interface AttendanceRecord {
   [key: string]: any
 }
 
+export function getPreviousDateStr(dateStr: string): string {
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    if (!y || !m || !d) return ''
+    const dt = new Date(Date.UTC(y, m - 1, d))
+    dt.setUTCDate(dt.getUTCDate() - 1)
+    return dt.toISOString().slice(0, 10)
+  } catch {
+    return ''
+  }
+}
+
+export function getISTMinutesFromDate(d: Date = new Date()): number {
+  try {
+    const istStr = d.toLocaleTimeString('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    const [hStr, mStr] = istStr.split(':')
+    return (parseInt(hStr, 10) || 0) * 60 + (parseInt(mStr, 10) || 0)
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * Resolves the active attendance record for an employee on `todayIST`,
+ * properly handling cross-midnight Night Shifts (e.g., 7:00 PM - 7:00 AM or 8:00 PM - 8:00 AM).
+ *
+ * - If the employee checked in on `yesterdayIST` for a Night Shift and has NOT checked out yet,
+ *   that record remains active past 12:00 AM midnight through the morning/afternoon (until check-out or 5:00 PM IST),
+ *   preventing the portal/kiosk from prematurely resetting to "Ready for Check-In" at midnight.
+ * - Once the employee checks out in the morning (on `todayIST`), the completed night shift record
+ *   continues to display as "Completed" during daytime rest hours (until 4:00 PM / 16:00 IST),
+ *   after which it resets for their next evening Night Shift check-in.
+ */
+export function findActiveAttendanceForEmployee(
+  allAttendance: AttendanceRecord[],
+  idAliases: Iterable<string>,
+  todayIST: string,
+  isNightShiftEmp: boolean = false,
+  now: Date = new Date()
+): AttendanceRecord | undefined {
+  const aliasSet = new Set<string>()
+  for (const a of idAliases) {
+    if (a && String(a).trim()) {
+      aliasSet.add(String(a).trim().toUpperCase())
+    }
+  }
+  if (aliasSet.size === 0) return undefined
+
+  const matchesEmp = (rec: AttendanceRecord) => {
+    const aEmp = (rec.employeeId || '').trim().toUpperCase()
+    return aliasSet.has(aEmp)
+  }
+
+  const getRecDateIST = (rec: AttendanceRecord): string => {
+    if (rec.date && /^\d{4}-\d{2}-\d{2}$/.test(rec.date.trim())) {
+      return rec.date.trim()
+    }
+    if (rec.punchIn) {
+      try {
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(rec.punchIn))
+      } catch {
+        return String(rec.punchIn).slice(0, 10)
+      }
+    }
+    return ''
+  }
+
+  const yesterdayIST = getPreviousDateStr(todayIST)
+  const currentISTMinutes = getISTMinutesFromDate(now)
+
+  const todayRecord = allAttendance.find(a => matchesEmp(a) && a.punchIn && getRecDateIST(a) === todayIST)
+  const yesterdayRecord = yesterdayIST
+    ? allAttendance.find(a => matchesEmp(a) && a.punchIn && getRecDateIST(a) === yesterdayIST)
+    : undefined
+
+  if (yesterdayRecord && yesterdayRecord.punchIn) {
+    let punchInISTMinutes = 0
+    try {
+      const inDt = new Date(yesterdayRecord.punchIn)
+      if (!isNaN(inDt.getTime())) {
+        punchInISTMinutes = getISTMinutesFromDate(inDt)
+      }
+    } catch {}
+
+    const recShiftLower = String(yesterdayRecord.shiftName || '').toLowerCase()
+    const ddShiftLower = String(yesterdayRecord.doubleDutyShift || '').toLowerCase()
+    const isYesterdayNightShift =
+      recShiftLower.includes('night') ||
+      ddShiftLower.includes('night') ||
+      isNightShiftEmp ||
+      punchInISTMinutes >= 990 // 16:30 (4:30 PM IST) or later
+
+    if (isYesterdayNightShift) {
+      const isYesterdayStillOpen =
+        (yesterdayRecord.punchIn && !yesterdayRecord.punchOut) ||
+        (yesterdayRecord.doubleDutyIn && !yesterdayRecord.doubleDutyOut)
+
+      // 1. OPEN NIGHT SHIFT FROM YESTERDAY:
+      // Keep active across midnight through morning & afternoon (until 17:00 / 5:00 PM IST or within 20h of punch-in)
+      if (isYesterdayStillOpen && !todayRecord) {
+        let elapsedHours = 0
+        try {
+          const activeInIso = (yesterdayRecord.doubleDutyIn && !yesterdayRecord.doubleDutyOut)
+            ? yesterdayRecord.doubleDutyIn
+            : yesterdayRecord.punchIn
+          elapsedHours = (now.getTime() - new Date(activeInIso!).getTime()) / (1000 * 60 * 60)
+        } catch {}
+
+        if (currentISTMinutes < 1020 || (elapsedHours > 0 && elapsedHours <= 20)) {
+          return yesterdayRecord
+        }
+      }
+
+      // 2. COMPLETED NIGHT SHIFT THAT ENDED THIS MORNING (ON todayIST):
+      // Keep showing as "Shift Completed" during daytime rest hours until 16:00 (4:00 PM IST),
+      // so the employee doesn't immediately flip back to "Ready for Check-In" right after morning check-out.
+      if (!isYesterdayStillOpen && !todayRecord && currentISTMinutes < 960) {
+        const lastOutIso = yesterdayRecord.doubleDutyOut || yesterdayRecord.punchOut
+        if (lastOutIso) {
+          try {
+            const outDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(lastOutIso))
+            if (outDateIST === todayIST) {
+              return yesterdayRecord
+            }
+          } catch {}
+        }
+      }
+    }
+  }
+
+  return todayRecord
+}
+
 /**
  * Get all merged attendance records across all storage tiers and historical deployments.
  * Guarantees that no punches are lost even across server updates, PM2 reloads, or git pulls.
@@ -44,17 +182,40 @@ export function getMergedAttendance(): AttendanceRecord[] {
       }
     }
     if (!d) return
-    const key = `${rec.employeeId.trim().toUpperCase()}_${String(d).trim()}`
+    const empNorm = rec.employeeId.trim().toUpperCase()
+    const dateNorm = String(d).trim()
+    const key = `${empNorm}_${dateNorm}`
     const existing = map.get(key)
 
+    // Guard against creating an orphan OUT-only record on `dateNorm` when it actually belongs to yesterday's Night Shift
+    if (!existing && !rec.punchIn && rec.punchOut) {
+      const prevDate = getPreviousDateStr(dateNorm)
+      if (prevDate) {
+        const prevKey = `${empNorm}_${prevDate}`
+        const prevExisting = map.get(prevKey)
+        if (prevExisting && prevExisting.punchIn) {
+          map.set(prevKey, {
+            ...prevExisting,
+            punchOut: prevExisting.punchOut || rec.punchOut,
+            punchOutMode: prevExisting.punchOutMode || rec.punchOutMode || null,
+            totalMinutes: rec.totalMinutes !== undefined && rec.totalMinutes !== null ? rec.totalMinutes : prevExisting.totalMinutes,
+            status: rec.status || prevExisting.status,
+          })
+          return
+        }
+      }
+      // Do not insert a record that has no punchIn at all
+      return
+    }
+
     if (!existing) {
-      map.set(key, { ...rec, date: String(d).trim() })
+      map.set(key, { ...rec, date: dateNorm })
     } else {
       // Intelligently merge without losing punchIn or punchOut
       const merged: AttendanceRecord = {
         ...existing,
         ...rec,
-        date: existing.date || String(d).trim(),
+        date: existing.date || dateNorm,
         punchIn: existing.punchIn || rec.punchIn || null,
         punchOut: rec.punchOut || existing.punchOut || null,
         punchInMode: existing.punchInMode || rec.punchInMode || null,
@@ -131,16 +292,20 @@ export function getMergedAttendance(): AttendanceRecord[] {
       const fPath = path.join(dir, filename)
       const list = safeReadJsonFile<any[]>(fPath, [])
       if (Array.isArray(list)) {
-        for (const audit of list) {
+        // Process chronologically (oldest first) so IN records exist before OUT records
+        const chronological = [...list].reverse()
+        for (const audit of chronological) {
           if (!audit || !audit.employeeId || !audit.timestamp) continue
           const action = String(audit.action || '').toUpperCase()
           if (action !== 'IN' && action !== 'OUT') continue
 
-          let d = ''
-          try {
-            d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(audit.timestamp))
-          } catch {
-            d = String(audit.timestamp).slice(0, 10)
+          let d = audit.shiftDate || ''
+          if (!d) {
+            try {
+              d = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(audit.timestamp))
+            } catch {
+              d = String(audit.timestamp).slice(0, 10)
+            }
           }
           if (!d) continue
 

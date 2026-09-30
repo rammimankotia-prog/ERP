@@ -32,6 +32,10 @@ export interface EmployeeInfo {
   punchOutTime?: string | null;
   punchInMode?: string | null;
   punchOutMode?: string | null;
+  isDoubleDuty?: boolean;
+  doubleDutyIn?: string | null;
+  doubleDutyOut?: string | null;
+  doubleDutyShift?: string | null;
 }
 
 interface Props {
@@ -63,6 +67,10 @@ export default function OneTapPunchInterface({
   const [punchOutTime, setPunchOutTime] = useState<string | null>(null);
   const [punchInMode, setPunchInMode] = useState<string | null>(employee.punchInMode || null);
   const [punchOutMode, setPunchOutMode] = useState<string | null>(employee.punchOutMode || null);
+  const [isDoubleDuty, setIsDoubleDuty] = useState(!!employee.isDoubleDuty);
+  const [doubleDutyIn, setDoubleDutyIn] = useState<string | null>(employee.doubleDutyIn || null);
+  const [doubleDutyOut, setDoubleDutyOut] = useState<string | null>(employee.doubleDutyOut || null);
+  const [doubleDutyShift, setDoubleDutyShift] = useState<string | null>(employee.doubleDutyShift || null);
 
   const [processing, setProcessing] = useState(false);
   const [punchSuccess, setPunchSuccess] = useState<string | null>(null);
@@ -141,11 +149,19 @@ export default function OneTapPunchInterface({
     return { text: 'Good Night', icon: '🌙', hindi: 'शुभ रात्रि' };
   }, [currentTime]);
 
-  // Dynamic Live Duty Duration Elapsed Counter
+  // Dynamic Live Duty Duration Elapsed Counter (supports cross-midnight ISO timestamps & HH:mm)
   const dutyElapsed = useMemo(() => {
     if (!checkedIn || checkedOut || !punchInTime) return null;
     try {
-      const parts = punchInTime.trim().split(':');
+      const trimmed = punchInTime.trim();
+      const parsedIso = new Date(trimmed);
+      if (!isNaN(parsedIso.getTime())) {
+        const diffMs = Math.max(0, currentTime.getTime() - parsedIso.getTime());
+        const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        return `${diffHrs}h ${diffMins}m on duty`;
+      }
+      const parts = trimmed.split(':');
       if (parts.length >= 2) {
         const h = parseInt(parts[0], 10);
         const m = parseInt(parts[1], 10);
@@ -209,6 +225,10 @@ export default function OneTapPunchInterface({
         setPunchOutTime(data.punchOutTime);
         setPunchInMode(data.punchInMode || null);
         setPunchOutMode(data.punchOutMode || null);
+        setIsDoubleDuty(!!data.isDoubleDuty);
+        setDoubleDutyIn(data.doubleDutyIn || null);
+        setDoubleDutyOut(data.doubleDutyOut || null);
+        setDoubleDutyShift(data.doubleDutyShift || null);
       } else {
         setCheckedIn(!!employee.checkedIn);
         setCheckedOut(!!employee.checkedOut);
@@ -216,6 +236,10 @@ export default function OneTapPunchInterface({
         setPunchOutTime(employee.punchOutTime || null);
         setPunchInMode(employee.punchInMode || null);
         setPunchOutMode(employee.punchOutMode || null);
+        setIsDoubleDuty(!!employee.isDoubleDuty);
+        setDoubleDutyIn(employee.doubleDutyIn || null);
+        setDoubleDutyOut(employee.doubleDutyOut || null);
+        setDoubleDutyShift(employee.doubleDutyShift || null);
       }
     } catch {
       setCheckedIn(!!employee.checkedIn);
@@ -224,6 +248,10 @@ export default function OneTapPunchInterface({
       setPunchOutTime(employee.punchOutTime || null);
       setPunchInMode(employee.punchInMode || null);
       setPunchOutMode(employee.punchOutMode || null);
+      setIsDoubleDuty(!!employee.isDoubleDuty);
+      setDoubleDutyIn(employee.doubleDutyIn || null);
+      setDoubleDutyOut(employee.doubleDutyOut || null);
+      setDoubleDutyShift(employee.doubleDutyShift || null);
     } finally {
       setLoadingStatus(false);
     }
@@ -240,30 +268,44 @@ export default function OneTapPunchInterface({
     setErrorMsg(null);
 
     // Duplicate Punch Prevention Guard (Zero Duplicate Tolerated)
-    if (action === 'IN' && checkedIn) {
-      const whoIn = (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
-        ? 'Security Guard'
-        : punchInMode === 'ADMIN'
-        ? 'Admin'
-        : punchInMode
-        ? `Employee (${punchInMode})`
-        : 'Staff / Security';
-      setErrorMsg(`Aapka Punch-In already ${whoIn} dwara ${formatTimeStr(punchInTime)} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`);
-      setProcessing(false);
-      return;
+    if (action === 'IN') {
+      if (checkedIn && !checkedOut) {
+        const whoIn = (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
+          ? 'Security Guard'
+          : punchInMode === 'ADMIN'
+          ? 'Admin'
+          : punchInMode
+          ? `Employee (${punchInMode})`
+          : 'Staff / Security';
+        setErrorMsg(`Aapka Punch-In already ${whoIn} dwara ${formatTimeStr(punchInTime)} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`);
+        setProcessing(false);
+        return;
+      }
+      if (checkedIn && checkedOut && doubleDutyIn) {
+        setErrorMsg(`Aapki Double Duty ka Punch-In already ${formatTimeStr(doubleDutyIn)} par record ho chuka hai.`);
+        setProcessing(false);
+        return;
+      }
     }
 
-    if (action === 'OUT' && checkedOut) {
-      const whoOut = (punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
-        ? 'Security Guard'
-        : punchOutMode === 'ADMIN'
-        ? 'Admin'
-        : punchOutMode
-        ? `Employee (${punchOutMode})`
-        : 'Staff / Security';
-      setErrorMsg(`Aapka Check-Out already ${whoOut} dwara ${formatTimeStr(punchOutTime)} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`);
-      setProcessing(false);
-      return;
+    if (action === 'OUT') {
+      if (checkedOut && doubleDutyOut) {
+        const whoOut = (punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK')
+          ? 'Security Guard'
+          : punchOutMode === 'ADMIN'
+          ? 'Admin'
+          : punchOutMode
+          ? `Employee (${punchOutMode})`
+          : 'Staff / Security';
+        setErrorMsg(`Aapka Check-Out already ${whoOut} dwara ${formatTimeStr(punchOutTime)} par record kiya ja chuka hai.`);
+        setProcessing(false);
+        return;
+      }
+      if (checkedOut && !doubleDutyIn) {
+        setErrorMsg(`Aapka Regular Shift Check-Out already ho chuka hai. Agar double duty karni hai to Double Duty Punch-In karein.`);
+        setProcessing(false);
+        return;
+      }
     }
 
     let lat: number | undefined;
@@ -392,34 +434,46 @@ export default function OneTapPunchInterface({
       const geoNote = punchMode === 'MOBILE_GEOFENCE' ? ` [📍 GPS Verified: ${data.record?.punchInCoordinates?.distanceMeters ?? 0}m]` : '';
 
       if (action === 'IN') {
-        setCheckedIn(true);
-        setPunchInTime(serverPunchInIso || new Date().toISOString());
-        setPunchInMode(effectivePunchedBy);
-        setPunchLateNotice(lateNoticeHindi);
-        if (isLatePunch) {
-          setPunchSuccess(`Check-In Recorded at ${timeFormatted} • ⚠️ Marked Late${geoNote}`);
+        if (checkedOut || data.isDoubleDuty) {
+          setIsDoubleDuty(true);
+          setDoubleDutyIn(serverPunchInIso || new Date().toISOString());
+          setDoubleDutyShift(data.shiftName || 'Double Duty');
+          setPunchSuccess(`⚡ Double Duty Punch-In Recorded at ${timeFormatted} • 🟢 2nd Shift Started${geoNote}`);
         } else {
-          setPunchSuccess(`Check-In Recorded at ${timeFormatted} • 🟢 On-Time / Present${geoNote}`);
+          setCheckedIn(true);
+          setPunchInTime(serverPunchInIso || new Date().toISOString());
+          setPunchInMode(effectivePunchedBy);
+          setPunchLateNotice(lateNoticeHindi);
+          if (isLatePunch) {
+            setPunchSuccess(`Check-In Recorded at ${timeFormatted} • ⚠️ Marked Late${geoNote}`);
+          } else {
+            setPunchSuccess(`Check-In Recorded at ${timeFormatted} • 🟢 On-Time / Present${geoNote}`);
+          }
         }
       } else {
-        setCheckedOut(true);
-        setPunchOutTime(serverPunchOutIso || new Date().toISOString());
-        setPunchOutMode(effectivePunchedBy);
-        const isEarly = data.isEarlyOut;
-        const earlyMins = data.earlyOutMinutes || 0;
-        const earlyDuration = earlyMins >= 60
-          ? `${Math.floor(earlyMins / 60)}h ${earlyMins % 60}m`
-          : `${earlyMins}m`;
-        const scheduledOutStr = data.scheduledOutTime || employee.eveningTime || '18:00';
-        const earlyNoticeHindi = isEarly
-          ? (data.earlyNotice || `Aaj aap apne scheduled departure time (${scheduledOutStr}) se ${earlyDuration} pehle checkout kar rahe hain.`)
-          : null;
-
-        setPunchLateNotice(earlyNoticeHindi);
-        if (isEarly) {
-          setPunchSuccess(`Check-Out Recorded at ${timeFormatted} • ⚠️ Early Departure${geoNote}`);
+        if (checkedOut || (doubleDutyIn && !doubleDutyOut) || data.doubleDutyCompleted) {
+          setDoubleDutyOut(serverPunchOutIso || new Date().toISOString());
+          setPunchSuccess(`⚡ Double Duty Check-Out Recorded at ${timeFormatted} • 🟢 All Duties Completed for Today!${geoNote}`);
         } else {
-          setPunchSuccess(`Check-Out (Departure) Recorded at ${timeFormatted} • 🟢 Shift Completed${geoNote}`);
+          setCheckedOut(true);
+          setPunchOutTime(serverPunchOutIso || new Date().toISOString());
+          setPunchOutMode(effectivePunchedBy);
+          const isEarly = data.isEarlyOut;
+          const earlyMins = data.earlyOutMinutes || 0;
+          const earlyDuration = earlyMins >= 60
+            ? `${Math.floor(earlyMins / 60)}h ${earlyMins % 60}m`
+            : `${earlyMins}m`;
+          const scheduledOutStr = data.scheduledOutTime || employee.eveningTime || '18:00';
+          const earlyNoticeHindi = isEarly
+            ? (data.earlyNotice || `Aaj aap apne scheduled departure time (${scheduledOutStr}) se ${earlyDuration} pehle checkout kar rahe hain.`)
+            : null;
+
+          setPunchLateNotice(earlyNoticeHindi);
+          if (isEarly) {
+            setPunchSuccess(`Check-Out Recorded at ${timeFormatted} • ⚠️ Early Departure${geoNote}`);
+          } else {
+            setPunchSuccess(`Check-Out (Departure) Recorded at ${timeFormatted} • 🟢 Shift Completed${geoNote}`);
+          }
         }
       }
 
@@ -560,52 +614,31 @@ export default function OneTapPunchInterface({
   // Dynamic single-action state:
   // 1. Not checked in yet -> 'IN' (Check-In Arrival)
   // 2. Checked in & not checked out -> 'OUT' (Check-Out Departure)
-  // 3. Checked out -> 'DONE' (Completed for Today)
-  const currentAction: 'IN' | 'OUT' | 'DONE' = !checkedIn
+  // 3. Checked out & not started Double Duty -> 'DOUBLE_IN' (Start Double Duty / Second Shift)
+  // 4. In Double Duty & not checked out -> 'DOUBLE_OUT' (End Double Duty)
+  // 5. Both completed -> 'DONE'
+  const currentAction: 'IN' | 'OUT' | 'DOUBLE_IN' | 'DOUBLE_OUT' | 'DONE' = !checkedIn
     ? 'IN'
     : !checkedOut
     ? 'OUT'
+    : !doubleDutyIn
+    ? 'DOUBLE_IN'
+    : !doubleDutyOut
+    ? 'DOUBLE_OUT'
     : 'DONE';
 
   return (
-    <div
-      style={{
-        width: '100%',
-        maxWidth: '820px',
-        margin: '0 auto',
-        padding: 'clamp(0.75rem, 2vw, 1.25rem)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.85rem',
-      }}
-    >
-      {/* Top Header Navigation Bar - Only for Kiosk mode to switch employee (self-service dashboard already has page header) */}
+    <div className="ot-container">
+      {/* Top Header Navigation Bar - Only for Kiosk mode to switch employee */}
       {!showLeaveAndHistory && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '0.5rem',
-            borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #1e293b',
-            paddingBottom: '0.45rem',
-          }}
-        >
+        <div className="ot-kiosk-nav">
           <button
             type="button"
             onClick={onBack}
+            className="ot-back-btn"
             style={{
-              background: 'transparent',
               border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
               color: isLight ? '#334155' : '#cbd5e1',
-              padding: '0.35rem 0.75rem',
-              borderRadius: '7px',
-              cursor: 'pointer',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
             }}
             title="Return to employee list"
           >
@@ -617,46 +650,27 @@ export default function OneTapPunchInterface({
 
       {/* Error Alert */}
       {errorMsg && (
-        <div
-          style={{
-            padding: '0.75rem 1rem',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            color: 'var(--error)',
-            borderRadius: '10px',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.65rem',
-            fontSize: '0.88rem',
-            fontWeight: 600,
-          }}
-        >
-          <span style={{ fontSize: '1.15rem' }}>⚠️</span>
-          <span>{errorMsg}</span>
+        <div className="ot-alert-error">
+          <span style={{ fontSize: '1.05rem', flexShrink: 0 }}>⚠️</span>
+          <span style={{ flex: 1 }}>{errorMsg}</span>
         </div>
       )}
 
-      {/* Proactive GPS Warning Banner — shown when GPS is OFF or denied, before any punch attempt */}
+      {/* Proactive GPS Warning Banner */}
       {punchMode === 'MOBILE_GEOFENCE' && !gpsWarningDismissed && (gpsStatus === 'denied' || gpsStatus === 'off') && !errorMsg && (
         <div
+          className="ot-gps-banner"
           style={{
-            padding: '0.7rem 1rem',
             backgroundColor: 'rgba(251, 191, 36, 0.12)',
             color: isLight ? '#92400e' : '#fbbf24',
-            borderRadius: '10px',
             border: '1px solid rgba(251, 191, 36, 0.4)',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '0.6rem',
-            fontSize: '0.84rem',
-            fontWeight: 600,
           }}
         >
-          <span style={{ fontSize: '1.1rem', flexShrink: 0, marginTop: '1px' }}>📍</span>
-          <span style={{ flex: 1, lineHeight: 1.45 }}>
+          <span style={{ fontSize: '1rem', flexShrink: 0, marginTop: '1px' }}>📍</span>
+          <span style={{ flex: 1, lineHeight: 1.4 }}>
             GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within 80m of hotel premises.
             {gpsStatus === 'denied' && (
-              <span style={{ display: 'block', marginTop: '3px', fontWeight: 500, fontSize: '0.8rem', opacity: 0.85 }}>
+              <span style={{ display: 'block', marginTop: '2px', fontWeight: 500, fontSize: '0.75rem', opacity: 0.85 }}>
                 Tap the 🔒 icon in your browser address bar → Permissions → Allow Location.
               </span>
             )}
@@ -670,7 +684,7 @@ export default function OneTapPunchInterface({
               border: 'none',
               color: 'inherit',
               cursor: 'pointer',
-              fontSize: '1rem',
+              fontSize: '0.95rem',
               padding: '0 2px',
               flexShrink: 0,
               opacity: 0.7,
@@ -684,46 +698,39 @@ export default function OneTapPunchInterface({
       {/* Success Celebration Alert / Late Arrival Alert */}
       {punchSuccess && (
         <div
+          className="ot-success-card"
           style={{
-            padding: '1.15rem 1.25rem',
             backgroundColor: punchLateNotice ? (isLight ? '#fffbeb' : 'rgba(245, 158, 11, 0.12)') : (isLight ? '#f0fdf4' : 'rgba(16, 185, 129, 0.12)'),
             color: punchLateNotice ? (isLight ? '#92400e' : '#fbbf24') : 'var(--success)',
-            borderRadius: '16px',
-            border: punchLateNotice ? '2px solid #f59e0b' : '2px solid var(--success)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.45rem',
-            textAlign: 'center',
-            boxShadow: punchLateNotice ? '0 8px 25px rgba(245, 158, 11, 0.25)' : '0 8px 25px rgba(16, 185, 129, 0.25)',
-            animation: 'scaleUp 0.2s ease-out',
+            border: punchLateNotice ? '1.5px solid #f59e0b' : '1.5px solid var(--success)',
+            boxShadow: punchLateNotice ? '0 6px 20px rgba(245, 158, 11, 0.2)' : '0 6px 20px rgba(16, 185, 129, 0.2)',
           }}
         >
-          <div style={{ fontSize: '2.2rem' }}>{punchLateNotice ? '⚠️' : '🎉'}</div>
-          <div style={{ fontSize: '1.15rem', fontWeight: 800 }}>{punchSuccess}</div>
+          <div style={{ fontSize: '1.65rem', lineHeight: 1 }}>{punchLateNotice ? '⚠️' : '🎉'}</div>
+          <div style={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.35 }}>{punchSuccess}</div>
 
           {punchLateNotice && (
             <div
               style={{
                 width: '100%',
-                backgroundColor: isLight ? '#fef3c7' : 'rgba(245, 158, 11, 0.25)',
-                border: '1.5px solid rgba(245, 158, 11, 0.5)',
-                borderRadius: '10px',
-                padding: '0.75rem 1rem',
-                fontSize: '0.98rem',
+                backgroundColor: isLight ? '#fef3c7' : 'rgba(245, 158, 11, 0.22)',
+                border: '1px solid rgba(245, 158, 11, 0.45)',
+                borderRadius: '8px',
+                padding: '0.55rem 0.75rem',
+                fontSize: '0.84rem',
                 fontWeight: 700,
                 color: isLight ? '#78350f' : '#fef08a',
-                lineHeight: 1.4,
+                lineHeight: 1.35,
               }}
             >
               📢 {punchLateNotice}
             </div>
           )}
 
-          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             {showLeaveAndHistory
               ? 'Attendance logged in Godwin ERP • Session active for 30 days'
-              : <>Attendance logged in Godwin ERP • Auto-resetting for next employee in <strong>{countdown}s</strong></>}
+              : <>Attendance logged in Godwin ERP • Auto-resetting in <strong>{countdown}s</strong></>}
           </p>
           <button
             type="button"
@@ -733,16 +740,15 @@ export default function OneTapPunchInterface({
               if (!showLeaveAndHistory) onBack();
             }}
             style={{
-              marginTop: '0.35rem',
-              padding: '0.5rem 1.35rem',
+              marginTop: '0.2rem',
+              padding: '0.42rem 1.1rem',
               borderRadius: '8px',
               border: 'none',
               background: punchLateNotice ? '#f59e0b' : 'var(--success)',
               color: 'white',
-              fontWeight: 800,
-              fontSize: '0.85rem',
+              fontWeight: 700,
+              fontSize: '0.8rem',
               cursor: 'pointer',
-              boxShadow: punchLateNotice ? '0 4px 12px rgba(245, 158, 11, 0.3)' : '0 4px 12px rgba(16, 185, 129, 0.3)',
             }}
           >
             {showLeaveAndHistory ? '✓ Great, Continue' : 'Done (Clock Next Person)'}
@@ -750,728 +756,482 @@ export default function OneTapPunchInterface({
         </div>
       )}
 
-      {/* Employee Identity Card */}
+      {/* Employee Identity & Attendance Card */}
       <div
+        className="ot-profile-card"
         style={{
           background: isLight ? '#ffffff' : '#1e293b',
-          borderRadius: '16px',
-          padding: 'clamp(0.85rem, 2vw, 1.25rem)',
           border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-          boxShadow: 'var(--shadow-md)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          textAlign: 'center',
-          gap: '0.65rem',
-          position: 'relative',
-          overflow: 'hidden',
         }}
       >
-        {/* Department banner strip */}
+        {/* Top Accent Strip */}
         <div
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
-            height: '5px',
+            height: '4px',
             background: checkedIn
               ? (checkedOut ? '#64748b' : 'linear-gradient(90deg, #10b981, #059669)')
               : 'linear-gradient(90deg, #3b82f6, #6366f1)',
           }}
         />
 
-        {/* Time-of-Day Greeting Badge (for Self-Service Dashboard on mobile / desktop) */}
-        {showLeaveAndHistory && (
-          <div
-            style={{
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              color: isLight ? '#1d4ed8' : '#93c5fd',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              background: isLight ? 'rgba(37, 99, 235, 0.08)' : 'rgba(37, 99, 235, 0.2)',
-              padding: '2px 10px',
-              borderRadius: '99px',
-              border: isLight ? '1px solid rgba(37, 99, 235, 0.22)' : '1px solid rgba(37, 99, 235, 0.4)',
-              marginTop: '0.1rem',
-            }}
-          >
-            <span>{timeGreeting.icon}</span>
-            <span>{timeGreeting.text} ({timeGreeting.hindi})</span>
-          </div>
-        )}
-
-        {/* Employee Photo / Animated Initials Avatar */}
-        <div style={{ position: 'relative', marginTop: '0.2rem' }}>
-          {employee.photo ? (
-            <img
-              src={employee.photo}
-              alt={`${employee.firstName} ${employee.lastName}`}
-              className="avatar-animated-circle"
-              style={{
-                width: '86px',
-                height: '86px',
-                borderRadius: '50%',
-                objectFit: 'cover',
-                border: checkedIn && !checkedOut ? '3.5px solid #10b981' : '3.5px solid #3b82f6',
-                boxShadow: checkedIn && !checkedOut
-                  ? '0 0 16px rgba(16, 185, 129, 0.45)'
-                  : '0 6px 18px rgba(0,0,0,0.18)',
-                animation: checkedIn && !checkedOut
-                  ? 'avatarFloat 3.5s ease-in-out infinite, avatarHaloRing 2.6s infinite'
-                  : 'avatarFloat 3.5s ease-in-out infinite, avatarHaloRingBlue 2.6s infinite',
-                transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              }}
-            />
-          ) : (
+        {/* Top Bar: Greeting & Status Badge */}
+        <div className="ot-card-top-row">
+          {showLeaveAndHistory ? (
             <div
-              className="avatar-animated-circle"
+              className="ot-greeting-pill"
               style={{
-                width: '86px',
-                height: '86px',
-                borderRadius: '50%',
-                background: checkedIn && !checkedOut
-                  ? 'linear-gradient(135deg, #10b981 0%, #047857 100%)'
-                  : 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '2.1rem',
-                fontWeight: 900,
-                border: checkedIn && !checkedOut ? '3.5px solid #34d399' : '3.5px solid rgba(255,255,255,0.4)',
-                boxShadow: checkedIn && !checkedOut
-                  ? '0 0 20px rgba(16, 185, 129, 0.5)'
-                  : '0 8px 22px rgba(37, 99, 235, 0.4)',
-                animation: checkedIn && !checkedOut
-                  ? 'avatarFloat 3.5s ease-in-out infinite, avatarHaloRing 2.6s infinite'
-                  : 'avatarFloat 3.5s ease-in-out infinite, avatarHaloRingBlue 2.6s infinite',
-                cursor: 'pointer',
-                userSelect: 'none',
-                transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                color: isLight ? '#1d4ed8' : '#93c5fd',
+                background: isLight ? 'rgba(37, 99, 235, 0.08)' : 'rgba(37, 99, 235, 0.18)',
+                border: isLight ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(37, 99, 235, 0.35)',
               }}
             >
-              <span style={{ animation: 'avatarShimmerText 3.5s ease-in-out infinite', display: 'inline-block' }}>
-                {getInitials(employee.firstName, employee.lastName)}
-              </span>
+              <span>{timeGreeting.icon}</span>
+              <span>{timeGreeting.text} ({timeGreeting.hindi})</span>
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Staff Attendance Terminal
             </div>
           )}
 
-          {/* Status Indicator Dot on Avatar */}
-          <div
-            title={checkedIn && !checkedOut ? 'Currently On Shift' : 'Off Shift'}
+          <span
+            className="ot-status-pill"
             style={{
-              position: 'absolute',
-              bottom: '2px',
-              right: '2px',
-              width: '22px',
-              height: '22px',
-              borderRadius: '50%',
-              backgroundColor: checkedIn && !checkedOut ? '#10b981' : (checkedOut ? '#64748b' : '#94a3b8'),
-              border: `2.5px solid ${isLight ? '#ffffff' : '#1e293b'}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.65rem',
-              color: 'white',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              backgroundColor: checkedOut ? '#64748b' : checkedIn ? '#10b981' : '#3b82f6',
+              color: '#ffffff',
             }}
           >
-            {checkedIn && !checkedOut ? '✓' : (checkedOut ? '✕' : '•')}
-          </div>
+            {checkedOut ? 'COMPLETED' : checkedIn ? 'ON SHIFT' : 'READY'}
+          </span>
         </div>
 
-        {/* Name & Designation Details */}
-        <div>
-          <h2
-            style={{
-              margin: 0,
-              fontSize: 'clamp(1.2rem, 3.5vw, 1.55rem)',
-              fontWeight: 800,
-              color: isLight ? '#0f172a' : '#f8fafc',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {employee.firstName} {employee.lastName}
-          </h2>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              flexWrap: 'wrap',
-              marginTop: '0.25rem',
-            }}
-          >
-            <span
-              style={{
-                backgroundColor: isLight ? '#eff6ff' : 'rgba(37, 99, 235, 0.25)',
-                color: isLight ? '#1d4ed8' : '#93c5fd',
-                padding: '3px 8px',
-                borderRadius: '99px',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-              }}
-            >
-              {employee.department || 'Hotel Department'}
-            </span>
-            <span
-              style={{
-                color: isLight ? '#475569' : '#cbd5e1',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-              }}
-            >
-              • {employee.designation || 'Staff'}
-            </span>
-            <span
-              style={{
-                fontFamily: 'monospace',
-                backgroundColor: isLight ? '#f1f5f9' : '#0f172a',
-                color: isLight ? '#334155' : '#cbd5e1',
-                padding: '2px 7px',
-                borderRadius: '6px',
-                fontSize: '0.74rem',
-                fontWeight: 700,
-              }}
-            >
-              {employee.employeeId}
-            </span>
-          </div>
-
-          {/* Shift Schedule Badge (Clearly shows 8 PM to 8 AM for night shifts) */}
-          {(employee.morningTime || employee.eveningTime || employee.shiftDisplay) && (() => {
-            const mTime = employee.morningTime || '09:00';
-            const eTime = employee.eveningTime || '18:00';
-            const isNight = employee.isNightShift === true ||
-              (employee.shiftName && employee.shiftName.toLowerCase().includes('night')) ||
-              ((mTime === '20:00' || mTime.startsWith('2') || mTime.startsWith('19')) && (eTime === '08:00' || eTime === '07:00' || eTime.includes('am') || !eTime));
-            
-            const format12H = (t?: string) => {
-              if (!t) return '';
-              const trimmed = t.trim();
-              if (trimmed.toUpperCase() === 'OFF') return 'Weekly Off';
-              const parts = trimmed.split(':');
-              if (parts.length < 2) return trimmed;
-              const h = parseInt(parts[0], 10);
-              const m = parts[1];
-              if (isNaN(h)) return trimmed;
-              const ampm = h >= 12 ? 'PM' : 'AM';
-              const h12 = h % 12 === 0 ? 12 : h % 12;
-              const mClean = m.padStart(2, '0');
-              return mClean === '00' ? `${h12} ${ampm}` : `${h12}:${mClean} ${ampm}`;
-            };
-
-            const timingText = `${format12H(mTime)} to ${format12H(eTime)}`;
-
-            const shiftLabel = employee.shiftName
-              ? employee.shiftName
-              : isNight
-              ? 'Night Shift'
-              : mTime === '13:00'
-              ? 'Afternoon Shift'
-              : mTime === '10:00' && eTime === '22:00'
-              ? 'Break Shift'
-              : 'Day Shift';
-
-            return (
-              <div
+        {/* Compact Horizontal Profile Row */}
+        <div className="ot-identity-row">
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            {employee.photo ? (
+              <img
+                src={employee.photo}
+                alt={`${employee.firstName} ${employee.lastName}`}
+                className="ot-avatar"
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  marginTop: '0.4rem',
-                  padding: '0.35rem 0.85rem',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  fontWeight: 700,
-                  backgroundColor: isNight
-                    ? (isLight ? '#ede9fe' : 'rgba(139, 92, 246, 0.22)')
-                    : (isLight ? '#e0f2fe' : 'rgba(14, 165, 233, 0.18)'),
-                  color: isNight
-                    ? (isLight ? '#6d28d9' : '#c084fc')
-                    : (isLight ? '#0369a1' : '#38bdf8'),
-                  border: isNight
-                    ? (isLight ? '1px solid #c4b5fd' : '1px solid rgba(139, 92, 246, 0.4)')
-                    : (isLight ? '1px solid #bae6fd' : '1px solid rgba(14, 165, 233, 0.35)'),
-                  boxShadow: isNight ? '0 2px 8px rgba(109, 40, 217, 0.15)' : undefined,
+                  border: checkedIn && !checkedOut ? '2.5px solid #10b981' : '2.5px solid #3b82f6',
+                }}
+              />
+            ) : (
+              <div
+                className="ot-avatar ot-avatar-initials"
+                style={{
+                  background: checkedIn && !checkedOut
+                    ? 'linear-gradient(135deg, #10b981 0%, #047857 100%)'
+                    : 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                  border: checkedIn && !checkedOut ? '2.5px solid #34d399' : '2.5px solid rgba(255,255,255,0.35)',
                 }}
               >
-                <span>{isNight ? '🌙' : '⏰'}</span>
-                <span>
-                  Shift: <strong>{timingText}</strong>
-                  {' '}
-                  <span style={{ fontSize: '0.78rem', opacity: 0.9 }}>({shiftLabel})</span>
-                </span>
-                <span
-                  style={{
-                    fontSize: '0.72rem',
-                    fontFamily: 'monospace',
-                    opacity: 0.75,
-                    paddingLeft: '0.2rem',
-                  }}
-                >
-                  [{mTime} – {eTime}]
-                </span>
+                {getInitials(employee.firstName, employee.lastName)}
               </div>
-            );
-          })()}
+            )}
+
+            <div
+              title={checkedIn && !checkedOut ? 'Currently On Shift' : 'Off Shift'}
+              className="ot-avatar-dot"
+              style={{
+                backgroundColor: checkedIn && !checkedOut ? '#10b981' : (checkedOut ? '#64748b' : '#94a3b8'),
+                border: `2px solid ${isLight ? '#ffffff' : '#1e293b'}`,
+              }}
+            >
+              {checkedIn && !checkedOut ? '✓' : (checkedOut ? '✕' : '•')}
+            </div>
+          </div>
+
+          <div className="ot-identity-info">
+            <h2
+              className="ot-emp-name"
+              style={{ color: isLight ? '#0f172a' : '#f8fafc' }}
+            >
+              {employee.firstName} {employee.lastName}
+            </h2>
+
+            <div className="ot-emp-meta">
+              <span
+                className="ot-dept-chip"
+                style={{
+                  backgroundColor: isLight ? '#eff6ff' : 'rgba(37, 99, 235, 0.22)',
+                  color: isLight ? '#1d4ed8' : '#93c5fd',
+                }}
+              >
+                {employee.department || 'Hotel Staff'}
+              </span>
+              {employee.designation && (
+                <span style={{ color: isLight ? '#475569' : '#cbd5e1', fontSize: '0.75rem', fontWeight: 600 }}>
+                  {employee.designation}
+                </span>
+              )}
+              <span
+                className="ot-id-chip"
+                style={{
+                  backgroundColor: isLight ? '#f1f5f9' : '#0f172a',
+                  color: isLight ? '#334155' : '#cbd5e1',
+                }}
+              >
+                {employee.employeeId}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Roster Shift Swap Instruction Banner for Kiosk Guard & Staff */}
-        {(employee.shiftInstruction || employee.shiftChangeNotice || employee.isShiftSwapped || employee.morningTime === '20:00') && (
+        {/* Shift Schedule Bar */}
+        {(employee.morningTime || employee.eveningTime || employee.shiftDisplay) && (() => {
+          const mTime = employee.morningTime || '09:00';
+          const eTime = employee.eveningTime || '18:00';
+          const isNight = employee.isNightShift === true ||
+            (employee.shiftName && employee.shiftName.toLowerCase().includes('night')) ||
+            employee.employeeId === 'GG-1015' ||
+            employee.employeeId === 'IG-1003' ||
+            (employee.firstName === 'Pawan' && employee.lastName === 'Pawan') ||
+            (employee.firstName === 'Lalit') ||
+            ((mTime === '20:00' || mTime === '19:00' || mTime.startsWith('2') || mTime.startsWith('19')) && (eTime === '08:00' || eTime === '07:00' || eTime.includes('am') || !eTime));
+
+          const format12H = (t?: string) => {
+            if (!t) return '';
+            const trimmed = t.trim();
+            if (trimmed.toUpperCase() === 'OFF') return 'Weekly Off';
+            const parts = trimmed.split(':');
+            if (parts.length < 2) return trimmed;
+            const h = parseInt(parts[0], 10);
+            const m = parts[1];
+            if (isNaN(h)) return trimmed;
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 === 0 ? 12 : h % 12;
+            const mClean = m.padStart(2, '0');
+            return mClean === '00' ? `${h12} ${ampm}` : `${h12}:${mClean} ${ampm}`;
+          };
+
+          const timingText = `${format12H(mTime)} – ${format12H(eTime)}`;
+          const shiftLabel = employee.shiftName
+            ? employee.shiftName
+            : isNight
+            ? 'Night Shift'
+            : mTime === '13:00'
+            ? 'Afternoon Shift'
+            : mTime === '10:00' && eTime === '22:00'
+            ? 'Break Shift'
+            : 'Day Shift';
+
+          return (
+            <div
+              className="ot-shift-bar"
+              style={{
+                backgroundColor: isNight
+                  ? (isLight ? '#ede9fe' : 'rgba(139, 92, 246, 0.18)')
+                  : (isLight ? '#f0f9ff' : 'rgba(14, 165, 233, 0.14)'),
+                color: isNight
+                  ? (isLight ? '#6d28d9' : '#c084fc')
+                  : (isLight ? '#0369a1' : '#38bdf8'),
+                border: isNight
+                  ? (isLight ? '1px solid #c4b5fd' : '1px solid rgba(139, 92, 246, 0.35)')
+                  : (isLight ? '1px solid #bae6fd' : '1px solid rgba(14, 165, 233, 0.3)'),
+              }}
+            >
+              <span>{isNight ? '🌙' : '⏰'}</span>
+              <span>
+                <strong>{shiftLabel}:</strong> {timingText}
+              </span>
+              <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', opacity: 0.75 }}>
+                ({mTime}–{eTime})
+              </span>
+            </div>
+          );
+        })()}
+
+        {/* Roster Shift Swap Notice */}
+        {(employee.shiftInstruction || employee.shiftChangeNotice || employee.isShiftSwapped || employee.morningTime === '20:00' || employee.morningTime === '19:00') && (
           <div
+            className="ot-roster-notice"
             style={{
-              width: '100%',
-              maxWidth: '480px',
-              padding: '0.65rem 0.95rem',
-              borderRadius: '10px',
-              backgroundColor: isLight ? '#f5f3ff' : 'rgba(139, 92, 246, 0.15)',
-              border: isLight ? '1.5px solid #c4b5fd' : '1.5px solid rgba(139, 92, 246, 0.45)',
+              backgroundColor: isLight ? '#f5f3ff' : 'rgba(139, 92, 246, 0.14)',
+              border: isLight ? '1px solid #c4b5fd' : '1px solid rgba(139, 92, 246, 0.4)',
               color: isLight ? '#5b21b6' : '#d8b4fe',
-              fontSize: '0.84rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.55rem',
-              boxShadow: '0 2px 8px rgba(109, 40, 217, 0.1)',
             }}
           >
-            <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>📢</span>
-            <div style={{ flex: 1, textAlign: 'left' }}>
-              <div style={{ fontWeight: 800, fontSize: '0.86rem', color: isLight ? '#4c1d95' : '#e9d5ff' }}>
-                Duty Roster Shift Notice (ड्यूटी रोस्टर निर्देश)
-              </div>
-              <div style={{ fontSize: '0.8rem', marginTop: '1px', opacity: 0.95 }}>
-                {employee.shiftInstruction || employee.shiftChangeNotice || (employee.morningTime === '20:00' ? 'Duty roster mein Night Shift assign hui hai. Aane ka samay raat 8:00 PM (8 PM – 8 AM) hai.' : 'Duty roster ke anusaar shift timings update ho gayi hai.')}
-              </div>
+            <span style={{ fontSize: '1rem', flexShrink: 0 }}>📢</span>
+            <div style={{ flex: 1, textAlign: 'left', fontSize: '0.76rem', lineHeight: 1.35 }}>
+              <strong style={{ display: 'block', color: isLight ? '#4c1d95' : '#e9d5ff', marginBottom: '1px' }}>
+                Duty Roster Shift Notice
+              </strong>
+              {employee.shiftInstruction || employee.shiftChangeNotice || (employee.morningTime === '19:00' ? 'Night Shift assigned: 7:00 PM – 7:00 AM (Morning Check-Out)' : employee.morningTime === '20:00' ? 'Night Shift assigned: 8:00 PM – 8:00 AM (Morning Check-Out)' : 'Shift timings updated as per duty roster.')}
             </div>
           </div>
         )}
 
-        {/* Live Attendance Status Badge / Consolidated Shift Completed Card */}
-        {checkedOut ? (
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              padding: '0.85rem 1.15rem',
-              borderRadius: '12px',
-              backgroundColor: isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.5)',
-              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid rgba(148, 163, 184, 0.25)',
-              boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.04)' : '0 2px 8px rgba(0,0,0,0.2)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.45rem',
-              textAlign: 'left',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.25rem' }}>🏁</span>
-                <span style={{ fontSize: '0.92rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc' }}>
-                  Shift Completed (शिफ्ट पूरी हुई)
-                </span>
-              </div>
+        {/* Today's Live Punch Summary Box */}
+        <div
+          className="ot-live-status-box"
+          style={{
+            backgroundColor: checkedOut
+              ? (isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.6)')
+              : checkedIn
+              ? (isLight ? '#ecfdf5' : 'rgba(16, 185, 129, 0.12)')
+              : (isLight ? '#f8fafc' : 'rgba(15, 23, 42, 0.65)'),
+            border: checkedOut
+              ? (isLight ? '1px solid #cbd5e1' : '1px solid rgba(148, 163, 184, 0.25)')
+              : checkedIn
+              ? (isLight ? '1px solid #a7f3d0' : '1px solid rgba(16, 185, 129, 0.35)')
+              : (isLight ? '1px solid #e2e8f0' : '1px solid #334155'),
+          }}
+        >
+          <div className="ot-time-grid">
+            <div className="ot-time-cell">
+              <span className="ot-time-label" style={{ color: isLight ? '#64748b' : '#94a3b8' }}>
+                PUNCH IN
+              </span>
+              <span className="ot-time-val" style={{ color: punchInTime ? '#10b981' : (isLight ? '#94a3b8' : '#64748b') }}>
+                {punchInTime ? formatTimeStr(punchInTime) : '--:--'}
+              </span>
+              {punchInTime && (punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
+                <span className="ot-mode-tag" style={{ color: '#10b981' }}>🛡️ Guard</span>
+              )}
+            </div>
+
+            <div className="ot-time-divider" style={{ background: isLight ? '#e2e8f0' : '#334155' }} />
+
+            <div className="ot-time-cell">
+              <span className="ot-time-label" style={{ color: isLight ? '#64748b' : '#94a3b8' }}>
+                PUNCH OUT
+              </span>
+              <span className="ot-time-val" style={{ color: punchOutTime ? '#ef4444' : (isLight ? '#94a3b8' : '#64748b') }}>
+                {punchOutTime ? formatTimeStr(punchOutTime) : '--:--'}
+              </span>
+              {punchOutTime && (punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK') && (
+                <span className="ot-mode-tag" style={{ color: '#ef4444' }}>🛡️ Guard</span>
+              )}
+            </div>
+
+            <div className="ot-time-divider" style={{ background: isLight ? '#e2e8f0' : '#334155' }} />
+
+            <div className="ot-time-cell">
+              <span className="ot-time-label" style={{ color: isLight ? '#64748b' : '#94a3b8' }}>
+                STATUS
+              </span>
               <span
+                className="ot-time-val"
                 style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  padding: '3px 8px',
-                  borderRadius: '99px',
-                  backgroundColor: '#64748b',
-                  color: 'white',
-                  letterSpacing: '0.04em',
+                  fontSize: '0.8rem',
+                  color: checkedOut
+                    ? (isLight ? '#475569' : '#cbd5e1')
+                    : checkedIn
+                    ? '#10b981'
+                    : '#3b82f6',
                 }}
               >
-                COMPLETED
+                {loadingStatus
+                  ? 'Checking...'
+                  : checkedOut
+                  ? 'Done'
+                  : checkedIn
+                  ? (dutyElapsed ? dutyElapsed.replace(' on duty', '') : 'Active')
+                  : 'Pending'}
               </span>
             </div>
+          </div>
 
+          {checkedIn && !checkedOut && (punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
             <div
               style={{
-                fontSize: '0.8rem',
-                color: isLight ? '#334155' : '#cbd5e1',
+                marginTop: '0.4rem',
+                paddingTop: '0.4rem',
+                borderTop: isLight ? '1px dashed #a7f3d0' : '1px dashed rgba(16, 185, 129, 0.28)',
+                fontSize: '0.72rem',
+                color: isLight ? '#166534' : '#86efac',
                 display: 'flex',
-                flexWrap: 'wrap',
-                gap: '0.35rem 0.65rem',
                 alignItems: 'center',
-                paddingTop: '2px',
+                gap: '0.35rem',
+                textAlign: 'left',
               }}
             >
-              {punchInTime && (
-                <span>
-                  Checked In: <strong>{formatTimeStr(punchInTime)}</strong>
-                  {(punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
-                    <span style={{ marginLeft: '4px', color: '#10b981', fontWeight: 700 }}>[🛡️ Security]</span>
-                  )}
-                </span>
-              )}
-              {punchInTime && punchOutTime && <span>•</span>}
-              {punchOutTime && (
-                <span>
-                  Checked Out: <strong>{formatTimeStr(punchOutTime)}</strong>
-                  {(punchOutMode === 'SECURITY' || punchOutMode === 'KIOSK') && (
-                    <span style={{ marginLeft: '4px', color: '#ef4444', fontWeight: 700 }}>[🛡️ Security]</span>
-                  )}
-                </span>
-              )}
+              <span>🛡️</span>
+              <span>Security Guard dwara Check-In record hua hai. Shift complete hone par Check-Out karein.</span>
             </div>
+          )}
+        </div>
 
-            <div style={{ fontSize: '0.74rem', color: isLight ? '#64748b' : '#94a3b8', marginTop: '1px' }}>
-              Aaj ki attendance record ho chuki hai. Dobara punch nahi hoga.
-            </div>
-          </div>
-        ) : (
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '480px',
-              padding: '0.65rem 0.95rem',
-              borderRadius: '12px',
-              backgroundColor: loadingStatus
-                ? (isLight ? '#f8fafc' : '#0f172a')
-                : checkedIn
-                ? (isLight ? '#ecfdf5' : 'rgba(16, 185, 129, 0.15)')
-                : (isLight ? '#eff6ff' : 'rgba(59, 130, 246, 0.15)'),
-              border: loadingStatus
-                ? (isLight ? '1.5px solid #cbd5e1' : '1.5px solid #334155')
-                : checkedIn
-                ? (isLight ? '1.5px solid #a7f3d0' : '1.5px solid rgba(16, 185, 129, 0.4)')
-                : (isLight ? '1.5px solid #bfdbfe' : '1.5px solid rgba(59, 130, 246, 0.35)'),
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.35rem',
-              boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.03)' : '0 2px 8px rgba(0,0,0,0.2)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem', width: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', textAlign: 'left' }}>
-                <span style={{ fontSize: '1.1rem' }}>
-                  {loadingStatus ? '⏳' : checkedIn ? '🟢' : '⚪'}
-                </span>
-                <div>
-                  <div style={{ fontSize: '0.84rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc' }}>
-                    {loadingStatus
-                      ? 'Checking Live Status...'
-                      : checkedIn
-                      ? (punchInMode === 'SECURITY' || punchInMode === 'KIOSK')
-                        ? '🛡️ On Duty (Checked-In by Security)'
-                        : 'Currently On Duty (Shift Active)'
-                      : 'Not Checked-In Today'}
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: isLight ? '#475569' : '#cbd5e1', marginTop: '1px' }}>
-                    {checkedIn && punchInTime ? (
-                      <span>
-                        In: <strong>{formatTimeStr(punchInTime)}</strong>
-                        {(punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
-                          <span style={{ marginLeft: '4px', color: '#10b981', fontWeight: 700 }}>[🛡️ Security]</span>
-                        )}
-                        {dutyElapsed && (
-                          <span style={{ marginLeft: '6px', fontWeight: 700, color: isLight ? '#059669' : '#34d399' }}>
-                            • ⏱️ {dutyElapsed}
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      <span>Ready to record Arrival punch</span>
-                    )}
-                  </div>
+        {/* ========================================================================= */}
+        {/* COMPACT ONE-TAP PUNCH BUTTON INSIDE CARD                                  */}
+        {/* ========================================================================= */}
+        {currentAction !== 'DONE' ? (
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.15rem' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (currentAction === 'IN' || currentAction === 'DOUBLE_IN') handlePunch('IN');
+                else if (currentAction === 'OUT' || currentAction === 'DOUBLE_OUT') handlePunch('OUT');
+              }}
+              disabled={processing || loadingStatus}
+              className="ot-punch-btn"
+              style={{
+                border: currentAction === 'IN'
+                  ? '2px solid #34d399'
+                  : currentAction === 'DOUBLE_IN'
+                  ? '2px solid #c084fc'
+                  : currentAction === 'DOUBLE_OUT'
+                  ? '2px solid #fb7185'
+                  : '2px solid #f87171',
+                background: currentAction === 'IN'
+                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  : currentAction === 'DOUBLE_IN'
+                  ? 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)'
+                  : currentAction === 'DOUBLE_OUT'
+                  ? 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)'
+                  : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                boxShadow: currentAction === 'IN' && !processing
+                  ? '0 6px 18px rgba(16, 185, 129, 0.35)'
+                  : currentAction === 'DOUBLE_IN' && !processing
+                  ? '0 6px 18px rgba(147, 51, 234, 0.35)'
+                  : '0 6px 18px rgba(239, 68, 68, 0.35)',
+                opacity: processing || loadingStatus ? 0.7 : 1,
+                cursor: processing || loadingStatus ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <div className="ot-punch-icon">
+                {processing || geoLocating ? '⏳' : currentAction === 'IN' ? '🟢' : currentAction === 'DOUBLE_IN' ? '⚡' : '🔴'}
+              </div>
+
+              <div className="ot-punch-text">
+                <div className="ot-punch-title">
+                  {processing
+                    ? (geoLocating ? 'Verifying GPS Location...' : 'Recording Attendance...')
+                    : currentAction === 'IN'
+                    ? 'Punch In (Arrival)'
+                    : currentAction === 'DOUBLE_IN'
+                    ? 'Start Double Duty (2nd Shift)'
+                    : currentAction === 'DOUBLE_OUT'
+                    ? 'End Double Duty (Check-Out)'
+                    : 'Punch Out (Departure)'}
+                </div>
+                <div className="ot-punch-sub">
+                  {currentAction === 'IN'
+                    ? 'One-Tap Arrival • Tap to Clock In'
+                    : currentAction === 'DOUBLE_IN'
+                    ? '1st Shift Done • Tap to Start 2nd Shift'
+                    : currentAction === 'DOUBLE_OUT'
+                    ? `2nd Shift In: ${formatTimeStr(doubleDutyIn)} • Tap to Check Out`
+                    : `Checked In: ${formatTimeStr(punchInTime)} • Tap to Clock Out`}
                 </div>
               </div>
 
-              <div
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  padding: '3px 8px',
-                  borderRadius: '99px',
-                  backgroundColor: checkedIn ? '#10b981' : '#3b82f6',
-                  color: 'white',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {checkedIn ? 'ON SHIFT' : 'READY'}
+              <div className="ot-punch-arrow">
+                TAP →
               </div>
-            </div>
+            </button>
 
-            {/* Concise note if checked in by security */}
-            {checkedIn && (punchInMode === 'SECURITY' || punchInMode === 'KIOSK') && (
-              <div
+            {currentAction === 'DOUBLE_IN' && !showLeaveAndHistory && (
+              <button
+                type="button"
+                onClick={onBack}
                 style={{
-                  paddingTop: '0.35rem',
-                  borderTop: isLight ? '1px dashed #a7f3d0' : '1px dashed rgba(16, 185, 129, 0.3)',
-                  fontSize: '0.73rem',
-                  color: isLight ? '#166534' : '#86efac',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  textAlign: 'left',
-                  lineHeight: 1.3,
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.76rem',
                 }}
               >
-                <span>🛡️</span>
-                <span>Security Guard dwara punch record hua hai. Shift complete hone par hi Check-Out karein.</span>
-              </div>
+                ← Back to Staff List (No Double Duty today)
+              </button>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', gap: '0.4rem' }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#10b981' }}>
+              🎉 All Shifts Completed for Today!
+            </div>
+            {!showLeaveAndHistory && (
+              <button
+                type="button"
+                onClick={onBack}
+                style={{
+                  padding: '0.5rem 1.15rem',
+                  borderRadius: '9px',
+                  border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+                  background: isLight ? '#ffffff' : '#0f172a',
+                  color: isLight ? '#0f172a' : '#f8fafc',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                }}
+              >
+                ← Back to Staff List
+              </button>
             )}
           </div>
         )}
       </div>
 
-
-      {/* ========================================================================= */}
-      {/* DYNAMIC ONE-TAP PUNCH ACTION (SPACE-SAVING AUTO-MORPH: IN -> OUT) */}
-      {/* ========================================================================= */}
-      {!checkedOut ? (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            width: '100%',
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              if (currentAction === 'IN') handlePunch('IN');
-              else if (currentAction === 'OUT') handlePunch('OUT');
-            }}
-            disabled={processing || loadingStatus}
-            className={`punch-btn ${
-              currentAction === 'IN'
-                ? 'punch-btn-in'
-                : 'punch-btn-out'
-            }`}
-            style={{
-              position: 'relative',
-              width: '100%',
-              maxWidth: '520px',
-              padding: 'clamp(0.85rem, 2vw, 1.35rem) 1.5rem',
-              borderRadius: '18px',
-              border: currentAction === 'IN'
-                ? '3px solid #10b981'
-                : '3px solid #ef4444',
-              background: currentAction === 'IN'
-                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: '#ffffff',
-              cursor: (processing || loadingStatus) ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              boxShadow: currentAction === 'IN' && !processing
-                ? '0 0 0 5px rgba(16, 185, 129, 0.25), 0 12px 28px rgba(16, 185, 129, 0.4)'
-                : '0 0 0 5px rgba(239, 68, 68, 0.25), 0 12px 28px rgba(239, 68, 68, 0.4)',
-              opacity: processing ? 0.75 : 1,
-              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-              minHeight: 'clamp(88px, 15vw, 125px)',
-            }}
-          >
-            {/* Highlight Badge */}
-            {currentAction === 'IN' ? (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '-11px',
-                  background: '#047857',
-                  color: '#ffffff',
-                  border: '2px solid #34d399',
-                  padding: '2px 14px',
-                  borderRadius: '99px',
-                  fontSize: '0.72rem',
-                  fontWeight: 900,
-                  letterSpacing: '0.05em',
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-                  animation: 'pulseGlow 2s infinite',
-                }}
-              >
-                ★ ONE-TAP ACTION (ARRIVAL)
-              </div>
-            ) : (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '-11px',
-                  background: '#b91c1c',
-                  color: '#ffffff',
-                  border: '2px solid #f87171',
-                  padding: '2px 14px',
-                  borderRadius: '99px',
-                  fontSize: '0.72rem',
-                  fontWeight: 900,
-                  letterSpacing: '0.05em',
-                  boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
-                  animation: 'pulseGlowRed 2s infinite',
-                }}
-              >
-                ★ ONE-TAP ACTION (DEPARTURE)
-              </div>
-            )}
-
-            <div style={{ fontSize: '2rem', lineHeight: 1 }}>
-              {currentAction === 'IN' ? '🟢' : '🔴'}
-            </div>
-
-            <div style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.01em' }}>
-              {currentAction === 'IN'
-                ? 'Check-In (Arrival)'
-                : 'Check-Out (Departure)'}
-            </div>
-
-            <div
-              style={{
-                fontSize: '0.84rem',
-                fontWeight: 600,
-                opacity: 0.95,
-                textAlign: 'center',
-              }}
-            >
-              {processing
-                ? (currentAction === 'IN' ? 'Recording Arrival Punch...' : 'Recording Departure Punch...')
-                : currentAction === 'IN'
-                ? 'One-Tap Arrival Punch • Tap to Clock In'
-                : `Checked In at ${formatTimeStr(punchInTime)} • Tap to Clock Out`}
-            </div>
-          </button>
-        </div>
-      ) : (
-        /* When shift is complete: provide quick return button for Kiosk */
-        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: '0.25rem' }}>
-          <button
-            type="button"
-            onClick={onBack}
-            style={{
-              padding: '0.6rem 1.4rem',
-              borderRadius: '10px',
-              border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
-              background: isLight ? '#ffffff' : '#1e293b',
-              color: isLight ? '#0f172a' : '#f8fafc',
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: '0.84rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              boxShadow: isLight ? '0 1px 3px rgba(0,0,0,0.06)' : '0 2px 6px rgba(0,0,0,0.25)',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <span>←</span>
-            <span>Back to Staff List (वापस जाएं)</span>
-          </button>
-        </div>
-      )}
-
-      {/* Secondary Actions (Request Leave, My Attendance & Log Out) - ONLY for self-service staff logged in with email & password */}
+      {/* Quick Self-Service Actions (Request Leave, My Attendance, Log Out) */}
       {showLeaveAndHistory && (
-        <div
-          className="mobile-self-actions"
-          style={{
-            display: 'flex',
-            gap: '0.5rem',
-            justifyContent: 'center',
-            marginTop: '0.35rem',
-            flexWrap: 'wrap',
-            width: '100%',
-            maxWidth: '520px',
-          }}
-        >
+        <div className="ot-quick-actions">
           <button
             type="button"
             onClick={openLeaveModal}
-            className="self-action-btn"
+            className="ot-action-card"
             style={{
-              flex: '1 1 120px',
-              padding: '0.62rem 0.85rem',
-              borderRadius: '12px',
-              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #334155',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
               background: isLight ? '#ffffff' : '#1e293b',
               color: isLight ? '#0f172a' : '#f8fafc',
-              fontWeight: 700,
-              fontSize: '0.84rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.04)' : '0 2px 8px rgba(0,0,0,0.25)',
-              transition: 'all 0.15s ease',
-              whiteSpace: 'nowrap',
             }}
           >
-            <span>🌴</span> <span>Request Leave</span>
+            <span className="ot-action-emoji">🌴</span>
+            <span className="ot-action-label">Request Leave</span>
           </button>
+
           <button
             type="button"
             onClick={handleFetchHistory}
-            className="self-action-btn"
+            className="ot-action-card"
             style={{
-              flex: '1 1 120px',
-              padding: '0.62rem 0.85rem',
-              borderRadius: '12px',
-              border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #334155',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
               background: isLight ? '#ffffff' : '#1e293b',
               color: isLight ? '#0f172a' : '#f8fafc',
-              fontWeight: 700,
-              fontSize: '0.84rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              boxShadow: isLight ? '0 2px 6px rgba(0,0,0,0.04)' : '0 2px 8px rgba(0,0,0,0.25)',
-              transition: 'all 0.15s ease',
-              whiteSpace: 'nowrap',
             }}
           >
-            <span>📅</span> <span>My Attendance</span>
+            <span className="ot-action-emoji">📅</span>
+            <span className="ot-action-label">My Attendance</span>
           </button>
+
           <button
             type="button"
             onClick={onBack}
-            className="self-action-btn"
+            className="ot-action-card ot-action-logout"
             style={{
-              flex: '1 1 95px',
-              padding: '0.62rem 0.85rem',
-              borderRadius: '12px',
-              border: '1.5px solid rgba(239, 68, 68, 0.35)',
-              background: isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)',
-              color: '#dc2626',
-              fontWeight: 700,
-              fontSize: '0.84rem',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              boxShadow: isLight ? '0 2px 6px rgba(239, 68, 68, 0.08)' : '0 2px 8px rgba(0,0,0,0.25)',
-              transition: 'all 0.15s ease',
-              whiteSpace: 'nowrap',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              background: isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.12)',
+              color: '#ef4444',
             }}
             title="Sign out of your account"
           >
-            <span>🚪</span> <span>Log Out</span>
+            <span className="ot-action-emoji">🚪</span>
+            <span className="ot-action-label">Log Out</span>
           </button>
         </div>
       )}
 
-      {/* Footer Instructions / Switch button */}
+      {/* Compact Footer Hint */}
       {!checkedOut && (
-        <div style={{ textAlign: 'center', marginTop: '0.25rem' }}>
-          <p style={{ color: isLight ? '#475569' : '#cbd5e1', fontSize: '0.8rem', fontWeight: 500, margin: 0 }}>
-            💡 Tap the highlighted button to record your punch in 1 tap. Godwin ERP automatically stamps the server timestamp and calculates shift hours.
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: isLight ? '#64748b' : '#94a3b8', fontSize: '0.73rem', fontWeight: 500, margin: 0, lineHeight: 1.4 }}>
+            💡 Tap the button above to record attendance. Server time &amp; shift hours are calculated automatically.
           </p>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* LEAVE REQUEST MODAL (ORGANIZED, RESPONSIVE & MOBILE-OPTIMIZED) */}
+      {/* LEAVE REQUEST MODAL (COMPACT & MOBILE-RESPONSIVE)            */}
       {/* ============================================================ */}
       {showLeaveAndHistory && showLeaveModal && (
         <div
@@ -1480,60 +1240,34 @@ export default function OneTapPunchInterface({
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowLeaveModal(false);
           }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: 'clamp(0.75rem, 3vw, 1.5rem)',
-            boxSizing: 'border-box',
-          }}
+          className="ot-modal-backdrop"
         >
           <div
+            className="ot-modal-card"
             style={{
               background: isLight ? '#ffffff' : '#1e293b',
-              borderRadius: '20px',
-              width: '100%',
-              maxWidth: '480px',
-              maxHeight: 'calc(100vh - 2rem)',
-              display: 'flex',
-              flexDirection: 'column',
               border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-              overflow: 'hidden',
-              boxSizing: 'border-box',
-              animation: 'scaleUp 0.18s ease-out',
             }}
           >
             {/* Modal Header */}
             <div
+              className="ot-modal-header"
               style={{
-                padding: '1.15rem 1.4rem',
                 borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '0.75rem',
                 background: isLight ? '#f8fafc' : '#0f172a',
-                flexShrink: 0,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
                 <div
                   style={{
-                    width: '42px',
-                    height: '42px',
-                    borderRadius: '12px',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
                     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.3rem',
-                    boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)',
+                    fontSize: '1.1rem',
                     flexShrink: 0,
                   }}
                 >
@@ -1544,27 +1278,14 @@ export default function OneTapPunchInterface({
                     style={{
                       margin: 0,
                       color: isLight ? '#0f172a' : '#f8fafc',
-                      fontSize: '1.15rem',
+                      fontSize: '1rem',
                       fontWeight: 800,
                       lineHeight: 1.2,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
                     }}
                   >
-                    Submit Leave Request
+                    Request Leave
                   </h3>
-                  <p
-                    style={{
-                      margin: '2px 0 0 0',
-                      fontSize: '0.75rem',
-                      color: 'var(--text-muted)',
-                      fontWeight: 500,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     {employee.firstName} {employee.lastName} • {employee.employeeId}
                   </p>
                 </div>
@@ -1574,52 +1295,32 @@ export default function OneTapPunchInterface({
                 type="button"
                 onClick={() => setShowLeaveModal(false)}
                 title="Close"
+                className="ot-modal-close"
                 style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '50%',
                   border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
                   background: isLight ? '#ffffff' : '#1e293b',
                   color: 'var(--text-muted)',
-                  fontSize: '1.1rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  transition: 'all 0.15s ease',
                 }}
               >
                 ✕
               </button>
             </div>
 
-            {/* Modal Body (Scrollable with border-box on all elements) */}
-            <div
-              style={{
-                padding: '1.25rem 1.4rem',
-                overflowY: 'auto',
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem',
-                boxSizing: 'border-box',
-              }}
-            >
+            {/* Modal Body */}
+            <div className="ot-modal-body">
               {leaveMsg && (
                 <div
                   style={{
-                    padding: '0.75rem 1rem',
+                    padding: '0.65rem 0.85rem',
                     borderRadius: '10px',
                     background: leaveMsg.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                     color: leaveMsg.type === 'success' ? '#10b981' : '#ef4444',
                     border: leaveMsg.type === 'success' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
                     fontWeight: 700,
-                    fontSize: '0.85rem',
+                    fontSize: '0.8rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem',
-                    boxSizing: 'border-box',
+                    gap: '0.45rem',
                   }}
                 >
                   <span>{leaveMsg.type === 'success' ? '✅' : '⚠️'}</span>
@@ -1627,18 +1328,9 @@ export default function OneTapPunchInterface({
                 </div>
               )}
 
-              <form id="leave-request-form" onSubmit={handleSubmitLeave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', boxSizing: 'border-box' }}>
-                {/* Leave Type */}
-                <div style={{ width: '100%', boxSizing: 'border-box' }}>
-                  <label
-                    style={{
-                      display: 'block',
-                      marginBottom: '0.35rem',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      color: isLight ? '#334155' : '#cbd5e1',
-                    }}
-                  >
+              <form id="leave-request-form" onSubmit={handleSubmitLeave} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', width: '100%' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.76rem', fontWeight: 700, color: isLight ? '#334155' : '#cbd5e1' }}>
                     Leave Category *
                   </label>
                   <select
@@ -1649,15 +1341,13 @@ export default function OneTapPunchInterface({
                     }}
                     style={{
                       width: '100%',
-                      maxWidth: '100%',
-                      boxSizing: 'border-box',
-                      height: '44px',
-                      padding: '0 12px',
-                      borderRadius: '10px',
-                      border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+                      height: '42px',
+                      padding: '0 10px',
+                      borderRadius: '9px',
+                      border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
                       background: isLight ? '#f8fafc' : '#0f172a',
                       color: isLight ? '#0f172a' : '#f8fafc',
-                      fontSize: '0.9rem',
+                      fontSize: '16px',
                       fontWeight: 600,
                       outline: 'none',
                     }}
@@ -1669,26 +1359,9 @@ export default function OneTapPunchInterface({
                   </select>
                 </div>
 
-                {/* Dates: 2-column responsive layout */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                    gap: '0.75rem',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <div style={{ minWidth: 0, boxSizing: 'border-box' }}>
-                    <label
-                      style={{
-                        display: 'block',
-                        marginBottom: '0.35rem',
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        color: isLight ? '#334155' : '#cbd5e1',
-                      }}
-                    >
+                <div className="ot-date-grid">
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.76rem', fontWeight: 700, color: isLight ? '#334155' : '#cbd5e1' }}>
                       From Date *
                     </label>
                     <input
@@ -1705,30 +1378,20 @@ export default function OneTapPunchInterface({
                       }}
                       style={{
                         width: '100%',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box',
-                        height: '44px',
-                        padding: '0 10px',
-                        borderRadius: '10px',
-                        border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+                        height: '42px',
+                        padding: '0 8px',
+                        borderRadius: '9px',
+                        border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
                         background: isLight ? '#f8fafc' : '#0f172a',
                         color: isLight ? '#0f172a' : '#f8fafc',
-                        fontSize: '0.9rem',
+                        fontSize: '16px',
                         outline: 'none',
                       }}
                     />
                   </div>
 
-                  <div style={{ minWidth: 0, boxSizing: 'border-box' }}>
-                    <label
-                      style={{
-                        display: 'block',
-                        marginBottom: '0.35rem',
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        color: isLight ? '#334155' : '#cbd5e1',
-                      }}
-                    >
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.76rem', fontWeight: 700, color: isLight ? '#334155' : '#cbd5e1' }}>
                       To Date *
                     </label>
                     <input
@@ -1739,74 +1402,57 @@ export default function OneTapPunchInterface({
                       onChange={e => setLeaveForm({ ...leaveForm, toDate: e.target.value })}
                       style={{
                         width: '100%',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box',
-                        height: '44px',
-                        padding: '0 10px',
-                        borderRadius: '10px',
-                        border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+                        height: '42px',
+                        padding: '0 8px',
+                        borderRadius: '9px',
+                        border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
                         background: isLight ? '#f8fafc' : '#0f172a',
                         color: isLight ? '#0f172a' : '#f8fafc',
-                        fontSize: '0.9rem',
+                        fontSize: '16px',
                         outline: 'none',
                       }}
                     />
                   </div>
                 </div>
 
-                {/* Duration indicator banner */}
                 {calculatedDays > 0 && (
                   <div
                     style={{
-                      padding: '0.65rem 0.9rem',
-                      borderRadius: '10px',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '8px',
                       background: 'rgba(37, 99, 235, 0.08)',
                       border: '1px solid rgba(37, 99, 235, 0.25)',
                       color: 'var(--primary)',
-                      fontSize: '0.85rem',
+                      fontSize: '0.8rem',
                       fontWeight: 700,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      boxSizing: 'border-box',
                     }}
                   >
-                    <span>📅 Requested Leave Duration:</span>
-                    <span style={{ fontSize: '0.92rem', fontWeight: 800 }}>
-                      {calculatedDays} {calculatedDays === 1 ? 'Day' : 'Days'}
-                    </span>
+                    <span>📅 Total Leave Duration:</span>
+                    <span>{calculatedDays} {calculatedDays === 1 ? 'Day' : 'Days'}</span>
                   </div>
                 )}
 
-                {/* Reason */}
-                <div style={{ width: '100%', boxSizing: 'border-box' }}>
-                  <label
-                    style={{
-                      display: 'block',
-                      marginBottom: '0.35rem',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      color: isLight ? '#334155' : '#cbd5e1',
-                    }}
-                  >
-                    Reason / Purpose for Leave *
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.76rem', fontWeight: 700, color: isLight ? '#334155' : '#cbd5e1' }}>
+                    Reason / Purpose *
                   </label>
                   <textarea
                     required
                     rows={3}
                     value={leaveForm.reason}
                     onChange={e => setLeaveForm({ ...leaveForm, reason: e.target.value })}
-                    placeholder="Specify the reason for taking leave (e.g. personal, medical, urgent family matters)..."
+                    placeholder="Enter reason for leave..."
                     style={{
                       width: '100%',
-                      maxWidth: '100%',
-                      boxSizing: 'border-box',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: isLight ? '1.5px solid #cbd5e1' : '1.5px solid #475569',
+                      padding: '8px 10px',
+                      borderRadius: '9px',
+                      border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
                       background: isLight ? '#f8fafc' : '#0f172a',
                       color: isLight ? '#0f172a' : '#f8fafc',
-                      fontSize: '0.88rem',
+                      fontSize: '16px',
                       outline: 'none',
                       resize: 'vertical',
                       fontFamily: 'inherit',
@@ -1818,14 +1464,10 @@ export default function OneTapPunchInterface({
 
             {/* Modal Footer */}
             <div
+              className="ot-modal-footer"
               style={{
-                padding: '1rem 1.4rem',
                 borderTop: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-                display: 'flex',
-                gap: '0.75rem',
                 background: isLight ? '#f8fafc' : '#0f172a',
-                flexShrink: 0,
-                boxSizing: 'border-box',
               }}
             >
               <button
@@ -1833,14 +1475,14 @@ export default function OneTapPunchInterface({
                 onClick={() => setShowLeaveModal(false)}
                 style={{
                   flex: 1,
-                  height: '44px',
+                  height: '40px',
                   background: isLight ? '#ffffff' : '#1e293b',
                   border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
                   color: isLight ? '#0f172a' : '#f8fafc',
-                  borderRadius: '10px',
+                  borderRadius: '9px',
                   cursor: 'pointer',
                   fontWeight: 700,
-                  fontSize: '0.88rem',
+                  fontSize: '0.82rem',
                 }}
               >
                 Cancel
@@ -1851,15 +1493,14 @@ export default function OneTapPunchInterface({
                 disabled={submittingLeave}
                 style={{
                   flex: 1.5,
-                  height: '44px',
+                  height: '40px',
                   background: 'var(--primary)',
                   border: 'none',
                   color: '#ffffff',
-                  borderRadius: '10px',
+                  borderRadius: '9px',
                   cursor: submittingLeave ? 'not-allowed' : 'pointer',
                   fontWeight: 700,
-                  fontSize: '0.88rem',
-                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                  fontSize: '0.82rem',
                   opacity: submittingLeave ? 0.7 : 1,
                 }}
               >
@@ -1871,7 +1512,7 @@ export default function OneTapPunchInterface({
       )}
 
       {/* ============================================================ */}
-      {/* ATTENDANCE HISTORY MODAL (CLEAN, ORGANIZED & RESPONSIVE)     */}
+      {/* ATTENDANCE HISTORY MODAL (COMPACT & MOBILE-FITTED)           */}
       {/* ============================================================ */}
       {showLeaveAndHistory && showHistoryModal && (
         <div
@@ -1880,55 +1521,31 @@ export default function OneTapPunchInterface({
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowHistoryModal(false);
           }}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: 'clamp(0.75rem, 3vw, 1.5rem)',
-            boxSizing: 'border-box',
-          }}
+          className="ot-modal-backdrop"
         >
           <div
+            className="ot-modal-card"
             style={{
               background: isLight ? '#ffffff' : '#1e293b',
-              borderRadius: '20px',
-              width: '100%',
-              maxWidth: '680px',
-              maxHeight: 'calc(100vh - 2rem)',
-              display: 'flex',
-              flexDirection: 'column',
               border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-              overflow: 'hidden',
-              boxSizing: 'border-box',
-              animation: 'scaleUp 0.18s ease-out',
             }}
           >
             {/* Header */}
             <div
+              className="ot-modal-header"
               style={{
-                padding: '1.15rem 1.4rem',
                 borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
                 background: isLight ? '#f8fafc' : '#0f172a',
-                flexShrink: 0,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <span style={{ fontSize: '1.4rem' }}>📅</span>
-                <div>
-                  <h3 style={{ margin: 0, color: isLight ? '#0f172a' : '#f8fafc', fontSize: '1.15rem', fontWeight: 800 }}>
-                    My Attendance History
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                <span style={{ fontSize: '1.25rem' }}>📅</span>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ margin: 0, color: isLight ? '#0f172a' : '#f8fafc', fontSize: '0.98rem', fontWeight: 800 }}>
+                    My Attendance
                   </h3>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Monthly activity for {employee.firstName} {employee.lastName}
+                  <p style={{ margin: '1px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {employee.firstName} {employee.lastName} ({employee.employeeId})
                   </p>
                 </div>
               </div>
@@ -1936,18 +1553,11 @@ export default function OneTapPunchInterface({
                 type="button"
                 onClick={() => setShowHistoryModal(false)}
                 title="Close"
+                className="ot-modal-close"
                 style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: '50%',
                   border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
                   background: isLight ? '#ffffff' : '#1e293b',
                   color: 'var(--text-muted)',
-                  fontSize: '1.1rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
                 }}
               >
                 ✕
@@ -1955,37 +1565,36 @@ export default function OneTapPunchInterface({
             </div>
 
             {/* Month Navigator Toolbar */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.65rem 1.25rem',
-              background: isLight ? '#f1f5f9' : '#1e293b',
-              borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-              flexShrink: 0,
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.5rem 0.9rem',
+                background: isLight ? '#f1f5f9' : '#1e293b',
+                borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                flexShrink: 0,
+                gap: '0.5rem',
+              }}
+            >
               <button
                 type="button"
                 onClick={() => changeHistoryMonth(-1)}
                 style={{
-                  padding: '0.35rem 0.8rem',
-                  borderRadius: '8px',
+                  padding: '0.3rem 0.65rem',
+                  borderRadius: '7px',
                   border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
                   background: isLight ? '#ffffff' : '#0f172a',
                   color: isLight ? '#0f172a' : '#f8fafc',
-                  fontSize: '0.8rem',
+                  fontSize: '0.75rem',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 ◀ Prev
               </button>
-              <div style={{ fontWeight: 800, fontSize: '0.92rem', color: isLight ? '#0f172a' : '#f8fafc', letterSpacing: '0.01em' }}>
-                📅 {(() => {
+              <div style={{ fontWeight: 800, fontSize: '0.85rem', color: isLight ? '#0f172a' : '#f8fafc', textAlign: 'center' }}>
+                {(() => {
                   try {
                     return new Date(`${historyMonth}-01T12:00:00+05:30`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
                   } catch {
@@ -1997,232 +1606,568 @@ export default function OneTapPunchInterface({
                 type="button"
                 onClick={() => changeHistoryMonth(1)}
                 style={{
-                  padding: '0.35rem 0.8rem',
-                  borderRadius: '8px',
+                  padding: '0.3rem 0.65rem',
+                  borderRadius: '7px',
                   border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
                   background: isLight ? '#ffffff' : '#0f172a',
                   color: isLight ? '#0f172a' : '#f8fafc',
-                  fontSize: '0.8rem',
+                  fontSize: '0.75rem',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 Next ▶
               </button>
             </div>
 
-            {/* Table Content with horizontal scroll */}
-            <div style={{ overflowY: 'auto', flex: 1, padding: '1rem 1.25rem', boxSizing: 'border-box' }}>
+            {/* Quick Summary Stats Bar */}
+            {!loadingHistory && historyLogs.length > 0 && (() => {
+              const presentCount = historyLogs.filter(l => l.punchIn || l.status === 'PRESENT' || l.status === 'LATE' || l.status === 'HALF_DAY').length;
+              const lateCount = historyLogs.filter(l => l.status === 'LATE' || l.isLate).length;
+              const offOrLeaveCount = historyLogs.filter(l => l.status === 'WEEKLY_OFF' || l.status === 'OFF' || (l.status && l.status.includes('LEAVE'))).length;
+              const absentCount = historyLogs.filter(l => l.status === 'ABSENT').length;
+              return (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: '0.35rem',
+                    padding: '0.5rem 0.75rem',
+                    borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
+                    background: isLight ? '#ffffff' : '#0f172a',
+                    flexShrink: 0,
+                  }}
+                >
+                  <div style={{ textAlign: 'center', padding: '0.3rem 0.2rem', borderRadius: '7px', background: 'rgba(16, 185, 129, 0.1)' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#10b981', lineHeight: 1.1 }}>{presentCount}</div>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 700, color: isLight ? '#475569' : '#94a3b8', textTransform: 'uppercase' }}>Present</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '0.3rem 0.2rem', borderRadius: '7px', background: 'rgba(245, 158, 11, 0.1)' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f59e0b', lineHeight: 1.1 }}>{lateCount}</div>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 700, color: isLight ? '#475569' : '#94a3b8', textTransform: 'uppercase' }}>Late</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '0.3rem 0.2rem', borderRadius: '7px', background: 'rgba(59, 130, 246, 0.1)' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1.1 }}>{offOrLeaveCount}</div>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 700, color: isLight ? '#475569' : '#94a3b8', textTransform: 'uppercase' }}>Off/Leave</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '0.3rem 0.2rem', borderRadius: '7px', background: 'rgba(239, 68, 68, 0.1)' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#ef4444', lineHeight: 1.1 }}>{absentCount}</div>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 700, color: isLight ? '#475569' : '#94a3b8', textTransform: 'uppercase' }}>Absent</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Attendance Records List (Mobile-Fitted Table) */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '0.5rem 0.75rem', boxSizing: 'border-box' }}>
               {loadingHistory ? (
-                <div style={{ textAlign: 'center', padding: '3rem', color: isLight ? '#475569' : '#cbd5e1' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+                <div style={{ textAlign: 'center', padding: '2.25rem 1rem', color: isLight ? '#475569' : '#cbd5e1', fontSize: '0.84rem' }}>
+                  <div style={{ fontSize: '1.6rem', marginBottom: '0.4rem' }}>⏳</div>
                   <div>Loading attendance records...</div>
                 </div>
               ) : historyLogs.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem', color: isLight ? '#475569' : '#cbd5e1' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
-                  <div>No attendance records found for this period.</div>
+                <div style={{ textAlign: 'center', padding: '2.25rem 1rem', color: isLight ? '#475569' : '#cbd5e1', fontSize: '0.84rem' }}>
+                  <div style={{ fontSize: '1.6rem', marginBottom: '0.4rem' }}>📋</div>
+                  <div>No attendance records found for this month.</div>
                 </div>
               ) : (
-                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                  <table style={{ width: '100%', minWidth: '460px', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: isLight ? '2px solid #e2e8f0' : '2px solid #334155', color: isLight ? '#475569' : '#cbd5e1', textAlign: 'left' }}>
-                        <th style={{ padding: '0.65rem 0.5rem' }}>Date</th>
-                        <th style={{ padding: '0.65rem 0.5rem' }}>Punch In</th>
-                        <th style={{ padding: '0.65rem 0.5rem' }}>Punch Out</th>
-                        <th style={{ padding: '0.65rem 0.5rem' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {historyLogs.map((log, idx) => {
-                        const isLate = log.status === 'LATE' || log.isLate;
-                        const isAbsent = log.status === 'ABSENT';
-                        const isOff = log.status === 'WEEKLY_OFF' || log.status === 'OFF';
-                        const isLeave = log.status && (log.status.includes('LEAVE') || log.status === 'PAID_LEAVE' || log.status === 'UNPAID_LEAVE');
-                        const isHalf = log.status === 'HALF_DAY';
-                        const isPending = log.status === 'PENDING';
-                        const isScheduled = log.status === 'SCHEDULED';
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: isLight ? '1.5px solid #e2e8f0' : '1.5px solid #334155', color: isLight ? '#64748b' : '#94a3b8', textAlign: 'left', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      <th style={{ padding: '0.45rem 0.3rem' }}>Date</th>
+                      <th style={{ padding: '0.45rem 0.3rem' }}>In</th>
+                      <th style={{ padding: '0.45rem 0.3rem' }}>Out</th>
+                      <th style={{ padding: '0.45rem 0.3rem', textAlign: 'right' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyLogs.map((log, idx) => {
+                      const isLate = log.status === 'LATE' || log.isLate;
+                      const isAbsent = log.status === 'ABSENT';
+                      const isOff = log.status === 'WEEKLY_OFF' || log.status === 'OFF';
+                      const isLeave = log.status && (log.status.includes('LEAVE') || log.status === 'PAID_LEAVE' || log.status === 'UNPAID_LEAVE');
+                      const isHalf = log.status === 'HALF_DAY';
+                      const isPending = log.status === 'PENDING';
+                      const isScheduled = log.status === 'SCHEDULED';
 
-                        const badgeColor = isLate ? '#f59e0b' : isAbsent ? '#ef4444' : isOff ? '#64748b' : isLeave ? '#2563eb' : isHalf ? '#8b5cf6' : isPending ? '#eab308' : isScheduled ? '#0ea5e9' : '#10b981';
-                        const badgeBg = isLate ? 'rgba(245, 158, 11, 0.15)' : isAbsent ? 'rgba(239, 68, 68, 0.15)' : isOff ? 'rgba(100, 116, 139, 0.15)' : isLeave ? 'rgba(37, 99, 235, 0.15)' : isHalf ? 'rgba(139, 92, 246, 0.15)' : isPending ? 'rgba(234, 179, 8, 0.15)' : isScheduled ? 'rgba(14, 165, 233, 0.15)' : 'rgba(16, 185, 129, 0.15)';
-                        const badgeText = isLate ? 'Late' : isAbsent ? 'Absent' : isOff ? 'Weekly Off' : isLeave ? (log.status.replace(/_/g, ' ')) : isHalf ? 'Half Day' : isPending ? 'Pending' : isScheduled ? 'Scheduled' : 'Present';
+                      const badgeColor = isLate ? '#f59e0b' : isAbsent ? '#ef4444' : isOff ? '#64748b' : isLeave ? '#2563eb' : isHalf ? '#8b5cf6' : isPending ? '#eab308' : isScheduled ? '#0ea5e9' : '#10b981';
+                      const badgeBg = isLate ? 'rgba(245, 158, 11, 0.15)' : isAbsent ? 'rgba(239, 68, 68, 0.15)' : isOff ? 'rgba(100, 116, 139, 0.15)' : isLeave ? 'rgba(37, 99, 235, 0.15)' : isHalf ? 'rgba(139, 92, 246, 0.15)' : isPending ? 'rgba(234, 179, 8, 0.15)' : isScheduled ? 'rgba(14, 165, 233, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+                      const badgeText = isLate ? 'Late' : isAbsent ? 'Absent' : isOff ? 'Off' : isLeave ? 'Leave' : isHalf ? 'Half Day' : isPending ? 'Pending' : isScheduled ? 'Roster' : 'Present';
 
-                        let displayDate = log.date || '';
-                        try {
-                          displayDate = new Date(log.date + (String(log.date).includes('T') ? '' : 'T12:00:00+05:30')).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
-                        } catch {}
+                      let displayDate = log.date || '';
+                      try {
+                        displayDate = new Date(log.date + (String(log.date).includes('T') ? '' : 'T12:00:00+05:30')).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', weekday: 'short' });
+                      } catch {}
 
-                        return (
-                          <tr key={idx} style={{ borderBottom: isLight ? '1px solid #f1f5f9' : '1px solid #334155', color: isLight ? '#0f172a' : '#f8fafc' }}>
-                            <td style={{ padding: '0.65rem 0.5rem', fontWeight: 600 }}>
-                              {displayDate}
-                            </td>
-                            <td style={{ padding: '0.65rem 0.5rem', color: log.punchIn ? '#10b981' : 'var(--text-muted)', fontWeight: 700 }}>
-                              {log.punchIn ? new Date(log.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : (log.remarks && isScheduled ? log.remarks : '—')}
-                            </td>
-                            <td style={{ padding: '0.65rem 0.5rem', color: log.punchOut ? '#ef4444' : 'var(--text-muted)', fontWeight: 700 }}>
-                              {log.punchOut ? new Date(log.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
-                            </td>
-                            <td style={{ padding: '0.65rem 0.5rem' }}>
-                              <span style={{
-                                padding: '3px 8px',
+                      return (
+                        <tr key={idx} style={{ borderBottom: isLight ? '1px solid #f1f5f9' : '1px solid rgba(51, 65, 85, 0.6)', color: isLight ? '#0f172a' : '#f8fafc' }}>
+                          <td style={{ padding: '0.5rem 0.3rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            {displayDate}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.3rem', color: log.punchIn ? '#10b981' : 'var(--text-muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            {log.punchIn ? new Date(log.punchIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : (log.remarks && isScheduled ? log.remarks : '—')}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.3rem', color: log.punchOut ? '#ef4444' : 'var(--text-muted)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            {log.punchOut ? new Date(log.punchOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.3rem', textAlign: 'right' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '2px 7px',
                                 borderRadius: '99px',
-                                fontSize: '0.72rem',
+                                fontSize: '0.66rem',
                                 fontWeight: 700,
                                 backgroundColor: badgeBg,
                                 color: badgeColor,
                                 whiteSpace: 'nowrap',
-                              }}>
-                                {badgeText}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                              }}
+                            >
+                              {badgeText}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
             </div>
 
             {/* Footer */}
             <div
+              className="ot-modal-footer"
               style={{
-                padding: '0.85rem 1.4rem',
                 borderTop: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-                display: 'flex',
-                justifyContent: 'flex-end',
                 background: isLight ? '#f8fafc' : '#0f172a',
-                flexShrink: 0,
+                justifyContent: 'flex-end',
               }}
             >
               <button
                 type="button"
                 onClick={() => setShowHistoryModal(false)}
                 style={{
-                  padding: '0.5rem 1.25rem',
+                  padding: '0.42rem 1.15rem',
                   background: 'var(--primary)',
                   color: '#ffffff',
                   border: 'none',
-                  borderRadius: '9px',
+                  borderRadius: '8px',
                   fontWeight: 700,
-                  fontSize: '0.85rem',
+                  fontSize: '0.8rem',
                   cursor: 'pointer',
                 }}
               >
-                Done
+                Close
               </button>
             </div>
           </div>
         </div>
       )}
 
-
       <style jsx>{`
-        @keyframes avatarFloat {
-          0%, 100% {
-            transform: translateY(0px) scale(1);
-          }
-          50% {
-            transform: translateY(-4px) scale(1.025);
-          }
+        .ot-container {
+          width: 100%;
+          max-width: 460px;
+          margin: 0 auto;
+          padding: 0.5rem 0.65rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          box-sizing: border-box;
         }
-        @keyframes avatarHaloRing {
-          0% {
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.65), 0 8px 24px rgba(16, 185, 129, 0.35);
-          }
-          70% {
-            box-shadow: 0 0 0 14px rgba(16, 185, 129, 0), 0 12px 28px rgba(16, 185, 129, 0.45);
-          }
-          100% {
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), 0 8px 24px rgba(16, 185, 129, 0.35);
-          }
+        .ot-kiosk-nav {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 0.35rem;
         }
-        @keyframes avatarHaloRingBlue {
-          0% {
-            box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.65), 0 8px 24px rgba(37, 99, 235, 0.35);
-          }
-          70% {
-            box-shadow: 0 0 0 14px rgba(37, 99, 235, 0), 0 12px 28px rgba(37, 99, 235, 0.45);
-          }
-          100% {
-            box-shadow: 0 0 0 0 rgba(37, 99, 235, 0), 0 8px 24px rgba(37, 99, 235, 0.35);
-          }
+        .ot-back-btn {
+          background: transparent;
+          padding: 0.35rem 0.7rem;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 0.78rem;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
         }
-        @keyframes avatarShimmerText {
-          0%, 100% {
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-            letter-spacing: 0.03em;
-          }
-          50% {
-            filter: drop-shadow(0 2px 10px rgba(255,255,255,0.7));
-            letter-spacing: 0.07em;
-          }
+        .ot-alert-error {
+          padding: 0.65rem 0.85rem;
+          background-color: rgba(239, 68, 68, 0.12);
+          color: #ef4444;
+          border-radius: 10px;
+          border: 1px solid rgba(239, 68, 68, 0.35);
+          display: flex;
+          align-items: flex-start;
+          gap: 0.55rem;
+          font-size: 0.8rem;
+          font-weight: 600;
+          line-height: 1.4;
         }
-        .avatar-animated-circle {
-          will-change: transform, box-shadow;
+        .ot-gps-banner {
+          padding: 0.6rem 0.8rem;
+          border-radius: 10px;
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+          font-size: 0.78rem;
+          font-weight: 600;
         }
-        .avatar-animated-circle:hover {
-          transform: translateY(-5px) scale(1.05) !important;
+        .ot-success-card {
+          padding: 0.9rem 1rem;
+          border-radius: 14px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.35rem;
+          text-align: center;
+          animation: scaleUp 0.18s ease-out;
         }
-        .avatar-animated-circle:active {
-          transform: scale(0.96) !important;
+        .ot-profile-card {
+          border-radius: 16px;
+          padding: 1rem;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          position: relative;
+          overflow: hidden;
         }
-        .self-action-btn:hover {
-          transform: translateY(-2px);
-          border-color: var(--primary) !important;
+        .ot-card-top-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          flex-wrap: wrap;
         }
-        .self-action-btn:active {
-          transform: scale(0.96);
+        .ot-greeting-pill {
+          font-size: 0.72rem;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 2px 9px;
+          border-radius: 99px;
         }
-        @keyframes pulseGlow {
-          0%, 100% {
-            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-          }
-          50% {
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.9);
-          }
+        .ot-status-pill {
+          font-size: 0.65rem;
+          font-weight: 800;
+          padding: 2px 8px;
+          border-radius: 99px;
+          letter-spacing: 0.04em;
         }
-        @keyframes pulseGlowRed {
-          0%, 100% {
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
-          }
-          50% {
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.9);
-          }
+        .ot-identity-row {
+          display: flex;
+          align-items: center;
+          gap: 0.8rem;
+          text-align: left;
+        }
+        .ot-avatar {
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          object-fit: cover;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .ot-avatar-initials {
+          color: #ffffff;
+          font-size: 1.3rem;
+          font-weight: 800;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        .ot-avatar-dot {
+          position: absolute;
+          bottom: 0;
+          right: 0;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.55rem;
+          color: #ffffff;
+        }
+        .ot-identity-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .ot-emp-name {
+          margin: 0;
+          font-size: 1.1rem;
+          font-weight: 800;
+          line-height: 1.25;
+          letter-spacing: -0.01em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .ot-emp-meta {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          flex-wrap: wrap;
+          margin-top: 0.25rem;
+        }
+        .ot-dept-chip {
+          padding: 2px 7px;
+          border-radius: 99px;
+          font-size: 0.7rem;
+          font-weight: 700;
+        }
+        .ot-id-chip {
+          font-family: monospace;
+          padding: 1px 6px;
+          border-radius: 5px;
+          font-size: 0.7rem;
+          font-weight: 700;
+        }
+        .ot-shift-bar {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.38rem 0.65rem;
+          border-radius: 9px;
+          font-size: 0.76rem;
+          font-weight: 600;
+          flex-wrap: wrap;
+        }
+        .ot-roster-notice {
+          padding: 0.5rem 0.7rem;
+          border-radius: 9px;
+          display: flex;
+          align-items: flex-start;
+          gap: 0.45rem;
+        }
+        .ot-live-status-box {
+          padding: 0.55rem 0.65rem;
+          border-radius: 11px;
+        }
+        .ot-time-grid {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.35rem;
+        }
+        .ot-time-cell {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          min-width: 0;
+        }
+        .ot-time-label {
+          font-size: 0.62rem;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+        }
+        .ot-time-val {
+          font-size: 0.86rem;
+          font-weight: 800;
+          margin-top: 1px;
+          white-space: nowrap;
+        }
+        .ot-mode-tag {
+          font-size: 0.6rem;
+          font-weight: 700;
+        }
+        .ot-time-divider {
+          width: 1px;
+          height: 26px;
+          flex-shrink: 0;
+        }
+        .ot-punch-btn {
+          width: 100%;
+          padding: 0.75rem 0.95rem;
+          border-radius: 13px;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.7rem;
+          text-align: left;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          touch-action: manipulation;
+        }
+        .ot-punch-btn:hover:not(:disabled) {
+          transform: translateY(-1px);
+        }
+        .ot-punch-btn:active:not(:disabled) {
+          transform: scale(0.98);
+        }
+        .ot-punch-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.18);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+          flex-shrink: 0;
+        }
+        .ot-punch-text {
+          flex: 1;
+          min-width: 0;
+        }
+        .ot-punch-title {
+          font-size: 0.98rem;
+          font-weight: 800;
+          line-height: 1.2;
+        }
+        .ot-punch-sub {
+          font-size: 0.72rem;
+          font-weight: 500;
+          opacity: 0.92;
+          margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .ot-punch-arrow {
+          background: rgba(0, 0, 0, 0.22);
+          padding: 0.3rem 0.55rem;
+          border-radius: 7px;
+          font-size: 0.68rem;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .ot-quick-actions {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.45rem;
+          width: 100%;
+        }
+        .ot-action-card {
+          padding: 0.55rem 0.4rem;
+          border-radius: 11px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.2rem;
+          cursor: pointer;
+          font-weight: 700;
+          font-size: 0.74rem;
+          transition: all 0.15s ease;
+          touch-action: manipulation;
+        }
+        .ot-action-card:active {
+          transform: scale(0.97);
+        }
+        .ot-action-emoji {
+          font-size: 1.05rem;
+          line-height: 1;
+        }
+        .ot-action-label {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+        .ot-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background-color: rgba(0, 0, 0, 0.72);
+          backdrop-filter: blur(6px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+          padding: 0.75rem;
+          box-sizing: border-box;
+        }
+        .ot-modal-card {
+          border-radius: 16px;
+          width: 100%;
+          max-width: 460px;
+          max-height: calc(100dvh - 1.5rem);
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
+          overflow: hidden;
+          animation: scaleUp 0.16s ease-out;
+        }
+        .ot-modal-header {
+          padding: 0.85rem 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          flex-shrink: 0;
+        }
+        .ot-modal-close {
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          font-size: 0.95rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .ot-modal-body {
+          padding: 0.9rem 1rem;
+          overflow-y: auto;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0.8rem;
+        }
+        .ot-date-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.6rem;
+        }
+        .ot-modal-footer {
+          padding: 0.75rem 1rem;
+          display: flex;
+          gap: 0.6rem;
+          flex-shrink: 0;
         }
         @keyframes scaleUp {
-          from {
-            transform: scale(0.95);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
+          from { transform: scale(0.96); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
         }
-        .punch-btn:hover:not(:disabled) {
-          transform: scale(1.03) translateY(-2px) !important;
-        }
-        .punch-btn:active:not(:disabled) {
-          transform: scale(0.98) !important;
-        }
-
-        /* Mobile Responsive adjustments for iPhone & Android */
-        @media (max-width: 640px) {
-          .mobile-self-actions {
-            flex-direction: row !important;
-            gap: 0.4rem !important;
+        @media (max-width: 420px) {
+          .ot-container {
+            padding: 0.35rem 0.4rem;
+            gap: 0.5rem;
           }
-          .mobile-self-actions button {
-            padding: 0.55rem 0.65rem !important;
-            font-size: 0.78rem !important;
-            border-radius: 10px !important;
+          .ot-profile-card {
+            padding: 0.85rem 0.75rem;
+            gap: 0.55rem;
+            border-radius: 14px;
+          }
+          .ot-avatar {
+            width: 48px;
+            height: 48px;
+          }
+          .ot-avatar-initials {
+            font-size: 1.1rem;
+          }
+          .ot-emp-name {
+            font-size: 1rem;
+          }
+          .ot-punch-btn {
+            padding: 0.65rem 0.75rem;
+          }
+          .ot-punch-title {
+            font-size: 0.9rem;
+          }
+          .ot-punch-arrow {
+            display: none;
+          }
+          .ot-date-grid {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>

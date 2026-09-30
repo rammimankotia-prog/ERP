@@ -89,17 +89,7 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div
-      className="al-wrap"
-      style={{
-        minHeight: '100vh',
-        width: '100%',
-        maxWidth: '100vw',
-        background: 'radial-gradient(ellipse at 60% 0%, #1c1206 0%, #070509 70%)',
-        color: '#f8fafc',
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-      }}
-    >
+    <div className="al-wrap">
       <div className="al-glow-top" />
       <div className="al-glow-bottom" />
 
@@ -133,23 +123,10 @@ export default function AdminLoginPage() {
 
         {/* Deactivated Notice Banner */}
         {deactivatedAlert && (
-          <div style={{
-            background: 'rgba(239, 68, 68, 0.12)',
-            border: '1.5px solid rgba(239, 68, 68, 0.4)',
-            borderRadius: 14,
-            padding: '1rem 1.15rem',
-            marginBottom: '1.5rem',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '0.85rem',
-            color: '#ef4444',
-            fontSize: '0.88rem',
-            lineHeight: 1.45,
-            boxShadow: '0 4px 16px rgba(239,68,68,0.12)'
-          }}>
-            <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>🚫</span>
+          <div className="al-deactivated-banner">
+            <span className="al-deactivated-icon">🚫</span>
             <div>
-              <div style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.2rem', color: '#dc2626' }}>
+              <div className="al-deactivated-title">
                 Account Deactivated
               </div>
               <div style={{ opacity: 0.95 }}>
@@ -193,7 +170,6 @@ export default function AdminLoginPage() {
                 <input
                   type="text"
                   required
-                  autoFocus
                   autoComplete="username"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
@@ -289,7 +265,6 @@ export default function AdminLoginPage() {
                 <input
                   type="email"
                   required
-                  autoFocus
                   autoComplete="email"
                   value={resetEmail}
                   onChange={e => setResetEmail(e.target.value)}
@@ -316,44 +291,6 @@ export default function AdminLoginPage() {
           <a href="mailto:mail@godwinhotels.com" className="al-footer-link"> mail@godwinhotels.com</a>
         </div>
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        .al-wrap {
-          min-height: 100vh; min-height: 100dvh; width: 100%; max-width: 100vw;
-          background: radial-gradient(ellipse at 60% 0%, #1c1206 0%, #070509 70%) !important;
-          display: flex; align-items: center; justify-content: center;
-          padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-          position: relative; overflow-x: hidden; overflow-y: auto;
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          color: #f8fafc;
-        }
-        .al-card {
-          width: 100%; max-width: 480px; margin: auto;
-          background: rgba(10, 8, 3, 0.94);
-          backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
-          border: 1px solid rgba(245,158,11,0.18); border-radius: 24px;
-          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.85);
-          padding: clamp(1.4rem, 4.5vw, 2.4rem); position: relative; z-index: 1;
-        }
-        .al-accent-bar { position: absolute; top: 0; left: 0; right: 0; height: 4px; border-top-left-radius: 24px; border-top-right-radius: 24px; background: linear-gradient(90deg, #d97706, #f59e0b, #fbbf24); }
-        .al-brand { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.35rem; padding-bottom: 1.15rem; border-bottom: 1px solid rgba(245,158,11,0.12); }
-        .al-brand-name { font-size: 1rem; font-weight: 800; color: #f1f5f9; line-height: 1.25; }
-        .al-brand-sub { font-size: 0.72rem; color: #64748b; font-weight: 500; }
-        .al-header { text-align: center; margin-bottom: 1.35rem; }
-        .al-badge { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.3rem 0.85rem; border-radius: 20px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.65rem; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.28); color: #fbbf24; }
-        .al-title { font-size: clamp(1.4rem, 4.5vw, 1.85rem); font-weight: 900; color: #fff; margin: 0 0 0.35rem 0; }
-        .al-subtitle { font-size: 0.82rem; color: #64748b; line-height: 1.45; }
-        .al-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; background: rgba(0,0,0,0.5); border: 1px solid rgba(245,158,11,0.12); border-radius: 12px; padding: 0.3rem; margin-bottom: 1.35rem; }
-        .al-tab { padding: 0.58rem 0.4rem; border-radius: 9px; border: none; background: transparent; color: #64748b; font-weight: 700; font-size: 0.78rem; cursor: pointer; }
-        .al-tab-active { background: rgba(245,158,11,0.18); color: #fbbf24; }
-        .al-form { display: flex; flex-direction: column; gap: 1rem; }
-        .al-label { font-size: 0.72rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 0.45rem; }
-        .al-input-wrap { display: flex; align-items: center; background: rgba(2,3,1,0.8); border: 1px solid rgba(245,158,11,0.22); border-radius: 12px; padding: 0 0.85rem; min-height: 48px; width: 100%; }
-        .al-input { width: 100%; background: transparent; border: none; padding: 0.85rem 0; color: #fff; font-size: 16px; outline: none; }
-        .al-remember { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.9rem; border-radius: 12px; background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.25); color: #fbbf24; }
-        .al-submit { color: #fff; border: none; border-radius: 12px; padding: 0.95rem 1.25rem; font-size: 0.96rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.6rem; min-height: 50px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); width: 100%; }
-      `}} />
     </div>
   );
 }

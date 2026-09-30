@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
-import { getMergedAttendance, saveAttendanceRecord } from '@/lib/attendanceStorage'
-import { getMergedShifts, getEmployeeRosterShift } from '@/lib/shiftStorage'
+import { getMergedAttendance, saveAttendanceRecord, findActiveAttendanceForEmployee } from '@/lib/attendanceStorage'
+import { getMergedShifts, getEmployeeRosterShift, updateEmployeeRosterShift } from '@/lib/shiftStorage'
 import { getAllEmployees } from '@/lib/employeeData'
 
 const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
@@ -212,21 +212,24 @@ export async function GET(req: NextRequest) {
     if (empIdUpper) idAliases.add(empIdUpper)
     if (empCodeUpper) idAliases.add(empCodeUpper)
 
-    const record = allAttendance.find(a => {
-      const aEmp = (a.employeeId || '').trim().toUpperCase()
-      const empMatch = idAliases.has(aEmp)
-      if (!empMatch) return false
+    // Dynamic shift info for dateStr
+    const rosterShift = getRosterShiftTimes(emp, dateStr)
 
-      if (a.date === dateStr) return true
-      if (a.punchIn) {
-        if (a.punchIn.slice(0, 10) === dateStr) return true
-        try {
-          const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
-          if (inDateIST === dateStr) return true
-        } catch {}
-      }
-      return false
-    })
+    const record = dateStr === todayIST
+      ? findActiveAttendanceForEmployee(allAttendance, idAliases, todayIST, rosterShift.isNightShift)
+      : allAttendance.find(a => {
+          const aEmp = (a.employeeId || '').trim().toUpperCase()
+          if (!idAliases.has(aEmp)) return false
+          if (a.date === dateStr) return true
+          if (a.punchIn) {
+            if (a.punchIn.slice(0, 10) === dateStr) return true
+            try {
+              const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
+              if (inDateIST === dateStr) return true
+            } catch {}
+          }
+          return false
+        })
 
     const checkedIn = !!(record && record.punchIn)
     const checkedOut = !!(record && record.punchOut)
@@ -234,12 +237,10 @@ export async function GET(req: NextRequest) {
     const lateMinutes = isLate ? (record?.lateMinutes || 0) : 0
     const effectiveStatus = !checkedIn ? 'ABSENT' : (record?.status || 'PRESENT')
 
-    // Dynamic shift info for dateStr
-    const rosterShift = getRosterShiftTimes(emp, dateStr)
-
     return NextResponse.json({
       checkedIn,
       checkedOut,
+      activeShiftDate: record?.date || dateStr,
       punchInTime: checkedIn ? record?.punchIn : null,
       punchOutTime: checkedOut ? record?.punchOut : null,
       totalMinutes: checkedOut ? record?.totalMinutes : null,
@@ -248,12 +249,17 @@ export async function GET(req: NextRequest) {
       lateMinutes,
       punchInMode: checkedIn ? record?.punchInMode : null,
       punchOutMode: checkedOut ? record?.punchOutMode : null,
+      isDoubleDuty: !!record?.isDoubleDuty,
+      doubleDutyIn: record?.doubleDutyIn || null,
+      doubleDutyOut: record?.doubleDutyOut || null,
+      doubleDutyShift: record?.doubleDutyShift || null,
+      doubleDutyMinutes: record?.doubleDutyMinutes || null,
       record: checkedIn ? record : null,
-      shiftStartTime: rosterShift.startTime,
-      shiftEndTime: rosterShift.endTime,
-      shiftName: rosterShift.shiftName,
+      shiftStartTime: record?.scheduledTime || rosterShift.startTime,
+      shiftEndTime: record?.scheduledOutTime || rosterShift.endTime,
+      shiftName: record?.shiftName || rosterShift.shiftName,
       shiftDisplay: rosterShift.shiftDisplay,
-      isNightShift: rosterShift.isNightShift,
+      isNightShift: record?.shiftName === 'Night Shift' || rosterShift.isNightShift,
       isOff: rosterShift.isOff,
     })
   } catch (err: any) {
@@ -451,23 +457,26 @@ export async function POST(req: NextRequest) {
     const dateStr = todayIST
 
     const allAttendance = getMergedAttendance()
+    const rosterShift = getRosterShiftTimes(emp, dateStr)
 
-    let existingIndex = allAttendance.findIndex(a => {
-      const aEmp = (a.employeeId || '').trim().toUpperCase()
-      const normEmp = normalizedEmpId.trim().toUpperCase()
-      const empIdMatch = aEmp === normEmp || (emp && (aEmp === emp.id?.trim().toUpperCase() || aEmp === emp.employeeId?.trim().toUpperCase()))
-      if (!empIdMatch) return false
+    const idAliases = new Set<string>([
+      normalizedEmpId.trim().toUpperCase(),
+      employeeId.trim().toUpperCase(),
+    ])
+    if (emp?.id) idAliases.add(emp.id.trim().toUpperCase())
+    if (emp?.employeeId) idAliases.add(emp.employeeId.trim().toUpperCase())
 
-      if (a.date === dateStr) return true
-      if (a.punchIn) {
-        if (a.punchIn.slice(0, 10) === dateStr) return true
-        try {
-          const inDateIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(a.punchIn))
-          if (inDateIST === dateStr) return true
-        } catch {}
-      }
-      return false
-    })
+    const activeRecord = findActiveAttendanceForEmployee(
+      allAttendance,
+      idAliases,
+      dateStr,
+      rosterShift.isNightShift,
+      now
+    )
+
+    let existingIndex = activeRecord
+      ? allAttendance.findIndex(a => a === activeRecord || (a.id && a.id === activeRecord.id) || (a.employeeId === activeRecord.employeeId && a.date === activeRecord.date))
+      : -1
 
     if (action === 'IN') {
       if (existingIndex !== -1 && allAttendance[existingIndex].punchIn) {
@@ -514,20 +523,111 @@ export async function POST(req: NextRequest) {
             ? 'Admin'
             : 'Staff'
 
+          // Check if Double Duty is already completed
+          if (existRec.doubleDutyIn && existRec.doubleDutyOut) {
+            return NextResponse.json({
+              error: `Aapka aaj ka Regular Shift (${whoIn} dwara ${formattedInTime}) aur Double Duty dono already complete ho chuka hai. Dobara punch nahi lag sakta.`,
+              alreadyPunched: true,
+              alreadyPunchedIn: true,
+              alreadyPunchedOut: true,
+              record: existRec
+            }, { status: 400 })
+          }
+
+          // Check if Double Duty is already active (awaiting checkout)
+          if (existRec.doubleDutyIn && !existRec.doubleDutyOut) {
+            return NextResponse.json({
+              error: `Aapki Double Duty ka Punch-In already record ho chuka hai. Duty complete hone par Check-Out karein.`,
+              alreadyPunched: true,
+              record: existRec
+            }, { status: 400 })
+          }
+
+          // === ALLOW DOUBLE DUTY PUNCH-IN ===
+          const punchInMinutes = parseTimeToISTMinutes(nowIso)
+          // Detect shift for Double Duty
+          let ddShift = 'Night Shift'
+          let ddStart = emp?.nightShiftStart || '20:00'
+          let ddEnd = emp?.nightShiftEnd || '08:00'
+          let ddGrace = 20
+
+          if (punchInMinutes >= 300 && punchInMinutes <= 750) {
+            // 05:00 - 12:30 -> Morning Shift
+            ddShift = 'Morning Shift'
+            ddStart = emp?.dayShiftStart || emp?.morningTime || '08:00'
+            ddEnd = emp?.dayShiftEnd || emp?.eveningTime || '20:00'
+            ddGrace = 15
+          } else if (punchInMinutes > 750 && punchInMinutes <= 990) {
+            // 12:30 - 16:30 -> Afternoon Shift
+            ddShift = 'Afternoon Shift'
+            ddStart = '13:00'
+            ddEnd = '23:00'
+            ddGrace = 15
+          } else {
+            // 16:30 to 04:59 -> Night Shift
+            ddShift = 'Night Shift'
+            ddStart = emp?.nightShiftStart || '20:00'
+            ddEnd = emp?.nightShiftEnd || '08:00'
+            ddGrace = 20
+          }
+
+          const scheduledInMinutes = parseTimeToISTMinutes(ddStart)
+          const ddLateMinutes = Math.max(0, punchInMinutes - scheduledInMinutes)
+          const isDdLate = ddLateMinutes > ddGrace
+          const ddStatus = isDdLate ? 'LATE' : 'PRESENT'
+
+          existRec.isDoubleDuty = true
+          existRec.doubleDutyIn = nowIso
+          existRec.doubleDutyInMode = effectiveMode
+          existRec.doubleDutyShift = ddShift
+          existRec.doubleDutyScheduledTime = ddStart
+          existRec.doubleDutyScheduledOut = ddEnd
+          existRec.doubleDutyStatus = ddStatus
+          existRec.doubleDutyLateMinutes = isDdLate ? ddLateMinutes : 0
+          existRec.remarks = (existRec.remarks ? `${existRec.remarks} • ` : '') + `Double Duty [${ddShift}] Started`
+
+          saveAttendanceRecord(existRec)
+
+          // Auto-sync with Duty Roster
+          updateEmployeeRosterShift(normalizedEmpId, existRec.date || dateStr, 'Double Duty', emp?.id)
+
+          // Record Audit Trail
+          logAudit({
+            id: `audit-${Date.now()}`,
+            timestamp: nowIso,
+            shiftDate: existRec.date || dateStr,
+            employeeId: normalizedEmpId,
+            employeeName,
+            action: 'IN',
+            punchMode: effectiveMode,
+            status: ddStatus,
+            shiftScheduled: ddStart,
+            shiftName: `Double Duty (${ddShift})`,
+            lateMinutes: isDdLate ? ddLateMinutes : 0,
+            lat: lat || null,
+            lng: lng || null,
+            distanceMeters: minDistance,
+            nearestHotel,
+            ip: clientIp,
+            userAgent,
+            note: `⚡ Double Duty Punch-In: ${ddShift} starting at ${ddStart}`
+          })
+
           return NextResponse.json({
-            error: `Aapka aaj ka Punch-In (${whoIn} dwara ${formattedInTime}) aur Check-Out (${whoOut} dwara ${formattedOutTime}) dono already complete ho chuka hai. Dobara punch nahi lag sakta.`,
-            alreadyPunched: true,
-            alreadyPunchedIn: true,
-            alreadyPunchedOut: true,
-            whoPunched: whoIn,
-            punchInTime: formattedInTime,
-            punchOutTime: formattedOutTime,
-            record: existRec
-          }, { status: 400 })
+            success: true,
+            isDoubleDuty: true,
+            record: existRec,
+            status: ddStatus,
+            isLate: isDdLate,
+            lateMinutes: isDdLate ? ddLateMinutes : 0,
+            scheduledTime: ddStart,
+            shiftName: `Double Duty (${ddShift})`,
+            message: `⚡ Double Duty Punch-In Recorded (${ddShift} / ${ddStart} - ${ddEnd})`
+          })
         }
 
         return NextResponse.json({
-          error: `Aapka Punch-In already ${whoIn} dwara ${formattedInTime} par record kiya ja chuka hai. Dobara punch nahi lag sakta.`,
+          error: `Aapka Punch-In already ${whoIn} dwara ${formattedInTime} par record kiya ja chuka hai. Shift complete hone par Check-Out karein.`,
           alreadyPunched: true,
           alreadyPunchedIn: true,
           whoPunched: whoIn,
@@ -536,22 +636,58 @@ export async function POST(req: NextRequest) {
         }, { status: 400 })
       }
 
-      // AUTO-LATE FLAGGING: Use roster-assigned shift for today (falls back to default shift time)
-      const rosterShift = getRosterShiftTimes(emp, dateStr)
-      const shiftStartTime = rosterShift.startTime
-      const activeShiftName = rosterShift.shiftName
+      // AUTO-LATE FLAGGING & FLEXIBLE SHIFT DETECTION:
+      const punchInMinutes = parseTimeToISTMinutes(nowIso)
       const todayDayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'Asia/Kolkata' }).format(now)
+
+      // Flexible shift detection based on punch time (Day <-> Night Switch)
+      let activeShiftName = rosterShift.shiftName
+      let shiftStartTime = rosterShift.startTime
+      let shiftEndTime = rosterShift.endTime
+      let graceMinutes = (activeShiftName === 'Night Shift' || rosterShift.isNightShift) ? 20 : 15
+
+      // Night reporting window: 17:30 (5:30 PM) to 04:30 AM (or >= 16:00 if employee is assigned Night Shift)
+      if (punchInMinutes >= 1050 || punchInMinutes <= 270 || (rosterShift.isNightShift && punchInMinutes >= 960)) {
+        activeShiftName = 'Night Shift'
+        shiftStartTime = (rosterShift.isNightShift && rosterShift.startTime && rosterShift.startTime !== 'OFF')
+          ? rosterShift.startTime
+          : (emp?.nightShiftStart || '20:00')
+        shiftEndTime = (rosterShift.isNightShift && rosterShift.endTime && rosterShift.endTime !== 'OFF')
+          ? rosterShift.endTime
+          : (emp?.nightShiftEnd || '08:00')
+        graceMinutes = 20
+      } else if (punchInMinutes >= 300 && punchInMinutes <= 750) {
+        // Morning/Day reporting window: 05:00 AM to 12:30 PM
+        activeShiftName = 'Morning Shift'
+        shiftStartTime = emp?.dayShiftStart || (!rosterShift.isNightShift ? emp?.morningTime : null) || '08:00'
+        shiftEndTime = emp?.dayShiftEnd || (!rosterShift.isNightShift ? emp?.eveningTime : null) || '20:00'
+        graceMinutes = 15
+      } else if (punchInMinutes > 750 && punchInMinutes < 960) {
+        // Afternoon reporting window: 12:30 PM to 16:00 PM
+        activeShiftName = 'Afternoon Shift'
+        shiftStartTime = '13:00'
+        shiftEndTime = '23:00'
+        graceMinutes = 15
+      }
+
+      // If punch shifted the duty (e.g. guard punches Day staff at Night, or Night staff in Day), auto-update Duty Roster!
+      if (activeShiftName !== rosterShift.shiftName && rosterShift.shiftName !== 'OFF') {
+        updateEmployeeRosterShift(normalizedEmpId, dateStr, activeShiftName, emp?.id)
+      }
+
       const isOffDay = rosterShift.isOff || shiftStartTime === 'OFF' ||
         (Array.isArray(emp?.offDays) && emp.offDays.length > 0
           ? emp.offDays.some((od: string) => od.toLowerCase() === todayDayName.toLowerCase())
           : todayDayName === 'Sunday')
 
-      const punchInMinutes = parseTimeToISTMinutes(nowIso)
       const scheduledInMinutes = parseTimeToISTMinutes(shiftStartTime)
-      const graceMinutes = activeShiftName === 'Night Shift' ? 20 : 15
+      // Handle post-midnight check-in for a Night Shift that started the previous evening (e.g., 19:00 or 20:00)
+      const effectivePunchInMinutes = (punchInMinutes <= 270 && scheduledInMinutes >= 960)
+        ? punchInMinutes + 1440
+        : punchInMinutes
       
       // On an off day (e.g. Sunday or roster off), working is voluntary — employee is NEVER late!
-      const lateMinutes = isOffDay ? 0 : Math.max(0, punchInMinutes - scheduledInMinutes)
+      const lateMinutes = isOffDay ? 0 : Math.max(0, effectivePunchInMinutes - scheduledInMinutes)
       const isLate = !isOffDay && lateMinutes > graceMinutes
       const attendanceStatus = isLate ? 'LATE' : 'PRESENT'
 
@@ -574,6 +710,7 @@ export async function POST(req: NextRequest) {
         totalMinutes: null,
         shiftName: activeShiftName,
         scheduledTime: shiftStartTime,
+        scheduledOutTime: shiftEndTime,
         remarks: isOffDay 
           ? `Worked on Off Day (${todayDayName}) • Present`
           : (isLate ? `Late arrival by ${formattedLate} (+${lateMinutes}m) [${activeShiftName}]` : `Present [${activeShiftName}]`)
@@ -585,6 +722,7 @@ export async function POST(req: NextRequest) {
       logAudit({
         id: `audit-${Date.now()}`,
         timestamp: nowIso,
+        shiftDate: dateStr,
         employeeId: normalizedEmpId,
         employeeName,
         action: 'IN',
@@ -622,6 +760,60 @@ export async function POST(req: NextRequest) {
       }
       if (allAttendance[existingIndex].punchOut) {
         const existRec = allAttendance[existingIndex]
+
+        // Double Duty checkout check!
+        if (existRec.doubleDutyIn && !existRec.doubleDutyOut) {
+          // Checking out from DOUBLE DUTY
+          const ddInTime = new Date(existRec.doubleDutyIn).getTime()
+          const ddOutTime = now.getTime()
+          const ddMinutes = Math.max(0, Math.floor((ddOutTime - ddInTime) / 60000))
+          const firstShiftMins = existRec.shift1TotalMinutes || existRec.totalMinutes || 0
+          const totalDayMinutes = firstShiftMins + ddMinutes
+
+          existRec.doubleDutyOut = nowIso
+          existRec.doubleDutyOutMode = effectiveMode
+          existRec.doubleDutyMinutes = ddMinutes
+          existRec.shift1TotalMinutes = firstShiftMins
+          existRec.totalMinutes = totalDayMinutes
+          existRec.remarks = `${existRec.remarks || ''} • Double Duty Check-Out (${Math.floor(ddMinutes / 60)}h ${ddMinutes % 60}m) • Total: ${Math.floor(totalDayMinutes / 60)}h ${totalDayMinutes % 60}m`
+
+          saveAttendanceRecord(existRec)
+
+          logAudit({
+            id: `audit-${Date.now()}`,
+            timestamp: nowIso,
+            shiftDate: existRec.date || dateStr,
+            employeeId: normalizedEmpId,
+            employeeName,
+            action: 'OUT',
+            punchMode: effectiveMode,
+            status: existRec.status || 'PRESENT',
+            totalMinutes: totalDayMinutes,
+            shiftScheduledOut: existRec.doubleDutyScheduledOut,
+            shiftName: `Double Duty (${existRec.doubleDutyShift})`,
+            earlyOutMinutes: 0,
+            lat: lat || null,
+            lng: lng || null,
+            distanceMeters: minDistance,
+            nearestHotel,
+            ip: clientIp,
+            userAgent,
+            note: `⚡ Double Duty Check-Out: +${ddMinutes}m worked (Total ${totalDayMinutes}m)`
+          })
+
+          const ddH = Math.floor(ddMinutes / 60)
+          const ddM = ddMinutes % 60
+          return NextResponse.json({
+            success: true,
+            record: existRec,
+            isDoubleDuty: true,
+            doubleDutyCompleted: true,
+            doubleDutyMinutes: ddMinutes,
+            totalMinutes: totalDayMinutes,
+            message: `⚡ Double Duty Check-Out Recorded (${ddH}h ${ddM}m worked • Total Day: ${Math.floor(totalDayMinutes / 60)}h ${totalDayMinutes % 60}m)`
+          })
+        }
+
         let formattedOutTime = ''
         try {
           if (existRec.punchOut) {
@@ -645,6 +837,17 @@ export async function POST(req: NextRequest) {
           ? `Employee (${rawOutMode})`
           : 'Staff'
 
+        if (existRec.doubleDutyIn && existRec.doubleDutyOut) {
+          return NextResponse.json({
+            error: `Aapka Regular Check-Out (${whoOut} dwara ${formattedOutTime}) aur Double Duty Check-Out dono already complete ho chuka hai. Dobara check-out nahi kiya ja sakta.`,
+            alreadyPunched: true,
+            alreadyPunchedOut: true,
+            whoPunched: whoOut,
+            punchOutTime: formattedOutTime,
+            record: existRec
+          }, { status: 400 })
+        }
+
         return NextResponse.json({
           error: `Aapka Check-Out already ${whoOut} dwara ${formattedOutTime} par record kiya ja chuka hai. Dobara check-out nahi kiya ja sakta.`,
           alreadyPunched: true,
@@ -659,18 +862,25 @@ export async function POST(req: NextRequest) {
       const punchOutTime = now.getTime()
       const totalMinutes = Math.max(0, Math.floor((punchOutTime - punchInTime) / 60000))
 
-      // Compute early departure against employee's active shift time
-      const rosterShiftOut = getRosterShiftTimes(emp, dateStr)
-      const shiftEndTime = rosterShiftOut.endTime || (emp?.eveningTime && String(emp.eveningTime).trim()) || '18:00'
-      const shiftStartTimeOut = rosterShiftOut.startTime || (emp?.morningTime && String(emp.morningTime).trim()) || '09:00'
-      const activeShiftNameOut = rosterShiftOut.shiftName
+      // Compute early departure against employee's active shift time (using the shift's actual date)
+      const recDate = allAttendance[existingIndex].date || dateStr
+      const rosterShiftOut = getRosterShiftTimes(emp, recDate)
+      const recordedShiftName = allAttendance[existingIndex].shiftName
+      const isNightRecorded = recordedShiftName === 'Night Shift' || (!recordedShiftName && rosterShiftOut.isNightShift)
+      const activeShiftNameOut = recordedShiftName || rosterShiftOut.shiftName
+      const shiftEndTime = isNightRecorded
+        ? (allAttendance[existingIndex].scheduledOutTime || (rosterShiftOut.isNightShift ? rosterShiftOut.endTime : null) || emp?.nightShiftEnd || '08:00')
+        : (allAttendance[existingIndex].scheduledOutTime || rosterShiftOut.endTime || (emp?.eveningTime && String(emp.eveningTime).trim()) || '20:00')
+      const shiftStartTimeOut = isNightRecorded
+        ? (allAttendance[existingIndex].scheduledTime || (rosterShiftOut.isNightShift ? rosterShiftOut.startTime : null) || emp?.nightShiftStart || '20:00')
+        : (allAttendance[existingIndex].scheduledTime || rosterShiftOut.startTime || (emp?.morningTime && String(emp.morningTime).trim()) || '08:00')
       const shiftOutMinutes = parseTimeToISTMinutes(shiftEndTime)
       const shiftInMinutes = parseTimeToISTMinutes(shiftStartTimeOut)
       const punchOutMinutes = parseTimeToISTMinutes(nowIso)
 
       let earlyOutMinutes = 0
       if (shiftOutMinutes < shiftInMinutes) {
-        // Cross-midnight shift (e.g. 20:00 to 08:00)
+        // Cross-midnight shift (e.g. 19:00 to 07:00 or 20:00 to 08:00)
         const effShiftOut = shiftOutMinutes + 1440
         const effPunchOut = punchOutMinutes < shiftInMinutes ? punchOutMinutes + 1440 : punchOutMinutes
         earlyOutMinutes = Math.max(0, effShiftOut - effPunchOut)
@@ -710,6 +920,7 @@ export async function POST(req: NextRequest) {
       logAudit({
         id: `audit-${Date.now()}`,
         timestamp: nowIso,
+        shiftDate: recDate,
         employeeId: normalizedEmpId,
         employeeName,
         action: 'OUT',

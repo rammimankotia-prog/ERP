@@ -301,47 +301,60 @@ export default function KioskDashboard() {
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: isLight ? '#f8fafc' : '#0b1329',
-      fontFamily: 'sans-serif',
+      minHeight: '100dvh',
+      background: isLight ? '#f1f5f9' : '#0b1329',
+      fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      width: '100%',
+      maxWidth: '100vw',
+      overflowX: 'hidden',
     }}>
       {/* Header */}
       <header style={{
         background: isLight ? '#ffffff' : '#0f172a',
-        padding: '0.4rem 0.75rem',
+        padding: '0.45rem 0.75rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderBottom: isLight ? '1px solid #cbd5e1' : '1px solid #1e293b',
+        borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #1e293b',
         position: 'sticky',
         top: 0,
         zIndex: 50,
         gap: '0.4rem',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
-          <div style={{ fontSize: '1.25rem' }}>🏨</div>
-          <span style={{ fontSize: '0.88rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
+          <div style={{ fontSize: '1.15rem', flexShrink: 0 }}>🏨</div>
+          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             Godwin Hotels
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+          {/* Compact Date / Time */}
+          <div style={{ textAlign: 'right', lineHeight: 1.15, flexShrink: 0, marginRight: '0.15rem' }}>
+            <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#2563eb', letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+              {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+            </div>
+            <div style={{ fontSize: '0.6rem', color: isLight ? '#64748b' : '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              {currentTime.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </div>
+          </div>
+
           {/* Night / Day Mode Toggle */}
           <button
             type="button"
             onClick={toggleTheme}
             style={{
               background: isLight ? '#f1f5f9' : '#1e293b',
-              border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
-              borderRadius: '7px',
-              width: '30px',
-              height: '30px',
+              border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+              borderRadius: '8px',
+              width: '32px',
+              height: '32px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '0.9rem',
+              fontSize: '0.88rem',
               cursor: 'pointer',
               color: isLight ? '#0f172a' : '#f8fafc',
               padding: 0,
@@ -361,10 +374,10 @@ export default function KioskDashboard() {
               style={{
                 position: 'relative',
                 background: isLight ? '#f1f5f9' : '#1e293b',
-                border: isLight ? '1px solid #cbd5e1' : '1px solid #475569',
-                borderRadius: '7px',
-                width: '30px',
-                height: '30px',
+                border: isLight ? '1px solid #cbd5e1' : '1px solid #334155',
+                borderRadius: '8px',
+                width: '32px',
+                height: '32px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -387,7 +400,7 @@ export default function KioskDashboard() {
                   color: '#ffffff',
                   borderRadius: '999px',
                   padding: '1px 3px',
-                  fontSize: '0.6rem',
+                  fontSize: '0.58rem',
                   fontWeight: 700,
                   lineHeight: 1,
                   minWidth: '14px',
@@ -401,36 +414,36 @@ export default function KioskDashboard() {
             {/* Notification Dropdown Drawer */}
             {showNotifs && (
               <div style={{
-                position: 'absolute',
-                top: '38px',
-                right: '0',
-                width: '320px',
-                maxHeight: '420px',
+                position: 'fixed',
+                top: '48px',
+                right: '0.65rem',
+                width: 'min(320px, calc(100vw - 1.3rem))',
+                maxHeight: '400px',
                 background: isLight ? '#ffffff' : '#1e293b',
                 border: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
-                borderRadius: '16px',
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
+                borderRadius: '14px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
                 display: 'flex',
                 flexDirection: 'column',
                 zIndex: 100,
                 overflow: 'hidden'
               }}>
                 <div style={{
-                  padding: '1rem 1.25rem',
+                  padding: '0.75rem 1rem',
                   borderBottom: isLight ? '1px solid #e2e8f0' : '1px solid #334155',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   background: isLight ? '#f8fafc' : '#0f172a'
                 }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: isLight ? '#0f172a' : '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: isLight ? '#0f172a' : '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <span>Notifications</span>
                     {unreadCount > 0 && (
                       <span style={{
                         background: '#ef4444',
                         color: '#fff',
-                        fontSize: '0.7rem',
-                        padding: '1px 6px',
+                        fontSize: '0.65rem',
+                        padding: '1px 5px',
                         borderRadius: '6px',
                         fontWeight: 700
                       }}>
@@ -446,7 +459,7 @@ export default function KioskDashboard() {
                         background: 'transparent',
                         border: 'none',
                         color: '#2563eb',
-                        fontSize: '0.8rem',
+                        fontSize: '0.75rem',
                         fontWeight: 600,
                         cursor: 'pointer',
                         padding: 0
@@ -457,9 +470,9 @@ export default function KioskDashboard() {
                   )}
                 </div>
 
-                <div style={{ overflowY: 'auto', maxHeight: '350px', padding: '0.5rem' }}>
+                <div style={{ overflowY: 'auto', maxHeight: '320px', padding: '0.45rem' }}>
                   {notifications.length === 0 ? (
-                    <div style={{ padding: '2rem 1rem', textAlign: 'center', color: isLight ? '#94a3b8' : '#64748b', fontSize: '0.9rem' }}>
+                    <div style={{ padding: '1.75rem 1rem', textAlign: 'center', color: isLight ? '#94a3b8' : '#64748b', fontSize: '0.82rem' }}>
                       No notifications yet.
                     </div>
                   ) : (
@@ -470,25 +483,23 @@ export default function KioskDashboard() {
                         <div
                           key={notif.id}
                           style={{
-                            padding: '0.85rem 1rem',
-                            borderRadius: '10px',
-                            marginBottom: '0.5rem',
+                            padding: '0.7rem 0.85rem',
+                            borderRadius: '9px',
+                            marginBottom: '0.4rem',
                             background: !notif.read
                               ? (isApproved
                                   ? (isLight ? '#ecfdf5' : 'rgba(16, 185, 129, 0.15)')
                                   : (isLight ? '#eff6ff' : 'rgba(37, 99, 235, 0.15)'))
                               : (isLight ? '#f8fafc' : '#0f172a'),
                             borderLeft: !notif.read
-                              ? (isApproved ? '4px solid #10b981' : isRejected ? '4px solid #ef4444' : '4px solid #3b82f6')
-                              : '4px solid transparent',
-                            cursor: 'default',
-                            transition: 'all 0.15s ease'
+                              ? (isApproved ? '3.5px solid #10b981' : isRejected ? '3.5px solid #ef4444' : '3.5px solid #3b82f6')
+                              : '3.5px solid transparent',
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.4rem' }}>
                             <div style={{
                               fontWeight: notif.read ? 600 : 700,
-                              fontSize: '0.88rem',
+                              fontSize: '0.82rem',
                               color: isApproved ? '#059669' : isRejected ? '#dc2626' : (isLight ? '#0f172a' : '#f8fafc')
                             }}>
                               {notif.title}
@@ -501,7 +512,7 @@ export default function KioskDashboard() {
                                 style={{
                                   background: 'transparent',
                                   border: 'none',
-                                  fontSize: '0.75rem',
+                                  fontSize: '0.72rem',
                                   color: isLight ? '#64748b' : '#94a3b8',
                                   cursor: 'pointer',
                                   padding: '2px 4px'
@@ -511,15 +522,15 @@ export default function KioskDashboard() {
                               </button>
                             )}
                           </div>
-                          <div style={{ fontSize: '0.82rem', color: isLight ? '#475569' : '#cbd5e1', marginTop: '0.25rem', lineHeight: 1.4 }}>
+                          <div style={{ fontSize: '0.76rem', color: isLight ? '#475569' : '#cbd5e1', marginTop: '0.2rem', lineHeight: 1.35 }}>
                             {notif.message}
                           </div>
                           {notif.approverNote && (
-                            <div style={{ fontSize: '0.78rem', color: isLight ? '#059669' : '#34d399', marginTop: '0.2rem', fontStyle: 'italic' }}>
+                            <div style={{ fontSize: '0.72rem', color: isLight ? '#059669' : '#34d399', marginTop: '0.15rem', fontStyle: 'italic' }}>
                               Remark: "{notif.approverNote}"
                             </div>
                           )}
-                          <div style={{ fontSize: '0.72rem', color: isLight ? '#94a3b8' : '#64748b', marginTop: '0.35rem' }}>
+                          <div style={{ fontSize: '0.68rem', color: isLight ? '#94a3b8' : '#64748b', marginTop: '0.25rem' }}>
                             {notif.createdAt ? new Date(notif.createdAt).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
                           </div>
                         </div>
@@ -531,16 +542,6 @@ export default function KioskDashboard() {
             )}
           </div>
 
-          {/* Compact Date / Time */}
-          <div style={{ textAlign: 'right', lineHeight: 1.15, flexShrink: 0 }}>
-            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#2563eb', letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-              {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
-            </div>
-            <div style={{ fontSize: '0.62rem', color: isLight ? '#64748b' : '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              {currentTime.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-            </div>
-          </div>
-
           {/* Compact Log Out button */}
           <button
             type="button"
@@ -549,21 +550,22 @@ export default function KioskDashboard() {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.25rem',
-              padding: '0.28rem 0.55rem',
-              borderRadius: '7px',
+              gap: '0.2rem',
+              padding: '0.28rem 0.5rem',
+              borderRadius: '8px',
               border: '1px solid rgba(239, 68, 68, 0.35)',
               background: isLight ? '#fef2f2' : 'rgba(239, 68, 68, 0.15)',
               color: '#dc2626',
               fontWeight: 700,
-              fontSize: '0.78rem',
+              fontSize: '0.74rem',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
               flexShrink: 0,
+              height: '32px',
             }}
           >
             <span>🚪</span>
-            <span>Logout</span>
+            <span>Exit</span>
           </button>
         </div>
       </header>
@@ -575,21 +577,22 @@ export default function KioskDashboard() {
             ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
             : 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
           color: '#ffffff',
-          padding: '1rem 2rem',
+          padding: '0.65rem 0.9rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '1.5rem',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+          flexWrap: 'wrap',
+          gap: '0.65rem',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
           zIndex: 40
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: '1 1 220px', minWidth: 0 }}>
             <div style={{
-              fontSize: '1.8rem',
+              fontSize: '1.25rem',
               background: 'rgba(255,255,255,0.2)',
               borderRadius: '50%',
-              width: '46px',
-              height: '46px',
+              width: '36px',
+              height: '36px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -597,14 +600,14 @@ export default function KioskDashboard() {
             }}>
               {unreadApproval.type === 'LEAVE_APPROVED' ? '🌴' : '⚠️'}
             </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '1.05rem', letterSpacing: '0.02em' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: '0.88rem' }}>
                 {unreadApproval.title}
               </div>
-              <div style={{ fontSize: '0.9rem', opacity: 0.95, marginTop: '2px', lineHeight: 1.4 }}>
+              <div style={{ fontSize: '0.78rem', opacity: 0.95, marginTop: '1px', lineHeight: 1.35 }}>
                 {unreadApproval.message}
                 {unreadApproval.approverNote && (
-                  <span style={{ marginLeft: '8px', opacity: 0.9, fontStyle: 'italic', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '4px' }}>
+                  <span style={{ marginLeft: '6px', opacity: 0.9, fontStyle: 'italic', background: 'rgba(255,255,255,0.2)', padding: '1px 6px', borderRadius: '4px' }}>
                     Note: "{unreadApproval.approverNote}"
                   </span>
                 )}
@@ -618,18 +621,16 @@ export default function KioskDashboard() {
               background: '#ffffff',
               color: unreadApproval.type === 'LEAVE_APPROVED' ? '#065f46' : '#991b1b',
               border: 'none',
-              borderRadius: '8px',
-              padding: '0.6rem 1.25rem',
-              fontSize: '0.85rem',
+              borderRadius: '7px',
+              padding: '0.4rem 0.85rem',
+              fontSize: '0.76rem',
               fontWeight: 700,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-              transition: 'transform 0.1s ease',
               flexShrink: 0
             }}
           >
-            ✓ Got It (Dismiss)
+            ✓ Dismiss
           </button>
         </div>
       )}
@@ -642,7 +643,7 @@ export default function KioskDashboard() {
           justifyContent: 'center',
           alignItems: 'flex-start',
           overflowY: 'auto',
-          padding: 'clamp(0.35rem, 2vw, 1rem) clamp(0.35rem, 2vw, 1rem) max(1.25rem, env(safe-area-inset-bottom))',
+          padding: '0.35rem 0.35rem max(1rem, env(safe-area-inset-bottom))',
           width: '100%',
           boxSizing: 'border-box',
         }}
@@ -650,7 +651,7 @@ export default function KioskDashboard() {
         <div
           style={{
             width: '100%',
-            maxWidth: '680px',
+            maxWidth: '480px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',

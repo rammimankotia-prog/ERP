@@ -89,6 +89,9 @@ function generateInitialMonthlyRoster(year: number, month: number, employees: Em
         res[emp.id][day] = 'Morning Shift'
       }
     }
+    if (emp.code && emp.code !== emp.id) {
+      res[emp.code] = { ...res[emp.id] }
+    }
   })
 
   return res
@@ -251,15 +254,24 @@ export default function ShiftsManager() {
   const [selectedMonth, setSelectedMonth] = useState<number>(8) // September (0-indexed)
   const [selectedYear, setSelectedYear] = useState<number>(2026)
 
-  // Dynamic available years list: supports past and future years indefinitely
+  // Days in selected month
+  const daysInMonth = useMemo(() => {
+    return new Date(selectedYear, selectedMonth + 1, 0).getDate()
+  }, [selectedYear, selectedMonth])
+
+  const daysArray = useMemo(() => {
+    return Array.from({ length: daysInMonth }, (_, i) => i + 1)
+  }, [daysInMonth])
+
+  // Dynamic available years list: starts from 2026 onwards
   const availableYears = useMemo(() => {
-    const startY = 2024
+    const startY = 2026
     const endY = Math.max(new Date().getFullYear() + 25, selectedYear + 10, 2050)
     const list: number[] = []
     for (let y = startY; y <= endY; y++) {
       list.push(y)
     }
-    if (!list.includes(selectedYear)) {
+    if (selectedYear >= 2026 && !list.includes(selectedYear)) {
       list.push(selectedYear)
       list.sort((a, b) => a - b)
     }
@@ -306,15 +318,27 @@ export default function ShiftsManager() {
   const [dragOverEmpId, setDragOverEmpId] = useState<string | null>(null)
   const [dropPosition, setDropPosition] = useState<'above' | 'below' | null>(null)
 
-  // Shift Swap Modal State (Day ⇄ Night / Date Range)
+  // Shift Swap Modal State (Custom Date Range Calendar — No fixed dates)
   const [showSwapModal, setShowSwapModal] = useState(false)
-  const [swapScope, setSwapScope] = useState<'ALL_VISIBLE' | 'SINGLE' | 'TWO'>('ALL_VISIBLE')
+  const [swapScope, setSwapScope] = useState<'ALL_VISIBLE' | 'SINGLE' | 'TWO'>('SINGLE')
   const [swapAction, setSwapAction] = useState<'DAY_NIGHT_FLIP' | 'DAY_TO_NIGHT' | 'NIGHT_TO_DAY' | 'EXCHANGE_TWO' | 'SET_SHIFT'>('DAY_NIGHT_FLIP')
   const [swapTargetShift, setSwapTargetShift] = useState<string>('Night Shift')
   const [swapSelectedEmpId, setSwapSelectedEmpId] = useState<string>('')
   const [swapSecondEmpId, setSwapSecondEmpId] = useState<string>('')
-  const [swapFromDay, setSwapFromDay] = useState<number>(1)
-  const [swapToDay, setSwapToDay] = useState<number>(15)
+  const [swapFromDay, setSwapFromDay] = useState<number>(() => new Date().getDate())
+  const [swapToDay, setSwapToDay] = useState<number>(() => new Date().getDate())
+  const [swapFromDate, setSwapFromDate] = useState<string>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const [swapToDate, setSwapToDate] = useState<string>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const [swapCalMonth, setSwapCalMonth] = useState<number>(() => new Date().getMonth())
+  const [swapCalYear, setSwapCalYear] = useState<number>(() => new Date().getFullYear())
+  const [swapClickStep, setSwapClickStep] = useState<'FROM' | 'TO'>('FROM')
+  const [showInlineSwapCalendar, setShowInlineSwapCalendar] = useState<boolean>(true)
 
   useEffect(() => {
     const updateClock = () => {
@@ -350,18 +374,34 @@ export default function ShiftsManager() {
         const rawList = Array.isArray(d) ? d : (Array.isArray(d?.employees) ? d.employees : [])
         const mapped: EmployeeItem[] = rawList
           .filter((e: any) => e.status === 'ACTIVE' || !e.status)
-          .map((e: any) => ({
-            id: e.id,
-            code: e.employeeId || e.code || 'EMP',
-            name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff',
-            designation: e.designation || 'Staff',
-            branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
-            dept: e.department?.name || e.department || e.dept || 'Front Office',
-            offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
-            swapShiftEligible: e.swapShiftEligible === true,
-            morningTime: e.morningTime || '09:00',
-            eveningTime: e.eveningTime || '18:00',
-          }))
+          .map((e: any) => {
+            const isNight =
+              e.isNightShift === true ||
+              (e.shiftName && String(e.shiftName).toLowerCase().includes('night')) ||
+              (e.morningTime || '').startsWith('2') ||
+              (e.morningTime || '').startsWith('19') ||
+              (e.eveningTime || '') === '08:00' ||
+              (e.eveningTime || '') === '07:00'
+            const mTime = isNight ? (e.nightShiftStart || e.morningTime || '20:00') : (e.morningTime || '09:00')
+            const eTime = isNight ? (e.nightShiftEnd || e.eveningTime || '08:00') : (e.eveningTime || '18:00')
+            return {
+              id: e.id,
+              code: e.employeeId || e.code || 'EMP',
+              name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || 'Staff',
+              designation: e.designation || 'Staff',
+              branch: e.branch?.name || e.branch || 'Hotel Grand Godwin',
+              dept: e.department?.name || e.department || e.dept || 'Front Office',
+              offDays: Array.isArray(e.offDays) && e.offDays.length > 0 ? e.offDays : ['Sunday'],
+              // Every employee is unlocked for custom date shift swaps (no fixed shifts)
+              swapShiftEligible: true,
+              morningTime: mTime,
+              eveningTime: eTime,
+              shiftName: isNight ? 'Night Shift' : (e.shiftName || 'Morning Shift'),
+              isNightShift: isNight,
+              nightShiftStart: e.nightShiftStart || (isNight ? mTime : '20:00'),
+              nightShiftEnd: e.nightShiftEnd || (isNight ? eTime : '08:00'),
+            }
+          })
 
         // Restore custom employee sort order from localStorage if present
         if (typeof window !== 'undefined') {
@@ -387,23 +427,57 @@ export default function ShiftsManager() {
           if (!swapSelectedEmpId) setSwapSelectedEmpId(mapped[0].id)
           if (!swapSecondEmpId && mapped.length > 1) setSwapSecondEmpId(mapped[1].id)
 
-          // 1. Monthly Roster Sync
-          let mRoster = generateInitialMonthlyRoster(selectedYear, selectedMonth, mapped)
+          // 1. Monthly Roster Sync: Read local cache first, then verify live from server
+          // Preserve all custom/swapped shifts — never force-overwrite saved shifts back to default!
+          const defaultMonthly = generateInitialMonthlyRoster(selectedYear, selectedMonth, mapped)
+          let mRoster = { ...defaultMonthly }
           if (typeof window !== 'undefined') {
             const savedMonthly = localStorage.getItem(getMonthlyStorageKey(selectedYear, selectedMonth))
             if (savedMonthly) {
               try {
                 const parsed = JSON.parse(savedMonthly)
                 if (parsed && Object.keys(parsed).length > 0) {
-                  mRoster = { ...mRoster, ...parsed }
+                  mapped.forEach(emp => {
+                    const savedForEmp = parsed[emp.id] || (emp.code ? parsed[emp.code] : undefined)
+                    if (savedForEmp) {
+                      mRoster[emp.id] = { ...(defaultMonthly[emp.id] || {}), ...savedForEmp }
+                      if (emp.code) mRoster[emp.code] = { ...mRoster[emp.id] }
+                    }
+                  })
                 }
               } catch {}
             }
           }
           setMonthlyRoster(mRoster)
-          saveMonthlyToStorage(selectedYear, selectedMonth, mRoster)
 
-          // 2. Weekly Roster Sync
+          // Fetch server-persisted roster (e.g. from Hostinger permanent storage)
+          fetch(`/api/hr/roster?year=${selectedYear}&month=${selectedMonth}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data && data.roster && Object.keys(data.roster).length > 0) {
+                const mergedRoster: Record<string, Record<number, string>> = { ...defaultMonthly, ... data.roster }
+                mapped.forEach(emp => {
+                  const serverEmp = data.roster[emp.id] || (emp.code ? data.roster[emp.code] : undefined)
+                  if (serverEmp) {
+                    mergedRoster[emp.id] = { ...(defaultMonthly[emp.id] || {}), ...serverEmp }
+                    if (emp.code) mergedRoster[emp.code] = { ...mergedRoster[emp.id] }
+                  }
+                })
+                setMonthlyRoster(prev => ({ ...prev, ...mergedRoster }))
+                if (typeof window !== 'undefined') {
+                  try {
+                    localStorage.setItem(getMonthlyStorageKey(selectedYear, selectedMonth), JSON.stringify(mergedRoster))
+                  } catch {}
+                }
+              } else {
+                saveMonthlyToStorage(selectedYear, selectedMonth, mRoster)
+              }
+            })
+            .catch(() => {
+              saveMonthlyToStorage(selectedYear, selectedMonth, mRoster)
+            })
+
+          // 2. Weekly Roster Sync (preserve saved shifts without overwriting)
           let wRoster = generateInitialWeeklyRoster(mapped)
           if (typeof window !== 'undefined') {
             const savedWeekly = localStorage.getItem(getWeeklyStorageKey(selectedMonday))
@@ -643,15 +717,9 @@ export default function ShiftsManager() {
     }
   }
 
-  // Weekly shift toggle
+  // Weekly shift toggle (Unlocked for all employees)
   const cycleRosterShift = (empId: string, day: string) => {
-    const emp = employeesList.find(e => e.id === empId)
-    // Lock non-eligible employees — show brief message instead of toggling
-    if (emp && emp.swapShiftEligible === false) {
-      setMessage(`🔒 ${emp.name} is a Single Shift employee. Enable "Swap Shift Eligible" in Employee profile to allow shift changes.`)
-      return
-    }
-    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'OFF']
+    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'Double Duty', 'OFF']
     const current = roster[empId]?.[day] || 'Morning Shift'
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
     const nextShift = shiftOptions[nextIdx]
@@ -669,26 +737,25 @@ export default function ShiftsManager() {
     })
   }
 
-  // Monthly shift toggle
+  // Monthly shift toggle (Unlocked for all employees)
   const cycleMonthlyRosterShift = (empId: string, dayNum: number) => {
     const emp = employeesList.find(e => e.id === empId)
-    // Lock non-eligible employees — show brief message instead of toggling
-    if (emp && emp.swapShiftEligible === false) {
-      setMessage(`🔒 ${emp.name} is a Single Shift employee. Enable "Swap Shift Eligible" in Employee profile to allow shift changes.`)
-      return
-    }
-    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'OFF']
+    const shiftOptions = ['Morning Shift', 'Afternoon Shift', 'Break Shift', 'Night Shift', 'Double Duty', 'OFF']
     const current = monthlyRoster[empId]?.[dayNum] || 'Morning Shift'
     const nextIdx = (shiftOptions.indexOf(current) + 1) % shiftOptions.length
     const nextShift = shiftOptions[nextIdx]
 
     setMonthlyRoster(prev => {
-      const updated = {
+      const empSchedule = {
+        ...(prev[empId] || {}),
+        [dayNum]: nextShift,
+      }
+      const updated: Record<string, Record<number, string>> = {
         ...prev,
-        [empId]: {
-          ...prev[empId],
-          [dayNum]: nextShift,
-        }
+        [empId]: empSchedule,
+      }
+      if (emp?.code && emp.code !== empId) {
+        updated[emp.code] = { ...(prev[emp.code] || {}), ...empSchedule }
       }
       saveMonthlyToStorage(selectedYear, selectedMonth, updated)
       return updated
@@ -706,14 +773,48 @@ export default function ShiftsManager() {
           const parsed = JSON.parse(saved)
           if (parsed && Object.keys(parsed).length > 0) {
             setMonthlyRoster(parsed)
-            return
           }
         } catch {}
       }
     }
-    const generated = generateInitialMonthlyRoster(newYear, newMonth, employeesList)
-    setMonthlyRoster(generated)
-    saveMonthlyToStorage(newYear, newMonth, generated)
+
+    // Always sync with server for the chosen month
+    fetch(`/api/hr/roster?year=${newYear}&month=${newMonth}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.roster && Object.keys(data.roster).length > 0) {
+          const defaultMonthly = generateInitialMonthlyRoster(newYear, newMonth, employeesList)
+          const merged: Record<string, Record<number, string>> = { ...defaultMonthly, ...data.roster }
+          employeesList.forEach(emp => {
+            const serverEmp = data.roster[emp.id] || (emp.code ? data.roster[emp.code] : undefined)
+            if (serverEmp) {
+              merged[emp.id] = { ...(defaultMonthly[emp.id] || {}), ...serverEmp }
+              if (emp.code) merged[emp.code] = { ...merged[emp.id] }
+            }
+          })
+          setMonthlyRoster(merged)
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(getMonthlyStorageKey(newYear, newMonth), JSON.stringify(merged))
+            } catch {}
+          }
+        } else {
+          setMonthlyRoster(prev => {
+            if (Object.keys(prev).length > 0) return prev
+            const generated = generateInitialMonthlyRoster(newYear, newMonth, employeesList)
+            saveMonthlyToStorage(newYear, newMonth, generated)
+            return generated
+          })
+        }
+      })
+      .catch(() => {
+        setMonthlyRoster(prev => {
+          if (Object.keys(prev).length > 0) return prev
+          const generated = generateInitialMonthlyRoster(newYear, newMonth, employeesList)
+          saveMonthlyToStorage(newYear, newMonth, generated)
+          return generated
+        })
+      })
   }
 
   const handlePrevMonth = () => {
@@ -745,11 +846,73 @@ export default function ShiftsManager() {
     setMessage(`✨ Auto-populated standard hotel duty patterns for ${MONTH_NAMES[selectedMonth]} ${selectedYear}.`)
   }
 
-  // Shift Swap Handler across Date Range
-  const handleApplyShiftSwap = () => {
-    const minDay = Math.min(Number(swapFromDay) || 1, Number(swapToDay) || 1)
-    const maxDay = Math.min(Math.max(Number(swapFromDay) || 1, Number(swapToDay) || 1), daysInMonth)
+  // Dynamic Custom Date Calendar Handlers for Shift Swap Modal
+  const handleSwapFromDateChange = (val: string) => {
+    if (!val) return
+    setSwapFromDate(val)
+    const parts = val.split('-')
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10)
+      const m = parseInt(parts[1], 10) - 1
+      const d = parseInt(parts[2], 10)
+      setSwapFromDay(d)
+      setSwapCalMonth(m)
+      setSwapCalYear(y)
+      if (!swapToDate || val > swapToDate) {
+        setSwapToDate(val)
+        setSwapToDay(d)
+      }
+      if (y !== selectedYear || m !== selectedMonth) {
+        handleMonthChange(m, y)
+      }
+    }
+  }
 
+  const handleSwapToDateChange = (val: string) => {
+    if (!val) return
+    setSwapToDate(val)
+    const parts = val.split('-')
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10)
+      const m = parseInt(parts[1], 10) - 1
+      const d = parseInt(parts[2], 10)
+      setSwapToDay(d)
+      setSwapCalMonth(m)
+      setSwapCalYear(y)
+      if (!swapFromDate || val < swapFromDate) {
+        setSwapFromDate(val)
+        setSwapFromDay(d)
+      }
+    }
+  }
+
+  // Interactive Inline Calendar Day Click Handler inside Swap Modal
+  const handleSwapCalendarDayClick = (dayNum: number) => {
+    const dateStr = `${swapCalYear}-${String(swapCalMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
+    if (swapClickStep === 'FROM' || !swapFromDate || (swapFromDate && swapToDate && swapFromDate !== swapToDate)) {
+      setSwapFromDate(dateStr)
+      setSwapToDate(dateStr)
+      setSwapFromDay(dayNum)
+      setSwapToDay(dayNum)
+      setSwapClickStep('TO')
+      if (swapCalYear !== selectedYear || swapCalMonth !== selectedMonth) {
+        handleMonthChange(swapCalMonth, swapCalYear)
+      }
+    } else {
+      if (dateStr < swapFromDate) {
+        setSwapToDate(swapFromDate)
+        setSwapFromDate(dateStr)
+        setSwapFromDay(dayNum)
+      } else {
+        setSwapToDate(dateStr)
+        setSwapToDay(dayNum)
+      }
+      setSwapClickStep('FROM')
+    }
+  }
+
+  // Shift Swap Handler across Custom Date Range (Supports Single Day, Custom Days, & Cross-Month Ranges)
+  const handleApplyShiftSwap = async () => {
     let targetEmps: EmployeeItem[] = []
     if (swapScope === 'ALL_VISIBLE') {
       targetEmps = filteredEmployees
@@ -758,71 +921,148 @@ export default function ShiftsManager() {
       if (found) targetEmps = [found]
     }
 
-    if (swapScope === 'TWO' || swapAction === 'EXCHANGE_TWO') {
-      if (!swapSelectedEmpId || !swapSecondEmpId || swapSelectedEmpId === swapSecondEmpId) {
-        alert('Please select two different employees to exchange duties.')
-        return
-      }
-      setMonthlyRoster(prev => {
-        const next = { ...prev }
-        const r1 = { ...(next[swapSelectedEmpId] || {}) }
-        const r2 = { ...(next[swapSecondEmpId] || {}) }
-        for (let d = minDay; d <= maxDay; d++) {
-          const s1 = r1[d] || 'Morning Shift'
-          const s2 = r2[d] || 'Morning Shift'
-          r1[d] = s2
-          r2[d] = s1
-        }
-        next[swapSelectedEmpId] = r1
-        next[swapSecondEmpId] = r2
-        saveMonthlyToStorage(selectedYear, selectedMonth, next)
-        return next
-      })
-      const emp1Name = employeesList.find(e => e.id === swapSelectedEmpId)?.name || 'Staff 1'
-      const emp2Name = employeesList.find(e => e.id === swapSecondEmpId)?.name || 'Staff 2'
-      setMessage(`🔄 Exchanged shifts between ${emp1Name} and ${emp2Name} from Day ${minDay} to ${maxDay} (${MONTH_NAMES[selectedMonth]} ${selectedYear}).`)
-      setShowSwapModal(false)
-      return
-    }
-
-    if (targetEmps.length === 0) {
+    if (swapScope !== 'TWO' && swapAction !== 'EXCHANGE_TWO' && targetEmps.length === 0) {
       alert('Please select at least one employee.')
       return
     }
 
-    setMonthlyRoster(prev => {
-      const next = { ...prev }
-      targetEmps.forEach(emp => {
-        const empR = { ...(next[emp.id] || {}) }
-        for (let d = minDay; d <= maxDay; d++) {
-          const cur = empR[d] || 'Morning Shift'
-          if (swapAction === 'DAY_NIGHT_FLIP') {
-            if (cur === 'Morning Shift') empR[d] = 'Night Shift'
-            else if (cur === 'Night Shift') empR[d] = 'Morning Shift'
-          } else if (swapAction === 'DAY_TO_NIGHT') {
-            if (cur === 'Morning Shift') empR[d] = 'Night Shift'
-          } else if (swapAction === 'NIGHT_TO_DAY') {
-            if (cur === 'Night Shift') empR[d] = 'Morning Shift'
-          } else if (swapAction === 'SET_SHIFT') {
-            empR[d] = swapTargetShift
+    if ((swapScope === 'TWO' || swapAction === 'EXCHANGE_TWO') && (!swapSelectedEmpId || !swapSecondEmpId || swapSelectedEmpId === swapSecondEmpId)) {
+      alert('Please select two different employees to exchange duties.')
+      return
+    }
+
+    // Parse custom start and end dates
+    const fallbackDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(swapFromDay || 1).padStart(2, '0')}`
+    const rawFrom = swapFromDate || fallbackDate
+    const rawTo = swapToDate || rawFrom
+    const startStr = rawFrom <= rawTo ? rawFrom : rawTo
+    const endStr = rawFrom <= rawTo ? rawTo : rawFrom
+
+    const [sy, sm, sd] = startStr.split('-').map(Number)
+    const [ey, em, ed] = endStr.split('-').map(Number)
+    const startDate = new Date(sy, sm - 1, sd)
+    const endDate = new Date(ey, em - 1, ed)
+
+    // Group selected custom dates by (year, month)
+    const monthBuckets = new Map<string, { year: number; month: number; days: number[] }>()
+    const cursor = new Date(startDate)
+    let totalCustomDays = 0
+    while (cursor <= endDate && totalCustomDays < 370) {
+      const y = cursor.getFullYear()
+      const m = cursor.getMonth()
+      const d = cursor.getDate()
+      const key = `${y}_${m}`
+      if (!monthBuckets.has(key)) {
+        monthBuckets.set(key, { year: y, month: m, days: [] })
+      }
+      monthBuckets.get(key)!.days.push(d)
+      totalCustomDays++
+      cursor.setDate(cursor.getDate() + 1)
+    }
+
+    const computeNewShiftForDay = (curShift: string, emp: EmployeeItem, isSingleOrShortCustom: boolean) => {
+      const cur = curShift || (emp.isNightShift ? 'Night Shift' : 'Morning Shift')
+      if (swapAction === 'SET_SHIFT') {
+        return swapTargetShift
+      }
+      if (swapAction === 'DAY_TO_NIGHT') {
+        if (cur === 'OFF' && !isSingleOrShortCustom) return 'OFF'
+        return 'Night Shift'
+      }
+      if (swapAction === 'NIGHT_TO_DAY') {
+        if (cur === 'OFF' && !isSingleOrShortCustom) return 'OFF'
+        return 'Morning Shift'
+      }
+      if (swapAction === 'DAY_NIGHT_FLIP') {
+        if (cur === 'Morning Shift') return 'Night Shift'
+        if (cur === 'Night Shift') return 'Morning Shift'
+        if (cur === 'OFF' && isSingleOrShortCustom) {
+          return emp.isNightShift ? 'Morning Shift' : 'Night Shift'
+        }
+        return emp.isNightShift ? 'Morning Shift' : 'Night Shift'
+      }
+      return cur
+    }
+
+    const isShortCustom = totalCustomDays <= 7 || swapScope === 'SINGLE'
+
+    for (const bucket of monthBuckets.values()) {
+      const { year: bYear, month: bMonth, days: bDays } = bucket
+      const isCurrentSelectedMonth = bYear === selectedYear && bMonth === selectedMonth
+
+      let baseRoster: Record<string, Record<number, string>> = {}
+      if (isCurrentSelectedMonth) {
+        baseRoster = { ...monthlyRoster }
+      } else {
+        baseRoster = generateInitialMonthlyRoster(bYear, bMonth, employeesList)
+        if (typeof window !== 'undefined') {
+          const saved = localStorage.getItem(getMonthlyStorageKey(bYear, bMonth))
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved)
+              if (parsed && Object.keys(parsed).length > 0) baseRoster = { ...baseRoster, ...parsed }
+            } catch {}
           }
         }
-        next[emp.id] = empR
-      })
-      saveMonthlyToStorage(selectedYear, selectedMonth, next)
-      return next
-    })
+      }
 
-    const actionText =
-      swapAction === 'DAY_NIGHT_FLIP'
-        ? 'Day ⇄ Night (Bidirectional Swap)'
-        : swapAction === 'DAY_TO_NIGHT'
-        ? 'Day ➔ Night'
-        : swapAction === 'NIGHT_TO_DAY'
-        ? 'Night ➔ Day'
-        : `assigned to ${swapTargetShift}`
+      const next = { ...baseRoster }
 
-    setMessage(`🔄 Shift swap applied (${actionText}) for ${targetEmps.length} staff from Day ${minDay} to Day ${maxDay} (${MONTH_NAMES[selectedMonth]} ${selectedYear}).`)
+      if (swapScope === 'TWO' || swapAction === 'EXCHANGE_TWO') {
+        const emp1 = employeesList.find(e => e.id === swapSelectedEmpId)
+        const emp2 = employeesList.find(e => e.id === swapSecondEmpId)
+        const r1 = { ...(next[swapSelectedEmpId] || (emp1?.code ? next[emp1.code] : {}) || {}) }
+        const r2 = { ...(next[swapSecondEmpId] || (emp2?.code ? next[emp2.code] : {}) || {}) }
+        bDays.forEach(d => {
+          const s1 = r1[d] || (emp1?.isNightShift ? 'Night Shift' : 'Morning Shift')
+          const s2 = r2[d] || (emp2?.isNightShift ? 'Night Shift' : 'Morning Shift')
+          r1[d] = s2
+          r2[d] = s1
+        })
+        next[swapSelectedEmpId] = r1
+        next[swapSecondEmpId] = r2
+        if (emp1?.code) next[emp1.code] = { ...r1 }
+        if (emp2?.code) next[emp2.code] = { ...r2 }
+      } else {
+        targetEmps.forEach(emp => {
+          const empR = { ...(next[emp.id] || (emp.code ? next[emp.code] : {}) || {}) }
+          bDays.forEach(d => {
+            const cur = empR[d] || (emp.isNightShift ? 'Night Shift' : 'Morning Shift')
+            empR[d] = computeNewShiftForDay(cur, emp, isShortCustom)
+          })
+          next[emp.id] = empR
+          if (emp.code) next[emp.code] = { ...empR }
+        })
+      }
+
+      saveMonthlyToStorage(bYear, bMonth, next)
+      if (isCurrentSelectedMonth) {
+        setMonthlyRoster(next)
+      }
+    }
+
+    const fmtDatePretty = (iso: string) => {
+      const [y, m, d] = iso.split('-').map(Number)
+      return `${String(d).padStart(2, '0')} ${MONTH_NAMES[(m || 1) - 1]?.slice(0, 3)} ${y}`
+    }
+
+    if (swapScope === 'TWO' || swapAction === 'EXCHANGE_TWO') {
+      const emp1Name = employeesList.find(e => e.id === swapSelectedEmpId)?.name || 'Staff 1'
+      const emp2Name = employeesList.find(e => e.id === swapSecondEmpId)?.name || 'Staff 2'
+      setMessage(`🔄 Exchanged shifts between ${emp1Name} and ${emp2Name} for custom dates ${fmtDatePretty(startStr)} to ${fmtDatePretty(endStr)} (${totalCustomDays} day${totalCustomDays > 1 ? 's' : ''}).`)
+    } else {
+      const actionText =
+        swapAction === 'DAY_NIGHT_FLIP'
+          ? 'Day ⇄ Night (Bidirectional Swap)'
+          : swapAction === 'DAY_TO_NIGHT'
+          ? 'Day ➔ Night'
+          : swapAction === 'NIGHT_TO_DAY'
+          ? 'Night ➔ Day'
+          : `assigned to ${swapTargetShift}`
+      const staffLabel = swapScope === 'SINGLE' && targetEmps[0] ? targetEmps[0].name : `${targetEmps.length} staff`
+      setMessage(`🔄 Custom date shift swap applied (${actionText}) for ${staffLabel}: ${fmtDatePretty(startStr)} to ${fmtDatePretty(endStr)} (${totalCustomDays} day${totalCustomDays > 1 ? 's' : ''}).`)
+    }
+
     setShowSwapModal(false)
   }
 
@@ -864,14 +1104,6 @@ export default function ShiftsManager() {
     })
   }
 
-  // Days in selected month
-  const daysInMonth = useMemo(() => {
-    return new Date(selectedYear, selectedMonth + 1, 0).getDate()
-  }, [selectedYear, selectedMonth])
-
-  const daysArray = useMemo(() => {
-    return Array.from({ length: daysInMonth }, (_, i) => i + 1)
-  }, [daysInMonth])
 
   // Filter employees by Branch (Grand Godwin, Godwin Deluxe, Cafe Brownie) and Department (Housekeeping, Front Office, Security Guard)
   const filteredEmployees = useMemo(() => {
@@ -2219,6 +2451,7 @@ export default function ShiftsManager() {
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#f59e0b', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Afternoon Shifts">🌆 A</th>
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#0ea5e9', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Break Shifts">☕ B</th>
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#8b5cf6', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Night Shifts">🌙 N</th>
+                    <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#d946ef', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Double Duty (Day + Night)">⚡ 2D</th>
                     <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center', color: '#f43f5e', minWidth: '45px', borderBottom: '2px solid var(--border)' }} title="Weekly Off Days">🏖️ OFF</th>
                     <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center', color: 'var(--text-main)', minWidth: '65px', borderBottom: '2px solid var(--border)', fontWeight: 700 }} title="Total Duty Days">Work Days</th>
                   </tr>
@@ -2231,6 +2464,7 @@ export default function ShiftsManager() {
                     let afternoonCount = 0
                     let breakCount = 0
                     let nightCount = 0
+                    let doubleDutyCount = 0
                     let offCount = 0
 
                     daysArray.forEach(d => {
@@ -2239,10 +2473,11 @@ export default function ShiftsManager() {
                       else if (s === 'Afternoon Shift') afternoonCount++
                       else if (s === 'Break Shift') breakCount++
                       else if (s === 'Night Shift') nightCount++
+                      else if (s === 'Double Duty' || s?.toLowerCase().includes('double')) doubleDutyCount++
                       else offCount++
                     })
 
-                    const totalWorkDays = morningCount + afternoonCount + breakCount + nightCount
+                    const totalWorkDays = morningCount + afternoonCount + breakCount + nightCount + doubleDutyCount
 
                     const isEmpDragged = draggedEmpId === emp.id
                     const isEmpDragOver = dragOverEmpId === emp.id
@@ -2336,16 +2571,9 @@ export default function ShiftsManager() {
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                                 {emp.name}
-                                {emp.swapShiftEligible === false && (
-                                  <span style={{ fontSize: '0.6rem', fontWeight: 700, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
-                                    🔒 Single Shift
-                                  </span>
-                                )}
-                                {emp.swapShiftEligible === true && (
-                                  <span style={{ fontSize: '0.6rem', fontWeight: 700, backgroundColor: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.25)', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
-                                    ☀️🌙 Swap
-                                  </span>
-                                )}
+                                <span style={{ fontSize: '0.6rem', fontWeight: 700, backgroundColor: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.25)', padding: '1px 5px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
+                                  ☀️🌙 Custom Swap
+                                </span>
                               </div>
                               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                                 <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{emp.code}</span> • {emp.designation}
@@ -2394,6 +2622,11 @@ export default function ShiftsManager() {
                             badgeColor = '#8b5cf6'
                             badgeText = 'N'
                             title = 'Night Duty (20:00 - 08:00)'
+                          } else if (assignment === 'Double Duty' || assignment?.toLowerCase().includes('double')) {
+                            badgeBg = 'rgba(217, 70, 239, 0.22)'
+                            badgeColor = '#d946ef'
+                            badgeText = '2D'
+                            title = 'Double Duty (Day 08:00-20:00 + Night 20:00-08:00)'
                           } else if (assignment === 'OFF') {
                             badgeBg = isSun ? 'rgba(244, 63, 94, 0.18)' : isSat ? 'rgba(245, 158, 11, 0.18)' : 'rgba(100, 116, 139, 0.12)'
                             badgeColor = isSun ? '#f43f5e' : isSat ? '#f59e0b' : '#94a3b8'
@@ -2433,25 +2666,30 @@ export default function ShiftsManager() {
                                   return
                                 }
 
+                                const sourceEmpObj = employeesList.find(x => x.id === sourceEmpId)
                                 setMonthlyRoster(prev => {
                                   const sourceShift = prev[sourceEmpId]?.[sourceDay] || 'Morning Shift'
                                   const targetShift = prev[targetEmpId]?.[targetDay] || 'Morning Shift'
-                                  const next = {
-                                    ...prev,
-                                    [sourceEmpId]: {
-                                      ...(prev[sourceEmpId] || {}),
-                                      [sourceDay]: targetShift,
-                                    },
-                                    [targetEmpId]: {
-                                      ...(prev[targetEmpId] || {}),
-                                      [targetDay]: sourceShift,
-                                    }
+                                  const nextSource = {
+                                    ...(prev[sourceEmpId] || {}),
+                                    [sourceDay]: targetShift,
                                   }
+                                  const nextTarget = {
+                                    ...(prev[targetEmpId] || {}),
+                                    [targetDay]: sourceShift,
+                                  }
+                                  const next: Record<string, Record<number, string>> = {
+                                    ...prev,
+                                    [sourceEmpId]: nextSource,
+                                    [targetEmpId]: nextTarget,
+                                  }
+                                  if (sourceEmpObj?.code) next[sourceEmpObj.code] = { ...nextSource }
+                                  if (emp.code) next[emp.code] = { ...nextTarget }
                                   saveMonthlyToStorage(selectedYear, selectedMonth, next)
                                   return next
                                 })
 
-                                const sourceEmpName = employeesList.find(x => x.id === sourceEmpId)?.name || 'Staff'
+                                const sourceEmpName = sourceEmpObj?.name || 'Staff'
                                 const targetEmpName = emp.name
                                 if (sourceEmpId === targetEmpId) {
                                   setMessage(`🔀 Swapped shifts for ${targetEmpName}: Day ${sourceDay} (${draggedCell.shift}) ⇄ Day ${targetDay} (${assignment})`)
@@ -2484,9 +2722,8 @@ export default function ShiftsManager() {
                             >
                               <button
                                 type="button"
-                                draggable={!emp.swapShiftEligible === false}
+                                draggable={true}
                                 onDragStart={(e) => {
-                                  if (emp.swapShiftEligible === false) { e.preventDefault(); return }
                                   setDraggedCell({ type: 'MONTHLY', empId: emp.id, dayKey: dayNum, shift: assignment })
                                   e.dataTransfer.effectAllowed = 'move'
                                   e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'MONTHLY', empId: emp.id, dayKey: dayNum, shift: assignment }))
@@ -2500,12 +2737,12 @@ export default function ShiftsManager() {
                                   width: '32px',
                                   height: '28px',
                                   borderRadius: '5px',
-                                  backgroundColor: emp.swapShiftEligible === false ? (assignment === 'OFF' ? badgeBg : 'rgba(245, 158, 11, 0.08)') : badgeBg,
-                                  color: emp.swapShiftEligible === false ? (assignment === 'OFF' ? badgeColor : '#d97706') : badgeColor,
-                                  border: emp.swapShiftEligible === false ? '1px solid rgba(245, 158, 11, 0.4)' : `1px solid ${badgeColor}40`,
+                                  backgroundColor: badgeBg,
+                                  color: badgeColor,
+                                  border: `1px solid ${badgeColor}40`,
                                   fontSize: badgeText === 'OFF' ? '0.65rem' : '0.75rem',
                                   fontWeight: 800,
-                                  cursor: emp.swapShiftEligible === false ? 'not-allowed' : 'grab',
+                                  cursor: 'grab',
                                   opacity: isBeingDragged ? 0.35 : 1,
                                   transform: isBeingDragged ? 'scale(0.9)' : 'none',
                                   transition: 'all 0.12s ease',
@@ -2516,11 +2753,9 @@ export default function ShiftsManager() {
                                   boxShadow: isDragOver ? '0 0 8px rgba(99, 102, 241, 0.5)' : undefined,
                                   position: 'relative',
                                 }}
-                                title={emp.swapShiftEligible === false
-                                  ? `🔒 ${emp.name} — Single Shift Only (Swap not enabled). Profile: ${title}`
-                                  : `${emp.name} — ${dayNum} ${MONTH_NAMES[selectedMonth]}: ${title} (Click to cycle • Drag & Drop to swap)`}
+                                title={`${emp.name} — ${dayNum} ${MONTH_NAMES[selectedMonth]}: ${title} (Click to cycle • Drag & Drop to swap)`}
                               >
-                                {emp.swapShiftEligible === false && assignment !== 'OFF' ? '🔒' : badgeText}
+                                {badgeText}
                               </button>
                             </td>
 
@@ -2539,6 +2774,9 @@ export default function ShiftsManager() {
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: '#8b5cf6' }}>
                           {nightCount}
+                        </td>
+                        <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: '#d946ef' }}>
+                          {doubleDutyCount}
                         </td>
                         <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 700, color: '#f43f5e' }}>
                           {offCount}
@@ -2909,6 +3147,7 @@ export default function ShiftsManager() {
                         const isNight = assignment === 'Night Shift'
                         const isBreak = assignment === 'Break Shift'
                         const isAfternoon = assignment === 'Afternoon Shift'
+                        const isDoubleDuty = assignment === 'Double Duty' || assignment?.toLowerCase().includes('double')
 
                         let bgColor = 'rgba(16, 185, 129, 0.12)'
                         let textColor = 'var(--success)'
@@ -2931,6 +3170,10 @@ export default function ShiftsManager() {
                           bgColor = 'rgba(139, 92, 246, 0.15)'
                           textColor = '#8b5cf6'
                           borderColor = 'rgba(139, 92, 246, 0.3)'
+                        } else if (isDoubleDuty) {
+                          bgColor = 'rgba(217, 70, 239, 0.18)'
+                          textColor = '#d946ef'
+                          borderColor = 'rgba(217, 70, 239, 0.35)'
                         } else if (isBreak) {
                           bgColor = 'rgba(14, 165, 233, 0.15)'
                           textColor = '#0ea5e9'
@@ -3049,7 +3292,7 @@ export default function ShiftsManager() {
                               }}
                               title={`Click to cycle shift • Drag & Drop to swap (${d.dayKey}: ${assignment})`}
                             >
-                              {isOff ? (d.isSun ? 'OFF' : d.isSat ? 'OFF' : '—') : assignment.replace(' Shift', '')}
+                              {isOff ? (d.isSun ? 'OFF' : d.isSat ? 'OFF' : '—') : isDoubleDuty ? '⚡ 2D' : assignment.replace(' Shift', '')}
                             </button>
                           </td>
                         )
@@ -3239,232 +3482,540 @@ export default function ShiftsManager() {
               )}
             </div>
 
-            {/* Date Range Selection */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                  2. Date Range ({MONTH_NAMES[selectedMonth]} {selectedYear})
-                </label>
-                <div style={{ display: 'flex', gap: '0.35rem' }}>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => { setSwapFromDay(1); setSwapToDay(15); }}
-                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
-                  >
-                    1–15
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => { setSwapFromDay(16); setSwapToDay(daysInMonth); }}
-                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
-                  >
-                    16–{daysInMonth}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => { setSwapFromDay(1); setSwapToDay(daysInMonth); }}
-                    style={{ padding: '0.15rem 0.45rem', fontSize: '0.72rem' }}
-                  >
-                    Full Month
-                  </button>
-                </div>
-              </div>
+            {/* Custom Date Range Calendar Selection (No fixed dates for any employee) */}
+            {(() => {
+              const rawFrom = swapFromDate || `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`
+              const rawTo = swapToDate || rawFrom
+              const startIso = rawFrom <= rawTo ? rawFrom : rawTo
+              const endIso = rawFrom <= rawTo ? rawTo : rawFrom
+              const [sy, sm, sd] = startIso.split('-').map(Number)
+              const [ey, em, ed] = endIso.split('-').map(Number)
+              const startDt = new Date(sy, (sm || 1) - 1, sd || 1)
+              const endDt = new Date(ey, (em || 1) - 1, ed || 1)
+              const customSpanDays = Math.max(1, Math.round((endDt.getTime() - startDt.getTime()) / (1000 * 60 * 60 * 24)) + 1)
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>From Day:</label>
-                  <select
-                    className="form-input"
-                    value={swapFromDay}
-                    onChange={e => setSwapFromDay(Number(e.target.value))}
-                    style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.825rem' }}
-                  >
-                    {daysArray.map(d => (
-                      <option key={d} value={d}>
-                        {d.toString().padStart(2, '0')} {MONTH_NAMES[selectedMonth].slice(0, 3)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>To Day:</label>
-                  <select
-                    className="form-input"
-                    value={swapToDay}
-                    onChange={e => setSwapToDay(Number(e.target.value))}
-                    style={{ width: '100%', marginTop: '0.25rem', fontSize: '0.825rem' }}
-                  >
-                    {daysArray.map(d => (
-                      <option key={d} value={d}>
-                        {d.toString().padStart(2, '0')} {MONTH_NAMES[selectedMonth].slice(0, 3)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
+              const fmtDisplayDate = (iso: string) => {
+                if (!iso) return 'Select Date'
+                const [y, m, d] = iso.split('-').map(Number)
+                return `${String(d).padStart(2, '0')} ${MONTH_NAMES[(m || 1) - 1]?.slice(0, 3)} ${y}`
+              }
 
-            {/* Swap Action Mode */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                3. Swap Action
-              </label>
+              const calDaysInMonth = new Date(swapCalYear, swapCalMonth + 1, 0).getDate()
+              const firstDayOfWeek = new Date(swapCalYear, swapCalMonth, 1).getDay() // 0 = Sun
+              const calCells: (number | null)[] = [
+                ...Array.from({ length: firstDayOfWeek }, () => null),
+                ...Array.from({ length: calDaysInMonth }, (_, i) => i + 1),
+              ]
 
-              {swapScope !== 'TWO' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '8px',
-                      backgroundColor: swapAction === 'DAY_NIGHT_FLIP' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
-                      border: swapAction === 'DAY_NIGHT_FLIP' ? '1px solid #6366f1' : '1px solid var(--border)',
-                      cursor: 'pointer',
-                      fontSize: '0.82rem'
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="swapAction"
-                      checked={swapAction === 'DAY_NIGHT_FLIP'}
-                      onChange={() => setSwapAction('DAY_NIGHT_FLIP')}
-                    />
-                    <span>
-                      <b>🔁 Day ⇄ Night Flip (Bidirectional)</b>: Day becomes Night, Night becomes Day
-                    </span>
-                  </label>
+              return (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'rgba(99, 102, 241, 0.04)', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+                    {/* Header with Custom Range Badge & Calendar Toggle */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <label style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span>📅</span> 2. Custom Date Range Calendar:
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.12)', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '0.18rem 0.55rem', borderRadius: '999px' }}>
+                          🗓️ {customSpanDays} Custom {customSpanDays === 1 ? 'Day' : 'Days'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowInlineSwapCalendar(!showInlineSwapCalendar)}
+                          style={{
+                            padding: '0.2rem 0.55rem',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            borderRadius: '6px',
+                            border: '1px solid rgba(99, 102, 241, 0.35)',
+                            backgroundColor: showInlineSwapCalendar ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-main)',
+                            color: '#6366f1',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {showInlineSwapCalendar ? '🔼 Hide Calendar Grid' : '🗓️ Open Calendar Grid'}
+                        </button>
+                      </div>
+                    </div>
 
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '8px',
-                      backgroundColor: swapAction === 'DAY_TO_NIGHT' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
-                      border: swapAction === 'DAY_TO_NIGHT' ? '1px solid #6366f1' : '1px solid var(--border)',
-                      cursor: 'pointer',
-                      fontSize: '0.82rem'
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="swapAction"
-                      checked={swapAction === 'DAY_TO_NIGHT'}
-                      onChange={() => setSwapAction('DAY_TO_NIGHT')}
-                    />
-                    <span>
-                      <b>☀️ ➔ 🌙 Day to Night</b>: Change all Day shifts to Night Shift
-                    </span>
-                  </label>
+                    {/* Custom From Date & To Date Calendar Inputs */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                          <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                            From Date (Start):
+                          </label>
+                          <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: 700 }}>
+                            {fmtDisplayDate(startIso)}
+                          </span>
+                        </div>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <input
+                            type="date"
+                            className="form-input"
+                            value={swapFromDate}
+                            onChange={e => handleSwapFromDateChange(e.target.value)}
+                            onClick={e => {
+                              try {
+                                // @ts-ignore
+                                e.currentTarget.showPicker?.()
+                              } catch {}
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '0.45rem 0.65rem 0.45rem 2.2rem',
+                              fontSize: '0.84rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              borderRadius: '8px',
+                              border: '1.5px solid #6366f1',
+                              backgroundColor: 'var(--bg-main)',
+                              color: 'var(--text-main)',
+                              height: '40px',
+                            }}
+                            title="Pick any custom Start Date from calendar"
+                          />
+                          <span
+                            onClick={e => {
+                              const input = e.currentTarget.parentElement?.querySelector('input')
+                              try {
+                                // @ts-ignore
+                                input?.showPicker?.()
+                              } catch {}
+                            }}
+                            style={{ position: 'absolute', left: '0.65rem', fontSize: '1rem', cursor: 'pointer', userSelect: 'none' }}
+                          >
+                            📅
+                          </span>
+                        </div>
+                      </div>
 
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '8px',
-                      backgroundColor: swapAction === 'NIGHT_TO_DAY' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
-                      border: swapAction === 'NIGHT_TO_DAY' ? '1px solid #6366f1' : '1px solid var(--border)',
-                      cursor: 'pointer',
-                      fontSize: '0.82rem'
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="swapAction"
-                      checked={swapAction === 'NIGHT_TO_DAY'}
-                      onChange={() => setSwapAction('NIGHT_TO_DAY')}
-                    />
-                    <span>
-                      <b>🌙 ➔ ☀️ Night to Day</b>: Change all Night shifts to Day Shift
-                    </span>
-                  </label>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                          <label style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                            To Date (End):
+                          </label>
+                          <span style={{ fontSize: '0.72rem', color: '#6366f1', fontWeight: 700 }}>
+                            {fmtDisplayDate(endIso)}
+                          </span>
+                        </div>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <input
+                            type="date"
+                            className="form-input"
+                            value={swapToDate}
+                            onChange={e => handleSwapToDateChange(e.target.value)}
+                            onClick={e => {
+                              try {
+                                // @ts-ignore
+                                e.currentTarget.showPicker?.()
+                              } catch {}
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '0.45rem 0.65rem 0.45rem 2.2rem',
+                              fontSize: '0.84rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              borderRadius: '8px',
+                              border: '1.5px solid #6366f1',
+                              backgroundColor: 'var(--bg-main)',
+                              color: 'var(--text-main)',
+                              height: '40px',
+                            }}
+                            title="Pick any custom End Date from calendar"
+                          />
+                          <span
+                            onClick={e => {
+                              const input = e.currentTarget.parentElement?.querySelector('input')
+                              try {
+                                // @ts-ignore
+                                input?.showPicker?.()
+                              } catch {}
+                            }}
+                            style={{ position: 'absolute', left: '0.65rem', fontSize: '1rem', cursor: 'pointer', userSelect: 'none' }}
+                          >
+                            📅
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '8px',
-                      backgroundColor: swapAction === 'SET_SHIFT' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
-                      border: swapAction === 'SET_SHIFT' ? '1px solid #6366f1' : '1px solid var(--border)',
-                      cursor: 'pointer',
-                      fontSize: '0.82rem'
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="swapAction"
-                      checked={swapAction === 'SET_SHIFT'}
-                      onChange={() => setSwapAction('SET_SHIFT')}
-                    />
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <b>🎯 Assign Specific Shift:</b>
-                      <select
-                        className="form-input"
-                        value={swapTargetShift}
-                        onChange={e => {
-                          setSwapTargetShift(e.target.value)
-                          setSwapAction('SET_SHIFT')
+                    {/* Interactive Custom Calendar Grid */}
+                    {showInlineSwapCalendar && (
+                      <div
+                        style={{
+                          backgroundColor: 'var(--bg-card)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '10px',
+                          padding: '0.75rem',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
                         }}
-                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', width: '130px' }}
                       >
-                        <option value="Morning Shift">Morning (Day)</option>
-                        <option value="Afternoon Shift">Afternoon Shift</option>
-                        <option value="Night Shift">Night Shift</option>
-                        <option value="Break Shift">Break Shift</option>
-                        <option value="OFF">Weekly Off</option>
-                      </select>
-                    </span>
-                  </label>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    padding: '0.75rem 1rem',
-                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(99, 102, 241, 0.3)',
-                    fontSize: '0.82rem',
-                    color: 'var(--text-main)'
-                  }}
-                >
-                  🔄 <b>Exchange duties between Staff A and Staff B</b>: For each day in the selected range, Staff A takes Staff B's shift and Staff B takes Staff A's shift.
-                </div>
-              )}
-            </div>
+                        {/* Calendar Month/Year Navigation Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.4rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (swapCalMonth === 0) {
+                                setSwapCalMonth(11)
+                                setSwapCalYear(swapCalYear - 1)
+                              } else {
+                                setSwapCalMonth(swapCalMonth - 1)
+                              }
+                            }}
+                            style={{
+                              padding: '0.25rem 0.55rem',
+                              borderRadius: '6px',
+                              border: '1px solid var(--border)',
+                              backgroundColor: 'var(--bg-main)',
+                              color: 'var(--text-main)',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                            }}
+                            title="Previous Month"
+                          >
+                            ◀
+                          </button>
 
-            {/* Action Summary Pill */}
-            <div
-              style={{
-                padding: '0.65rem 0.85rem',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-                fontSize: '0.78rem',
-                color: 'var(--primary)',
-                lineHeight: 1.4
-              }}
-            >
-              ℹ️ <b>Summary:</b> From Day <b>{Math.min(swapFromDay, swapToDay)}</b> to <b>{Math.max(swapFromDay, swapToDay)} {MONTH_NAMES[selectedMonth]} {selectedYear}</b>,{' '}
-              {swapScope === 'TWO'
-                ? `swap schedules between selected two staff members.`
-                : swapAction === 'DAY_NIGHT_FLIP'
-                ? `swap Day (Morning) ⇄ Night shifts for ${swapScope === 'ALL_VISIBLE' ? `${filteredEmployees.length} staff` : 'selected staff'}.`
-                : swapAction === 'DAY_TO_NIGHT'
-                ? `set all Day shifts to Night Shift.`
-                : swapAction === 'NIGHT_TO_DAY'
-                ? `set all Night shifts to Day Shift.`
-                : `set all shifts to ${swapTargetShift}.`}
-            </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <select
+                              className="form-input"
+                              value={swapCalMonth}
+                              onChange={e => setSwapCalMonth(Number(e.target.value))}
+                              style={{ padding: '0.15rem 0.45rem', fontSize: '0.78rem', fontWeight: 700, height: '28px', borderRadius: '6px' }}
+                            >
+                              {MONTH_NAMES.map((m, idx) => (
+                                <option key={m} value={idx}>{m}</option>
+                              ))}
+                            </select>
+                            <select
+                              className="form-input"
+                              value={swapCalYear}
+                              onChange={e => setSwapCalYear(Number(e.target.value))}
+                              style={{ padding: '0.15rem 0.45rem', fontSize: '0.78rem', fontWeight: 700, height: '28px', borderRadius: '6px' }}
+                            >
+                              {availableYears.map(y => (
+                                <option key={y} value={y}>{y}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (swapCalMonth === 11) {
+                                setSwapCalMonth(0)
+                                setSwapCalYear(swapCalYear + 1)
+                              } else {
+                                setSwapCalMonth(swapCalMonth + 1)
+                              }
+                            }}
+                            style={{
+                              padding: '0.25rem 0.55rem',
+                              borderRadius: '6px',
+                              border: '1px solid var(--border)',
+                              backgroundColor: 'var(--bg-main)',
+                              color: 'var(--text-main)',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                            }}
+                            title="Next Month"
+                          >
+                            ▶
+                          </button>
+                        </div>
+
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '0.4rem' }}>
+                          {swapClickStep === 'FROM'
+                            ? '👆 Click any date below to set Custom Start Date (or use date inputs above)'
+                            : '👆 Now click Custom End Date (or click same date for 1-day custom shift)'}
+                        </div>
+
+                        {/* Weekday Headers */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px', textAlign: 'center', marginBottom: '4px' }}>
+                          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(wd => (
+                            <div key={wd} style={{ fontSize: '0.68rem', fontWeight: 700, color: wd === 'Sun' ? '#f43f5e' : 'var(--text-muted)' }}>
+                              {wd}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Interactive Days Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '3px' }}>
+                          {calCells.map((dayNum, idx) => {
+                            if (dayNum === null) {
+                              return <div key={`empty-${idx}`} style={{ height: '30px' }} />
+                            }
+                            const cellIso = `${swapCalYear}-${String(swapCalMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
+                            const isStart = cellIso === startIso
+                            const isEnd = cellIso === endIso
+                            const isInRange = cellIso >= startIso && cellIso <= endIso
+
+                            return (
+                              <button
+                                key={cellIso}
+                                type="button"
+                                onClick={() => handleSwapCalendarDayClick(dayNum)}
+                                style={{
+                                  height: '30px',
+                                  borderRadius: isStart && isEnd ? '7px' : isStart ? '7px 3px 3px 7px' : isEnd ? '3px 7px 7px 3px' : '4px',
+                                  border: isStart || isEnd ? '2px solid #4f46e5' : isInRange ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid var(--border)',
+                                  backgroundColor: isStart || isEnd ? '#6366f1' : isInRange ? 'rgba(99, 102, 241, 0.18)' : 'var(--bg-main)',
+                                  color: isStart || isEnd ? '#ffffff' : isInRange ? '#4f46e5' : 'var(--text-main)',
+                                  fontWeight: isStart || isEnd || isInRange ? 800 : 600,
+                                  fontSize: '0.76rem',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.12s ease',
+                                }}
+                                title={`Select ${dayNum} ${MONTH_NAMES[swapCalMonth]} ${swapCalYear}`}
+                              >
+                                {dayNum}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Optional Quick Shortcuts */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.35rem', borderTop: '1px dashed var(--border)', paddingTop: '0.5rem' }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Quick Shortcuts:</span>
+                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => {
+                            const now = new Date()
+                            const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+                            setSwapFromDate(iso)
+                            setSwapToDate(iso)
+                            setSwapFromDay(now.getDate())
+                            setSwapToDay(now.getDate())
+                            setSwapCalMonth(now.getMonth())
+                            setSwapCalYear(now.getFullYear())
+                          }}
+                          style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem', borderRadius: '6px' }}
+                        >
+                          📍 Today Only
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => {
+                            const tmr = new Date()
+                            tmr.setDate(tmr.getDate() + 1)
+                            const iso = `${tmr.getFullYear()}-${String(tmr.getMonth() + 1).padStart(2, '0')}-${String(tmr.getDate()).padStart(2, '0')}`
+                            setSwapFromDate(iso)
+                            setSwapToDate(iso)
+                            setSwapFromDay(tmr.getDate())
+                            setSwapToDay(tmr.getDate())
+                            setSwapCalMonth(tmr.getMonth())
+                            setSwapCalYear(tmr.getFullYear())
+                          }}
+                          style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem', borderRadius: '6px' }}
+                        >
+                          ⏭️ Tomorrow
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => {
+                            const s = new Date()
+                            const e = new Date()
+                            e.setDate(s.getDate() + 6)
+                            const sIso = `${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, '0')}-${String(s.getDate()).padStart(2, '0')}`
+                            const eIso = `${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, '0')}-${String(e.getDate()).padStart(2, '0')}`
+                            setSwapFromDate(sIso)
+                            setSwapToDate(eIso)
+                            setSwapCalMonth(s.getMonth())
+                            setSwapCalYear(s.getFullYear())
+                          }}
+                          style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem', borderRadius: '6px' }}
+                        >
+                          📅 Next 7 Days
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => {
+                            const mStr = String(swapCalMonth + 1).padStart(2, '0')
+                            const lastD = new Date(swapCalYear, swapCalMonth + 1, 0).getDate()
+                            setSwapFromDate(`${swapCalYear}-${mStr}-01`)
+                            setSwapToDate(`${swapCalYear}-${mStr}-${String(lastD).padStart(2, '0')}`)
+                          }}
+                          style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem', borderRadius: '6px' }}
+                        >
+                          Full {MONTH_NAMES[swapCalMonth].slice(0, 3)}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Swap Action Mode */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      3. Swap Action
+                    </label>
+
+                    {swapScope !== 'TWO' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '8px',
+                            backgroundColor: swapAction === 'DAY_NIGHT_FLIP' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                            border: swapAction === 'DAY_NIGHT_FLIP' ? '1px solid #6366f1' : '1px solid var(--border)',
+                            cursor: 'pointer',
+                            fontSize: '0.82rem'
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="swapAction"
+                            checked={swapAction === 'DAY_NIGHT_FLIP'}
+                            onChange={() => setSwapAction('DAY_NIGHT_FLIP')}
+                          />
+                          <span>
+                            <b>🔁 Day ⇄ Night Flip (Bidirectional)</b>: Day becomes Night, Night becomes Day
+                          </span>
+                        </label>
+
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '8px',
+                            backgroundColor: swapAction === 'DAY_TO_NIGHT' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                            border: swapAction === 'DAY_TO_NIGHT' ? '1px solid #6366f1' : '1px solid var(--border)',
+                            cursor: 'pointer',
+                            fontSize: '0.82rem'
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="swapAction"
+                            checked={swapAction === 'DAY_TO_NIGHT'}
+                            onChange={() => setSwapAction('DAY_TO_NIGHT')}
+                          />
+                          <span>
+                            <b>☀️ ➔ 🌙 Day to Night</b>: Change all Day shifts to Night Shift
+                          </span>
+                        </label>
+
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '8px',
+                            backgroundColor: swapAction === 'NIGHT_TO_DAY' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                            border: swapAction === 'NIGHT_TO_DAY' ? '1px solid #6366f1' : '1px solid var(--border)',
+                            cursor: 'pointer',
+                            fontSize: '0.82rem'
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="swapAction"
+                            checked={swapAction === 'NIGHT_TO_DAY'}
+                            onChange={() => setSwapAction('NIGHT_TO_DAY')}
+                          />
+                          <span>
+                            <b>🌙 ➔ ☀️ Night to Day</b>: Change all Night shifts to Day Shift
+                          </span>
+                        </label>
+
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '8px',
+                            backgroundColor: swapAction === 'SET_SHIFT' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                            border: swapAction === 'SET_SHIFT' ? '1px solid #6366f1' : '1px solid var(--border)',
+                            cursor: 'pointer',
+                            fontSize: '0.82rem'
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="swapAction"
+                            checked={swapAction === 'SET_SHIFT'}
+                            onChange={() => setSwapAction('SET_SHIFT')}
+                          />
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <b>🎯 Assign Specific Shift:</b>
+                            <select
+                              className="form-input"
+                              value={swapTargetShift}
+                              onChange={e => {
+                                setSwapTargetShift(e.target.value)
+                                setSwapAction('SET_SHIFT')
+                              }}
+                              style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', width: '130px' }}
+                            >
+                              <option value="Morning Shift">Morning (Day)</option>
+                              <option value="Afternoon Shift">Afternoon Shift</option>
+                              <option value="Night Shift">Night Shift</option>
+                              <option value="Double Duty">⚡ Double Duty (Day + Night)</option>
+                              <option value="Break Shift">Break Shift</option>
+                              <option value="OFF">Weekly Off</option>
+                            </select>
+                          </span>
+                        </label>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          padding: '0.75rem 1rem',
+                          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          fontSize: '0.82rem',
+                          color: 'var(--text-main)'
+                        }}
+                      >
+                        🔄 <b>Exchange duties between Staff A and Staff B</b>: For each day in the custom date range, Staff A takes Staff B's shift and Staff B takes Staff A's shift.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Summary Pill */}
+                  <div
+                    style={{
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                      fontSize: '0.78rem',
+                      color: 'var(--primary)',
+                      lineHeight: 1.4
+                    }}
+                  >
+                    ℹ️ <b>Summary:</b> From <b>{fmtDisplayDate(startIso)}</b> to <b>{fmtDisplayDate(endIso)}</b> ({customSpanDays} custom {customSpanDays === 1 ? 'day' : 'days'}),{' '}
+                    {swapScope === 'TWO'
+                      ? `exchange schedules between ${employeesList.find(e => e.id === swapSelectedEmpId)?.name || 'Staff A'} and ${employeesList.find(e => e.id === swapSecondEmpId)?.name || 'Staff B'}.`
+                      : swapAction === 'DAY_NIGHT_FLIP'
+                      ? `swap Day (Morning) ⇄ Night shifts for ${swapScope === 'ALL_VISIBLE' ? `${filteredEmployees.length} staff` : (employeesList.find(e => e.id === swapSelectedEmpId)?.name || 'selected staff')}.`
+                      : swapAction === 'DAY_TO_NIGHT'
+                      ? `set shift to Night Shift for ${swapScope === 'ALL_VISIBLE' ? `${filteredEmployees.length} staff` : (employeesList.find(e => e.id === swapSelectedEmpId)?.name || 'selected staff')}.`
+                      : swapAction === 'NIGHT_TO_DAY'
+                      ? `set shift to Day Shift for ${swapScope === 'ALL_VISIBLE' ? `${filteredEmployees.length} staff` : (employeesList.find(e => e.id === swapSelectedEmpId)?.name || 'selected staff')}.`
+                      : `assign ${swapTargetShift} for ${swapScope === 'ALL_VISIBLE' ? `${filteredEmployees.length} staff` : (employeesList.find(e => e.id === swapSelectedEmpId)?.name || 'selected staff')}.`}
+                  </div>
+                </>
+              )
+            })()}
 
             {/* Modal Actions */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
