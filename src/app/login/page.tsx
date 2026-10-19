@@ -291,7 +291,15 @@ export default function LoginPage() {
 
         {/* Hotel brand */}
         <div className="lp-brand">
-          <div className="lp-brand-logo">🏨</div>
+          <div className="lp-brand-logo" style={{ background: 'transparent', padding: 0, overflow: 'hidden' }}>
+            <img
+              src="/godwin_logo.svg"
+              alt="Godwin Hotels Logo"
+              width={42}
+              height={42}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }}
+            />
+          </div>
           <div className="lp-brand-text">
             <div className="lp-brand-name">Hotel Grand Godwin</div>
             <div className="lp-brand-sub">Godwin Deluxe · Indian Grill · Cafe Brownie</div>

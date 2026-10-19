@@ -323,8 +323,14 @@ export default function KioskDashboard() {
         zIndex: 50,
         gap: '0.4rem',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
-          <div style={{ fontSize: '1.15rem', flexShrink: 0 }}>🏨</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+          <img
+            src="/godwin_logo.svg"
+            alt="Godwin Hotels Logo"
+            width={28}
+            height={28}
+            style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'contain', flexShrink: 0 }}
+          />
           <span style={{ fontSize: '0.85rem', fontWeight: 800, color: isLight ? '#0f172a' : '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             Godwin Hotels
           </span>

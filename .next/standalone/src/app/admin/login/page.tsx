@@ -98,7 +98,15 @@ export default function AdminLoginPage() {
 
         {/* Brand */}
         <div className="al-brand">
-          <div className="al-brand-logo">👑</div>
+          <div className="al-brand-logo" style={{ background: 'transparent', border: 'none', padding: 0, overflow: 'hidden' }}>
+            <img
+              src="/godwin_logo.svg"
+              alt="Godwin Hotels Logo"
+              width={46}
+              height={46}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }}
+            />
+          </div>
           <div className="al-brand-text">
             <div className="al-brand-name">Hotel Grand Godwin</div>
             <div className="al-brand-sub">Executive ERP · Management Portal</div>

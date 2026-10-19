@@ -29,6 +29,17 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Godwin ERP | Hotel & Tour Management",
   description: "Advanced ERP system for Hotel Grand Godwin & Hotel Godwin Deluxe",
+  icons: {
+    icon: [
+      { url: "/godwin_logo.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/godwin_logo_512.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/godwin_logo.svg",
+    apple: [
+      { url: "/godwin_logo_512.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({

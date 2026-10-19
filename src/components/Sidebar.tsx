@@ -57,8 +57,21 @@ export default function Sidebar() {
           minWidth: 0
         }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.25rem' }}>👑</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <img
+                src="/godwin_logo.svg"
+                alt="Godwin Hotels Logo"
+                width={34}
+                height={34}
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  objectFit: 'contain',
+                  flexShrink: 0,
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.18)'
+                }}
+              />
               <h2 style={{
                 color: isLight ? '#1e293b' : 'white',
                 letterSpacing: '-0.02em',

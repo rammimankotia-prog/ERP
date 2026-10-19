@@ -141,6 +141,47 @@ export default function TopNavbar() {
           <span>{isCollapsed ? 'Show Menu' : 'Full Page'}</span>
         </button>
 
+        {/* Brand Logo & Name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginLeft: '0.25rem', minWidth: 0 }}>
+          <img
+            src="/godwin_logo.svg"
+            alt="Godwin Hotels Logo"
+            width={30}
+            height={30}
+            style={{
+              width: '30px',
+              height: '30px',
+              borderRadius: '50%',
+              objectFit: 'contain',
+              flexShrink: 0,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.12)'
+            }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.15 }}>
+            <span style={{
+              fontSize: '0.88rem',
+              fontWeight: 900,
+              letterSpacing: '-0.01em',
+              color: isLight ? '#0f172a' : '#f8fafc',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              GODWIN <span style={{ color: '#d97706', fontWeight: 800 }}>HOTELS</span>
+            </span>
+            <span className="hide-on-mobile" style={{
+              fontSize: '0.62rem',
+              fontWeight: 700,
+              color: isLight ? '#64748b' : '#94a3b8',
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap'
+            }}>
+              Grand Godwin &bull; Godwin Deluxe
+            </span>
+          </div>
+        </div>
+
       </div>
 
       {/* Right side: Controls (Theme Toggle, Fullscreen, User, Logout) */}

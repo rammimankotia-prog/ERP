@@ -384,19 +384,24 @@ export default function KioskPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: '1 1 auto', overflow: 'hidden' }}>
           <div
             style={{
-              width: '34px',
-              height: '34px',
+              width: '36px',
+              height: '36px',
               flexShrink: 0,
-              borderRadius: '9px',
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              borderRadius: '50%',
+              overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1rem',
-              boxShadow: '0 3px 8px rgba(217, 119, 6, 0.3)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.18)',
             }}
           >
-            🏨
+            <img
+              src="/godwin_logo.svg"
+              alt="Godwin Hotels Logo"
+              width={36}
+              height={36}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
           </div>
           <div style={{ minWidth: 0, overflow: 'hidden' }}>
             <h1
