@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         }, { status: 400 })
       }
 
-      const fenceResult = isWithinAnyHotelFence(lat, lng, accuracy)
+      const fenceResult = isWithinAnyHotelFence(lat, lng, accuracy, geoSettings.radius)
       if (!fenceResult.allowed) {
         return NextResponse.json({
           error: 'GEO_FENCE_VIOLATION',

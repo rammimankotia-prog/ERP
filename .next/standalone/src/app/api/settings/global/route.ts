@@ -54,7 +54,7 @@ export async function GET() {
       }
     };
     
-    if (config.geofence && typeof config.geofence.radius !== 'number') {
+    if (config.geofence && (typeof config.geofence.radius !== 'number' || config.geofence.radius < 350)) {
       config.geofence.radius = 350;
     }
     if (config.geofence && (!config.geofence.lat || !config.geofence.lng)) {

@@ -70,30 +70,33 @@ export function getDistanceMeters(
 export function isWithinAnyHotelFence(
   lat: number,
   lng: number,
-  accuracy?: number
+  accuracy?: number,
+  customRadius?: number
 ): { allowed: boolean; distance: number; effectiveDistance: number; name: string; radius: number } {
+  const defaultRadius = customRadius || ALLOWED_RADIUS_METERS;
   let minDist = Infinity;
   let minEffectiveDist = Infinity;
   let nearestName = '';
-  let nearestRadius = ALLOWED_RADIUS_METERS;
-  const acc = typeof accuracy === 'number' && accuracy > 0 ? accuracy : 0;
+  let nearestRadius = defaultRadius;
+  const acc = typeof accuracy === 'number' && accuracy > 0 ? Math.min(accuracy, 300) : 0;
 
   for (const loc of HOTEL_CAMPUS_LOCATIONS) {
+    const locRadius = customRadius || loc.radiusMeters || defaultRadius;
     const d = getDistanceMeters(lat, lng, loc.lat, loc.lng);
     const effectiveDist = Math.max(0, d - acc);
     if (effectiveDist < minEffectiveDist) {
       minDist = Math.round(d);
       minEffectiveDist = Math.round(effectiveDist);
       nearestName = loc.name;
-      nearestRadius = loc.radiusMeters || ALLOWED_RADIUS_METERS;
+      nearestRadius = locRadius;
     }
-    if (effectiveDist <= (loc.radiusMeters || ALLOWED_RADIUS_METERS)) {
+    if (effectiveDist <= locRadius) {
       return {
         allowed: true,
         distance: Math.round(d),
         effectiveDistance: Math.round(effectiveDist),
         name: loc.name,
-        radius: loc.radiusMeters || ALLOWED_RADIUS_METERS,
+        radius: locRadius,
       };
     }
   }
@@ -133,7 +136,9 @@ export function verifyStaffLocation(identifier?: string, role?: string): Promise
       return;
     }
 
-    // 2. Check if geofencing is globally disabled in ERP settings
+    let dynamicRadius = ALLOWED_RADIUS_METERS;
+
+    // 2. Check if geofencing is globally disabled or customized in ERP settings
     if (typeof window !== 'undefined') {
       try {
         const cached = localStorage.getItem('GODWIN_GLOBAL_CONFIG') || sessionStorage.getItem('GODWIN_GLOBAL_CONFIG');
@@ -150,6 +155,9 @@ export function verifyStaffLocation(identifier?: string, role?: string): Promise
               nearestHotel: 'Hotel Grand Godwin (Geofencing Disabled)',
             });
             return;
+          }
+          if (typeof cfg?.geofence?.radius === 'number' && cfg.geofence.radius > 0) {
+            dynamicRadius = cfg.geofence.radius;
           }
         }
       } catch {}
@@ -188,13 +196,14 @@ export function verifyStaffLocation(identifier?: string, role?: string): Promise
       // Check distance to both properties in the Godwin campus with realistic indoor tolerance
       const distances = HOTEL_CAMPUS_LOCATIONS.map((loc) => {
         const rawDist = getDistanceMeters(latitude, longitude, loc.lat, loc.lng);
-        // Indoor tolerance: buffer up to 350m for hotel corridors/reception/basements/kitchens
-        const effectiveDist = Math.max(0, rawDist - Math.min(accuracy || 0, 350));
+        const radiusToUse = dynamicRadius || loc.radiusMeters || ALLOWED_RADIUS_METERS;
+        // Indoor tolerance: buffer up to radiusToUse for hotel corridors/reception/basements/kitchens
+        const effectiveDist = Math.max(0, rawDist - Math.min(accuracy || 0, radiusToUse));
         return {
           name: loc.name,
           rawDistance: rawDist,
           effectiveDistance: effectiveDist,
-          radius: loc.radiusMeters || ALLOWED_RADIUS_METERS,
+          radius: radiusToUse,
         };
       });
 
