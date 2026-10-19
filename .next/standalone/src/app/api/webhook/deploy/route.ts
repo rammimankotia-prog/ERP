@@ -38,6 +38,17 @@ function verifySignature(payload: string, signature: string | null): boolean {
 }
 
 function findGitDirectory(): string {
+  const candidatePaths = [
+    "/home/u790942238/domains/grandgodwin.com/hbuilds/source/repository",
+  ];
+  for (const candidate of candidatePaths) {
+    try {
+      if (fs.existsSync(path.join(candidate, ".git"))) {
+        return candidate;
+      }
+    } catch {}
+  }
+
   let curr = process.cwd();
   for (let i = 0; i < 5; i++) {
     try {
