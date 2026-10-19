@@ -238,17 +238,47 @@ export default function KioskPage() {
         const offB = b.isOff || b.morningTime === 'OFF' ? 1 : 0;
         if (offA !== offB) return offA - offB;
 
-        // 2. Chronological shift in-time (e.g. 08:00, 09:00, 09:30, 10:00, 13:00, 19:00, 20:00)
-        const tA = parseTimeMins(a.morningTime);
-        const tB = parseTimeMins(b.morningTime);
-        if (tA !== tB) return tA - tB;
+        // Current IST hour
+        const now = new Date();
+        const istHour = parseInt(now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }), 10);
+        const isMorning = istHour >= 5 && istHour < 14; // 5:00 AM to 1:59 PM is Morning Arrival window
 
-        // 3. Checked In / Active on Shift first
-        const inA = a.checkedIn && !a.checkedOut ? 0 : 1;
-        const inB = b.checkedIn && !b.checkedOut ? 0 : 1;
-        if (inA !== inB) return inA - inB;
+        if (isMorning) {
+          // ===== MORNING: Employees whose arrival time has arrived appear on top =====
+          // A. Staff pending punch-in come first
+          const pendingInA = !a.checkedIn ? 0 : 1;
+          const pendingInB = !b.checkedIn ? 0 : 1;
+          if (pendingInA !== pendingInB) return pendingInA - pendingInB;
 
-        // 4. Hotel branch priority
+          // B. Ordered chronologically by morning shift start time (e.g. 07:00, 08:00, 09:00, 10:00, 13:00)
+          const tA = parseTimeMins(a.morningTime);
+          const tB = parseTimeMins(b.morningTime);
+          if (tA !== tB) return tA - tB;
+        } else {
+          // ===== EVENING: Employees whose departure time has arrived appear on top =====
+          // A. Staff currently ON DUTY (checked in, not yet checked out) come first
+          const onDutyA = (a.checkedIn && !a.checkedOut) ? 0 : 1;
+          const onDutyB = (b.checkedIn && !b.checkedOut) ? 0 : 1;
+          if (onDutyA !== onDutyB) return onDutyA - onDutyB;
+
+          // B. Ordered chronologically by evening departure time (e.g. 15:00, 16:00, 17:00, 18:00, 19:00, 20:00)
+          const outA = parseTimeMins(a.eveningTime);
+          const outB = parseTimeMins(b.eveningTime);
+          const isEveExitA = outA >= 13 * 60 && outA < 24 * 60 ? 0 : 1;
+          const isEveExitB = outB >= 13 * 60 && outB < 24 * 60 ? 0 : 1;
+          if (isEveExitA !== isEveExitB) return isEveExitA - isEveExitB;
+          if (outA !== outB) return outA - outB;
+
+          // C. Night shift arrivals (pending check-in) come next
+          const nightInA = !a.checkedIn ? 0 : 1;
+          const nightInB = !b.checkedIn ? 0 : 1;
+          if (nightInA !== nightInB) return nightInA - nightInB;
+          const tA = parseTimeMins(a.morningTime);
+          const tB = parseTimeMins(b.morningTime);
+          if (tA !== tB) return tA - tB;
+        }
+
+        // Hotel branch priority
         const pA = hotelPriority(a.branch || '');
         const pB = hotelPriority(b.branch || '');
         if (pA !== pB) return pA - pB;
@@ -854,7 +884,7 @@ export default function KioskPage() {
                     outline: 'none',
                   }}
                 >
-                  <option value="SHIFT">⏰ Shift Time & Duty Roster</option>
+                  <option value="SHIFT">⏰ Auto Shift Priority ({(() => { const h = parseInt(new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }), 10); return h >= 5 && h < 14 ? 'Morning In' : 'Evening Out'; })()})</option>
                   <option value="HOTEL">🏨 Hotel (Grand Godwin & Godwin Deluxe)</option>
                   <option value="NAME">👤 Employee Name (A-Z)</option>
                   <option value="ID">🔢 Staff ID (Ascending)</option>

@@ -53,6 +53,43 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
   const [selectedDept, setSelectedDept] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('ALL')
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table')
+  const [sortBy, setSortBy] = useState<'SHIFT_TIME' | 'MANUAL' | 'NAME' | 'ID'>('SHIFT_TIME')
+
+  // Real-time IST hour to dynamically determine morning arrival vs evening departure
+  const [currentHour, setCurrentHour] = useState<number>(() => {
+    try {
+      const now = new Date()
+      return parseInt(now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }), 10)
+    } catch {
+      return new Date().getHours()
+    }
+  })
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      try {
+        const now = new Date()
+        const h = parseInt(now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }), 10)
+        setCurrentHour(h)
+      } catch {}
+    }, 60000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const isMorningShift = currentHour >= 5 && currentHour < 14
+
+  const parseTimeMinutes = (timeStr?: string): number => {
+    if (!timeStr) return 9999
+    const t = String(timeStr).trim().toUpperCase()
+    if (t === 'OFF') return 9999
+    const match = t.match(/^(\d{1,2}):(\d{2})/)
+    if (match) {
+      const h = parseInt(match[1], 10)
+      const m = parseInt(match[2], 10)
+      if (!isNaN(h) && !isNaN(m)) return h * 60 + m
+    }
+    return 9999
+  }
 
   // Detect mobile viewport on mount and default to clean card view
   useEffect(() => {
@@ -110,7 +147,8 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
       }
       return nextList
     })
-    setToastMessage({ text: 'Staff order updated successfully', type: 'success' })
+    setSortBy('MANUAL')
+    setToastMessage({ text: 'Staff order updated successfully (Custom Drag Order)', type: 'success' })
   }
 
   // Deduplicated and branch-aware department options for filter dropdown
@@ -400,7 +438,7 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
 
   // Filtered employees
   const filteredEmployees = useMemo(() => {
-    return employees.filter((emp) => {
+    const filtered = employees.filter((emp) => {
       const fullName = `${emp.firstName || ''} ${emp.lastName || ''}`.toLowerCase()
       const matchesSearch =
         !search ||
@@ -428,7 +466,49 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
 
       return matchesSearch && matchesBranch && matchesDept && matchesStatus
     })
-  }, [employees, search, selectedBranch, selectedDept, selectedStatus])
+
+    if (sortBy === 'SHIFT_TIME') {
+      return [...filtered].sort((a, b) => {
+        // 1. Active staff before inactive/resigned
+        const activeA = a.status === 'ACTIVE' ? 0 : 1
+        const activeB = b.status === 'ACTIVE' ? 0 : 1
+        if (activeA !== activeB) return activeA - activeB
+
+        // 2. Working staff before Weekly Off
+        const offA = (a.morningTime || '').trim().toUpperCase() === 'OFF' ? 1 : 0
+        const offB = (b.morningTime || '').trim().toUpperCase() === 'OFF' ? 1 : 0
+        if (offA !== offB) return offA - offB
+
+        if (isMorningShift) {
+          // ===== MORNING: Employees whose arrival time has come / starting soon on top =====
+          // Morning shifts: 07:00, 08:00, 09:00, 10:00, 13:00, etc.
+          const inA = parseTimeMinutes(a.morningTime)
+          const inB = parseTimeMinutes(b.morningTime)
+          if (inA !== inB) return inA - inB
+        } else {
+          // ===== EVENING: Employees whose departure time has come / ending shift on top =====
+          // Evening departures: 15:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00, etc.
+          const outA = parseTimeMinutes(a.eveningTime)
+          const outB = parseTimeMinutes(b.eveningTime)
+
+          // Day shift workers finishing in afternoon/evening (>= 13:00) come before next-morning exits
+          const isEveA = outA >= 13 * 60 && outA < 24 * 60 ? 0 : 1
+          const isEveB = outB >= 13 * 60 && outB < 24 * 60 ? 0 : 1
+          if (isEveA !== isEveB) return isEveA - isEveB
+
+          if (outA !== outB) return outA - outB
+        }
+
+        return (a.employeeId || '').localeCompare(b.employeeId || '')
+      })
+    } else if (sortBy === 'NAME') {
+      return [...filtered].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`))
+    } else if (sortBy === 'ID') {
+      return [...filtered].sort((a, b) => (a.employeeId || '').localeCompare(b.employeeId || ''))
+    }
+
+    return filtered
+  }, [employees, search, selectedBranch, selectedDept, selectedStatus, sortBy, isMorningShift])
 
   // Quick stats
   const totalCount = employees.length
@@ -1019,6 +1099,32 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
             </select>
           </div>
 
+          {/* Smart Sort Order Selector */}
+          <div style={{ flex: '1 1 200px' }}>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              style={{
+                width: '100%',
+                height: '44px',
+                padding: '0 12px',
+                backgroundColor: 'var(--bg-main)',
+                border: sortBy === 'SHIFT_TIME' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                borderRadius: '8px',
+                color: 'var(--text-main)',
+                fontSize: '0.88rem',
+                fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="SHIFT_TIME">⏰ Auto Shift Timing ({isMorningShift ? 'Morning In' : 'Evening Out'})</option>
+              <option value="MANUAL">✋ Custom Drag Order</option>
+              <option value="NAME">🔤 By Name</option>
+              <option value="ID">🔢 By Staff ID</option>
+            </select>
+          </div>
+
           {/* View Toggle */}
           <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
             <button
@@ -1057,6 +1163,37 @@ export default function EmployeeDirectoryClient({ initialEmployees, branches, de
             </button>
           </div>
         </div>
+
+        {/* Dynamic Shift Priority Banner */}
+        {sortBy === 'SHIFT_TIME' && (
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '0.65rem 1rem',
+              borderRadius: '8px',
+              backgroundColor: isMorningShift ? 'rgba(16, 185, 129, 0.08)' : 'rgba(139, 92, 246, 0.08)',
+              border: isMorningShift ? '1px solid rgba(16, 185, 129, 0.28)' : '1px solid rgba(139, 92, 246, 0.28)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.5rem',
+              fontSize: '0.84rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, color: isMorningShift ? '#059669' : '#7c3aed' }}>
+              <span>{isMorningShift ? '☀️' : '🌙'}</span>
+              <span>
+                {isMorningShift
+                  ? 'Morning Shift Priority Active: Employees scheduled to arrive now (07:00 – 13:00) appear at the top'
+                  : 'Evening Shift Priority Active: Employees scheduled to depart now (16:00 – 22:00) appear at the top'}
+              </span>
+            </div>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+              Auto-switches arrival in morning / departure in evening • Current IST: {String(currentHour).padStart(2, '0')}:00
+            </span>
+          </div>
+        )}
 
         {/* Active Filters Display */}
         {(search || selectedBranch || selectedDept || selectedStatus !== 'ALL') && (

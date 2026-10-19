@@ -317,7 +317,7 @@ export default function AttendanceDashboard() {
   }, [logs])
 
   const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
+    const filtered = logs.filter(log => {
       const hasPunchIn = !!log.punchIn && log.punchIn !== '—' && log.punchIn !== '-'
       const effectiveStatus = !hasPunchIn 
         ? (log.status === 'ON_LEAVE' ? 'ON_LEAVE' : 'ABSENT')
@@ -339,6 +339,46 @@ export default function AttendanceDashboard() {
         if (!matches) return false
       }
       return true
+    })
+
+    return [...filtered].sort((a, b) => {
+      const now = new Date()
+      let istHour = 9
+      try {
+        istHour = parseInt(now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }), 10)
+      } catch {
+        istHour = now.getHours()
+      }
+      const isMorning = istHour >= 5 && istHour < 14
+
+      if (isMorning) {
+        // Morning Arrival Priority:
+        // 1. Pending punch-in employees come first
+        const hasInA = (a.punchIn && a.punchIn !== '—' && a.punchIn !== '-') ? 1 : 0
+        const hasInB = (b.punchIn && b.punchIn !== '—' && b.punchIn !== '-') ? 1 : 0
+        if (hasInA !== hasInB) return hasInA - hasInB
+
+        // 2. Scheduled arrival time ascending (e.g. 07:00, 08:00, 09:00, 10:00)
+        const tA = parseTimeToMinutes(a.scheduledTime)
+        const tB = parseTimeToMinutes(b.scheduledTime)
+        if (tA !== tB) return tA - tB
+      } else {
+        // Evening Departure Priority:
+        // 1. Staff currently ON DUTY (punched in, NOT punched out) come first
+        const onDutyA = (a.punchIn && a.punchIn !== '—' && (!a.punchOut || a.punchOut === '—')) ? 0 : 1
+        const onDutyB = (b.punchIn && b.punchIn !== '—' && (!b.punchOut || b.punchOut === '—')) ? 0 : 1
+        if (onDutyA !== onDutyB) return onDutyA - onDutyB
+
+        // 2. Scheduled departure time ascending (e.g. 15:00, 16:00, 17:00, 18:00, 19:00, 20:00)
+        const outA = parseTimeToMinutes(a.scheduledOutTime)
+        const outB = parseTimeToMinutes(b.scheduledOutTime)
+        const isEveA = outA >= 13 * 60 && outA < 24 * 60 ? 0 : 1
+        const isEveB = outB >= 13 * 60 && outB < 24 * 60 ? 0 : 1
+        if (isEveA !== isEveB) return isEveA - isEveB
+        if (outA !== outB) return outA - outB
+      }
+
+      return (a.employeeId || '').localeCompare(b.employeeId || '')
     })
   }, [logs, searchQuery, departmentFilter, statusFilter])
 
