@@ -50,12 +50,12 @@ export async function GET() {
         enabled: true,
         lat: 28.64574210,
         lng: 77.21535140,
-        radius: 80
+        radius: 350
       }
     };
     
     if (config.geofence && typeof config.geofence.radius !== 'number') {
-      config.geofence.radius = 80;
+      config.geofence.radius = 350;
     }
     if (config.geofence && (!config.geofence.lat || !config.geofence.lng)) {
       config.geofence.lat = 28.64574210;

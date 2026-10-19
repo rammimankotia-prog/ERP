@@ -82,6 +82,26 @@ export default function OneTapPunchInterface({
   // Proactive GPS status: 'unknown' | 'granted' | 'denied' | 'off'
   const [gpsStatus, setGpsStatus] = useState<'unknown' | 'granted' | 'denied' | 'off'>('unknown');
   const [gpsWarningDismissed, setGpsWarningDismissed] = useState(false);
+  const [geofenceConfig, setGeofenceConfig] = useState<{ enabled: boolean; radius: number } | null>(null);
+
+  // Load global geofence settings (enabled/disabled and radius)
+  useEffect(() => {
+    fetch('/api/settings/global')
+      .then(res => res.json())
+      .then(data => {
+        if (data.geofence) {
+          const cfg = {
+            enabled: data.geofence.enabled !== undefined ? data.geofence.enabled : true,
+            radius: typeof data.geofence.radius === 'number' ? data.geofence.radius : 350,
+          };
+          setGeofenceConfig(cfg);
+          try {
+            localStorage.setItem('GODWIN_GLOBAL_CONFIG', JSON.stringify({ geofence: cfg }));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // New features state
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -336,15 +356,17 @@ export default function OneTapPunchInterface({
       empDesig.includes('manager') ||
       empAny.loginRole === 'security';
 
-    // Also exempt if already punched in by security (employee is physically present — no need for GPS re-check)
+    // Also exempt if already punched in by security (employee is physically present — no need for GPS re-check),
+    // or if geofencing is globally disabled in ERP settings
     const alreadyPunchedBySecurity =
       action === 'OUT' &&
       checkedIn &&
       (punchInMode === 'SECURITY' || punchInMode === 'KIOSK');
 
-    const isExempt = isSecurityGuard || isAdmin || alreadyPunchedBySecurity;
+    const isGeofenceDisabled = geofenceConfig !== null && geofenceConfig.enabled === false;
+    const isExempt = isSecurityGuard || isAdmin || alreadyPunchedBySecurity || isGeofenceDisabled;
 
-    // GPS boundary acquisition is STRICTLY MANDATORY for all employees (except Admin, Security, and already-verified punches)
+    // GPS boundary acquisition is required only if geofencing is enabled and employee is not exempt
     if (!isExempt) {
       setGeoLocating(true);
       try {

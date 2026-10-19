@@ -250,7 +250,7 @@ export default function SettingsPage() {
                     color: '#2563eb',
                     border: '1px solid #bfdbfe'
                   }}>
-                    🎯 50M IN-PREMISES DEFAULT
+                    🎯 350M CAMPUS DEFAULT
                   </span>
                   <span style={{ 
                     padding: '0.3rem 0.75rem', 
@@ -265,7 +265,7 @@ export default function SettingsPage() {
                   </span>
                 </div>
                 <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.9rem', color: theme === 'light' ? '#64748b' : '#94a3b8' }}>
-                  Strict 50-meter on-premises perimeter for hotel staff attendance &amp; kiosk punch. Device GPS must be ON.
+                  Hotel campus perimeter (350m covers Grand Godwin, Godwin Deluxe, Indian Grill, Cafe Brownie &amp; indoor GPS drift). Device GPS must be ON.
                 </p>
               </div>
             </div>
@@ -314,7 +314,7 @@ export default function SettingsPage() {
           }}>
             <span style={{ fontSize: '1.25rem' }}>🛰️</span>
             <span style={{ fontSize: '0.85rem', color: theme === 'light' ? '#92400e' : '#fcd34d', fontWeight: 600, lineHeight: 1.4 }}>
-              <strong>Automatic Device GPS Prompt:</strong> If a user’s phone GPS / Location is turned OFF or permission is not granted, the system automatically asks them: <em>&quot;Please turn ON GPS / Location on your device to punch within {geofence.radius || 50}m of hotel premises.&quot;</em>
+              <strong>Automatic Device GPS Prompt:</strong> If a user’s phone GPS / Location is turned OFF or permission is not granted, the system automatically asks them: <em>&quot;Please turn ON GPS / Location on your device to punch within {geofence.radius || 350}m of hotel premises.&quot;</em>
             </span>
           </div>
 
@@ -323,7 +323,7 @@ export default function SettingsPage() {
             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Quick Presets:</span>
             <button
               type="button"
-              onClick={() => setGeofence({ ...geofence, lat: 28.64574210, lng: 77.21535140, radius: 80 })}
+              onClick={() => setGeofence({ ...geofence, lat: 28.64574210, lng: 77.21535140, radius: 350 })}
               style={{
                 padding: '0.45rem 0.9rem',
                 borderRadius: '8px',
@@ -335,11 +335,11 @@ export default function SettingsPage() {
                 cursor: 'pointer'
               }}
             >
-              🏨 Hotel Grand Godwin (Marked - 80m)
+              🏨 Hotel Grand Godwin (Campus 350m)
             </button>
             <button
               type="button"
-              onClick={() => setGeofence({ ...geofence, lat: 28.6445, lng: 77.2142, radius: 80 })}
+              onClick={() => setGeofence({ ...geofence, lat: 28.6445, lng: 77.2142, radius: 350 })}
               style={{
                 padding: '0.45rem 0.9rem',
                 borderRadius: '8px',
@@ -351,11 +351,11 @@ export default function SettingsPage() {
                 cursor: 'pointer'
               }}
             >
-              🏨 Hotel Godwin Deluxe (80m)
+              🏨 Hotel Godwin Deluxe (Campus 350m)
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginLeft: 'auto' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>Radius:</span>
-              {[30, 50, 80, 100, 150].map((r) => (
+              {[80, 150, 250, 350, 500, 800].map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -371,7 +371,7 @@ export default function SettingsPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  {r}m{r === 80 ? ' (Default)' : ''}
+                  {r}m{r === 350 ? ' (Default)' : ''}
                 </button>
               ))}
             </div>

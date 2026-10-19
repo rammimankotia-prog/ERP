@@ -22,7 +22,7 @@ const LOCAL_SHIFTS_FILE = path.join(process.cwd(), 'data', 'hr_shifts.json')
 // SECONDARY: Hotel Godwin Deluxe — 28.6445, 77.2142
 const HOTEL_LAT = 28.64574210;
 const HOTEL_LNG = 77.21535140;
-const ALLOWED_RADIUS_METERS = 80;
+const ALLOWED_RADIUS_METERS = 350;
 
 function getGeofenceConfig() {
   const config = readJson<any>(CONFIG_FILE, LOCAL_CONFIG_FILE, {})
@@ -364,30 +364,30 @@ export async function POST(req: NextRequest) {
     if (geofenceEnabled && !isExempt) {
         if (typeof lat !== 'number' || typeof lng !== 'number') {
           return NextResponse.json(
-            { error: `📍 GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within ${defaultRadius || 80}m of hotel premises.` },
+            { error: `📍 GPS Location is OFF or disabled! Please turn ON GPS / Location on your device to punch within ${defaultRadius || 350}m of hotel premises.` },
             { status: 400 }
           )
         }
 
-        // GPS signal weak (>350m accuracy)
-        if (typeof accuracy === 'number' && accuracy > 350) {
+        // GPS signal weak (>500m accuracy)
+        if (typeof accuracy === 'number' && accuracy > 500) {
           return NextResponse.json(
             { error: `Location signal weak (accuracy ±${Math.round(accuracy)}m). Please move closer to a window or enable precise GPS and retry.` },
             { status: 400 }
           )
         }
 
-        // Calculate distance to properties with GPS accuracy buffer
+        // Calculate distance to properties with GPS accuracy buffer for indoor hotel corridors
         const distances = hotelLocations.map(loc => {
           const rawDist = getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng)
           const effectiveDist = typeof accuracy === 'number' && accuracy > 0
-            ? Math.max(0, rawDist - accuracy)
+            ? Math.max(0, rawDist - Math.min(accuracy, 300))
             : rawDist
           return {
             name: loc.name,
             distance: Math.round(rawDist),
             effectiveDistance: Math.round(effectiveDist),
-            radius: loc.radiusMeters || defaultRadius || 80,
+            radius: loc.radiusMeters || defaultRadius || 350,
           }
         })
 

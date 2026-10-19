@@ -1,11 +1,11 @@
 // ===== CONFIG: Godwin Hotels actual coordinates =====
 export const HOTEL_LAT = 28.64574210;
 export const HOTEL_LNG = 77.21535140;
-export const ALLOWED_RADIUS_METERS = 80;
+export const ALLOWED_RADIUS_METERS = 350; // Expanded to 350m to cover Grand Godwin, Godwin Deluxe, Indian Grill, Cafe Brownie & indoor GPS drift
 
 export const HOTEL_CAMPUS_LOCATIONS = [
-  { name: 'Hotel Grand Godwin', lat: 28.64574210, lng: 77.21535140, radiusMeters: 80 },
-  { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: 80 },
+  { name: 'Hotel Grand Godwin', lat: 28.64574210, lng: 77.21535140, radiusMeters: 350 },
+  { name: 'Hotel Godwin Deluxe', lat: 28.64450000, lng: 77.21420000, radiusMeters: 350 },
 ];
 
 // Test user accounts that are allowed for remote QA / testing
@@ -133,6 +133,28 @@ export function verifyStaffLocation(identifier?: string, role?: string): Promise
       return;
     }
 
+    // 2. Check if geofencing is globally disabled in ERP settings
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('GODWIN_GLOBAL_CONFIG') || sessionStorage.getItem('GODWIN_GLOBAL_CONFIG');
+        if (cached) {
+          const cfg = JSON.parse(cached);
+          if (cfg?.geofence?.enabled === false) {
+            console.log('🌐 Geofence disabled in ERP settings: Bypassing location check.');
+            resolve({
+              allowed: true,
+              distance: '0',
+              latitude: HOTEL_LAT,
+              longitude: HOTEL_LNG,
+              accuracy: 5,
+              nearestHotel: 'Hotel Grand Godwin (Geofencing Disabled)',
+            });
+            return;
+          }
+        }
+      } catch {}
+    }
+
     if (typeof window === 'undefined' || !navigator.geolocation) {
       reject('Geolocation not supported on this device');
       return;
@@ -163,11 +185,11 @@ export function verifyStaffLocation(identifier?: string, role?: string): Promise
         bestPosition = position;
       }
 
-      // Check distance to both properties in the Godwin campus
+      // Check distance to both properties in the Godwin campus with realistic indoor tolerance
       const distances = HOTEL_CAMPUS_LOCATIONS.map((loc) => {
         const rawDist = getDistanceMeters(latitude, longitude, loc.lat, loc.lng);
-        // Indoor tolerance: buffer up to 250m for hotel corridors/reception
-        const effectiveDist = Math.max(0, rawDist - Math.min(accuracy || 0, 250));
+        // Indoor tolerance: buffer up to 350m for hotel corridors/reception/basements/kitchens
+        const effectiveDist = Math.max(0, rawDist - Math.min(accuracy || 0, 350));
         return {
           name: loc.name,
           rawDistance: rawDist,
@@ -188,11 +210,12 @@ export function verifyStaffLocation(identifier?: string, role?: string): Promise
         closestHotel: closest.name,
         rawDistance: `${closest.rawDistance.toFixed(1)}m`,
         effectiveDistance: `${closest.effectiveDistance.toFixed(1)}m`,
+        allowedRadius: `${closest.radius}m`,
         forceFinal,
       });
 
-      // Early success: within hotel radius with indoor tolerance (accuracy <= 350m)
-      if (closest.effectiveDistance <= closest.radius && accuracy <= 350) {
+      // Early success: within hotel campus radius with indoor tolerance (accuracy <= 500m)
+      if (closest.effectiveDistance <= closest.radius && accuracy <= 500) {
         settled = true;
         cleanup();
         resolve({
@@ -206,8 +229,8 @@ export function verifyStaffLocation(identifier?: string, role?: string): Promise
         return;
       }
 
-      // If not forced final and accuracy is still coarse (> 100m), allow watchPosition another sample to lock GPS
-      if (!forceFinal && accuracy > 100) {
+      // If not forced final and accuracy is still coarse (> 150m), allow watchPosition another sample to lock GPS
+      if (!forceFinal && accuracy > 150) {
         return;
       }
 
@@ -216,40 +239,7 @@ export function verifyStaffLocation(identifier?: string, role?: string): Promise
         settled = true;
         cleanup();
 
-        const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-        const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
-
-        // Desktop PCs use Wi-Fi/IP location with high inaccuracy (often ±5000m - 50000m)
-        if (!isMobile) {
-          reject(
-            `Desktop Location (accuracy ±${accuracy.toFixed(0)}m). Desktop PCs use IP/Wi-Fi positioning (${closest.rawDistance.toFixed(0)}m away). For staff punches, please use your mobile phone with GPS turned ON, or log in with authorized credentials.`
-          );
-          return;
-        }
-
-        // Android Approximate location detected (typically ~2000m)
-        if (isAndroid && accuracy >= 1000) {
-          reject(
-            `Precise GPS is OFF (accuracy ±${accuracy.toFixed(0)}m). In Android Chrome, tap the 🎛️ icon next to the address bar -> Permissions -> Turn ON "Use precise location".`
-          );
-          return;
-        }
-
-        if (accuracy >= 1000) {
-          reject(
-            `Precise GPS is OFF (accuracy ±${accuracy.toFixed(0)}m). Please enable High Accuracy / Precise Location in your device settings.`
-          );
-          return;
-        }
-
-        // Weak signal (> 350m)
-        if (accuracy > 350) {
-          reject(
-            `Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Please move closer to a window or enable high-accuracy GPS and retry.`
-          );
-          return;
-        }
-
+        // If effective distance is within campus radius, approve even on desktop/laptop
         if (closest.effectiveDistance <= closest.radius) {
           resolve({
             allowed: true,
@@ -259,11 +249,46 @@ export function verifyStaffLocation(identifier?: string, role?: string): Promise
             accuracy,
             nearestHotel: closest.name,
           });
-        } else {
-          reject(
-            `Access Denied: You are ${closest.rawDistance.toFixed(0)}m away from ${closest.name}. (Accuracy ±${accuracy.toFixed(0)}m, must be within ${closest.radius}m)`
-          );
+          return;
         }
+
+        const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+
+        // Desktop PCs using IP/Wi-Fi positioning outside campus
+        if (!isMobile && closest.effectiveDistance > closest.radius) {
+          reject(
+            `Desktop Location (accuracy ±${accuracy.toFixed(0)}m). Desktop PCs use IP/Wi-Fi positioning (${closest.rawDistance.toFixed(0)}m away). For staff punches, please use your mobile phone with GPS turned ON, or punch via the Front Desk Security Kiosk.`
+          );
+          return;
+        }
+
+        // Android Approximate location detected (typically ~2000m)
+        if (isAndroid && accuracy >= 1200) {
+          reject(
+            `Precise GPS is OFF (accuracy ±${accuracy.toFixed(0)}m). In Android Chrome, tap the 🎛️ icon next to the address bar -> Permissions -> Turn ON "Use precise location".`
+          );
+          return;
+        }
+
+        if (accuracy >= 1200) {
+          reject(
+            `Precise GPS is OFF (accuracy ±${accuracy.toFixed(0)}m). Please enable High Accuracy / Precise Location in your device settings.`
+          );
+          return;
+        }
+
+        // Weak signal (> 500m)
+        if (accuracy > 500) {
+          reject(
+            `Location signal weak (accuracy ±${accuracy.toFixed(0)}m). Please move closer to a window or turn ON high-accuracy GPS and retry.`
+          );
+          return;
+        }
+
+        reject(
+          `Access Denied: You are ${closest.rawDistance.toFixed(0)}m away from ${closest.name}. (Accuracy ±${accuracy.toFixed(0)}m, must be within ${closest.radius}m of hotel campus)`
+        );
       }
     };
 

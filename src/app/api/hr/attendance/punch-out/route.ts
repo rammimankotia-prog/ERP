@@ -2,8 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { saveAttendanceRecord } from '@/lib/attendanceStorage'
 import { isWithinAnyHotelFence } from '@/lib/geofence'
+import fs from 'fs'
+import path from 'path'
 
 const prisma = new PrismaClient()
+
+const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
+const CONFIG_FILE = path.join(DATA_DIR, 'global_config.json')
+
+function getGeofenceSettings() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'))
+      return {
+        enabled: parsed?.geofence?.enabled !== undefined ? parsed.geofence.enabled : true,
+        radius: typeof parsed?.geofence?.radius === 'number' ? parsed.geofence.radius : 350,
+      }
+    }
+  } catch {}
+  return { enabled: true, radius: 350 }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -93,16 +111,17 @@ export async function POST(req: NextRequest) {
 
     const isExempt = isSecurity || isAdmin
 
-    // Geo-fence validation on checkout: STRICTLY MANDATORY for all employees (except Admin and Security)
-    if (!isExempt) {
+    // Geo-fence validation on checkout: checked only if enabled in ERP settings, and not exempt
+    const geoSettings = getGeofenceSettings()
+    if (geoSettings.enabled && !isExempt) {
       if (typeof lat !== 'number' || typeof lng !== 'number') {
         return NextResponse.json({
           error: 'GPS_REQUIRED',
-          message: '📍 GPS Location is mandatory! Please turn ON GPS / Location on your device to check out within 80m of hotel premises.'
+          message: `📍 GPS Location is mandatory! Please turn ON GPS / Location on your device to check out within ${geoSettings.radius}m of hotel premises.`
         }, { status: 400 })
       }
 
-      if (typeof accuracy === 'number' && accuracy > 350) {
+      if (typeof accuracy === 'number' && accuracy > 500) {
         return NextResponse.json({
           error: 'GEO_SIGNAL_WEAK',
           message: `Location signal weak (accuracy ±${Math.round(accuracy)}m). Please move closer to a window or enable precise GPS and retry.`

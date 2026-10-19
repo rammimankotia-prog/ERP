@@ -2,13 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { saveAttendanceRecord } from '@/lib/attendanceStorage'
 
+import fs from 'fs'
+import path from 'path'
+
 const prisma = new PrismaClient()
 
-// Hotel Grand Godwin — Google My Business verified coordinates (Chelmsford Road, New Delhi)
-// ALL radii updated to 80m per operations requirement
+const DATA_DIR = process.env.PERSISTENT_DATA_DIR || path.join(process.cwd(), 'data')
+const CONFIG_FILE = path.join(DATA_DIR, 'global_config.json')
+
+function getGeofenceSettings() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'))
+      return {
+        enabled: parsed?.geofence?.enabled !== undefined ? parsed.geofence.enabled : true,
+        radius: typeof parsed?.geofence?.radius === 'number' ? parsed.geofence.radius : 350,
+      }
+    }
+  } catch {}
+  return { enabled: true, radius: 350 }
+}
+
 const HOTEL_GEOFENCE_LOCATIONS = [
-  { name: 'Hotel Grand Godwin', lat: 28.6457421, lng: 77.2153514, radiusMeters: 80 },
-  { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: 80 },
+  { name: 'Hotel Grand Godwin', lat: 28.6457421, lng: 77.2153514, radiusMeters: 350 },
+  { name: 'Hotel Godwin Deluxe', lat: 28.6445, lng: 77.2142, radiusMeters: 350 },
 ]
 
 function getHaversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -24,20 +41,22 @@ function getHaversineDistanceMeters(lat1: number, lon1: number, lat2: number, lo
   return R * c
 }
 
-function isWithinAnyHotelFence(lat: number, lng: number, accuracy?: number): { allowed: boolean; distance: number; effectiveDistance: number; name: string; radius: number } {
-  let minDist = Infinity, minEffectiveDist = Infinity, nearestName = '', nearestRadius = 80
-  const acc = typeof accuracy === 'number' && accuracy > 0 ? accuracy : 0
+function isWithinAnyHotelFence(lat: number, lng: number, accuracy?: number, customRadius?: number): { allowed: boolean; distance: number; effectiveDistance: number; name: string; radius: number } {
+  const defaultR = customRadius || 350
+  let minDist = Infinity, minEffectiveDist = Infinity, nearestName = '', nearestRadius = defaultR
+  const acc = typeof accuracy === 'number' && accuracy > 0 ? Math.min(accuracy, 300) : 0
   for (const loc of HOTEL_GEOFENCE_LOCATIONS) {
+    const locRadius = customRadius || loc.radiusMeters || defaultR
     const d = getHaversineDistanceMeters(lat, lng, loc.lat, loc.lng)
     const effectiveDist = Math.max(0, d - acc)
     if (effectiveDist < minEffectiveDist) { 
       minDist = Math.round(d)
       minEffectiveDist = Math.round(effectiveDist)
       nearestName = loc.name
-      nearestRadius = loc.radiusMeters 
+      nearestRadius = locRadius 
     }
-    if (effectiveDist <= loc.radiusMeters) {
-      return { allowed: true, distance: Math.round(d), effectiveDistance: Math.round(effectiveDist), name: loc.name, radius: loc.radiusMeters }
+    if (effectiveDist <= locRadius) {
+      return { allowed: true, distance: Math.round(d), effectiveDistance: Math.round(effectiveDist), name: loc.name, radius: locRadius }
     }
   }
   return { allowed: false, distance: minDist, effectiveDistance: minEffectiveDist, name: nearestName, radius: nearestRadius }
@@ -138,23 +157,24 @@ export async function POST(req: NextRequest) {
 
     const isExempt = isSecurity || isAdmin
 
-    // Geo-fence validation: STRICTLY MANDATORY for all employees (except Admin and Security)
-    if (!isExempt) {
+    // Geo-fence validation: checked only if enabled in ERP settings, and not exempt
+    const geoSettings = getGeofenceSettings()
+    if (geoSettings.enabled && !isExempt) {
       if (typeof lat !== 'number' || typeof lng !== 'number') {
         return NextResponse.json({
           error: 'GPS_REQUIRED',
-          message: '📍 GPS Location is mandatory! Please turn ON GPS / Location on your device to punch within 80m of hotel premises.'
+          message: `📍 GPS Location is mandatory! Please turn ON GPS / Location on your device to punch within ${geoSettings.radius}m of hotel premises.`
         }, { status: 400 })
       }
 
-      if (typeof accuracy === 'number' && accuracy > 350) {
+      if (typeof accuracy === 'number' && accuracy > 500) {
         return NextResponse.json({
           error: 'GEO_SIGNAL_WEAK',
           message: `Location signal weak (accuracy ±${Math.round(accuracy)}m). Please move closer to a window or enable precise GPS and retry.`
         }, { status: 400 })
       }
 
-      const fenceResult = isWithinAnyHotelFence(lat, lng, accuracy)
+      const fenceResult = isWithinAnyHotelFence(lat, lng, accuracy, geoSettings.radius)
       if (!fenceResult.allowed) {
         return NextResponse.json({
           error: 'GEO_FENCE_VIOLATION',
