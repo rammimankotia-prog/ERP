@@ -297,7 +297,7 @@ export default function KioskPage() {
         return (a.employeeId || '').localeCompare(b.employeeId || '');
       }
     });
-  }, [employees, searchQuery, selectedDept, selectedHotel, sortOption]);
+  }, [employees, searchQuery, selectedDept, selectedHotel, sortOption, currentTime]);
 
   const handleGuardAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1034,6 +1034,84 @@ export default function KioskPage() {
               })}
             </div>
 
+            {/* Auto Shift Priority Banner (Morning Arrival / Evening Departure) */}
+            {sortOption === 'SHIFT' && (() => {
+              const istHour = parseInt(currentTime.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }), 10);
+              const isMorning = istHour >= 5 && istHour < 14;
+              const pendingArrivals = filteredEmployees.filter(e => !e.checkedIn && !e.isOff && e.morningTime !== 'OFF').length;
+              const pendingExits = filteredEmployees.filter(e => e.checkedIn && !e.checkedOut).length;
+
+              return (
+                <div
+                  style={{
+                    padding: '0.85rem 1.25rem',
+                    borderRadius: '14px',
+                    background: isMorning
+                      ? (isLight ? 'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%)')
+                      : (isLight ? 'linear-gradient(135deg, #f5f3ff 0%, #faf5ff 100%)' : 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.08) 100%)'),
+                    border: isMorning
+                      ? (isLight ? '1.5px solid #a7f3d0' : '1.5px solid rgba(16, 185, 129, 0.35)')
+                      : (isLight ? '1.5px solid #ddd6fe' : '1.5px solid rgba(139, 92, 246, 0.35)'),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontSize: '1.6rem' }}>{isMorning ? '☀️' : '🌙'}</span>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.95rem', color: isMorning ? '#059669' : '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>{isMorning ? 'Morning Shift Priority (Arrival Mode)' : 'Evening Shift Priority (Departure Mode)'}</span>
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
+                            padding: '2px 8px',
+                            borderRadius: '99px',
+                            background: isMorning ? '#10b981' : '#8b5cf6',
+                            color: 'white',
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {isMorning ? `${pendingArrivals} Arriving` : `${pendingExits} on Duty (Exit Ready)`}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px' }}>
+                        {isMorning
+                          ? 'Staff arriving now (7 AM – 1 PM) with pending Check-In are auto-prioritized at the top.'
+                          : 'Staff on duty finishing shift (4 PM – 10 PM) ready for Check-Out are auto-prioritized at the top.'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <span
+                      style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        color: 'var(--text-muted)',
+                        background: isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.06)',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      <span>⏱️ IST</span>
+                      <strong style={{ color: 'var(--text-main)' }}>
+                        {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                      </strong>
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Employee Cards Grid (1-Tap to Identify) */}
             {loading ? (
               <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -1312,6 +1390,49 @@ export default function KioskPage() {
                               ? (emp.punchOutMode === 'SECURITY' || emp.punchOutMode === 'KIOSK' ? '🛡️ Out (Security)' : '🔴 Completed')
                               : '⚪ Ready'}
                           </span>
+
+                          {/* Shift Action Due Badge */}
+                          {(() => {
+                            const istH = parseInt(currentTime.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }), 10);
+                            const isM = istH >= 5 && istH < 14;
+                            if (isM && !emp.checkedIn && !emp.isOff && emp.morningTime !== 'OFF') {
+                              return (
+                                <span
+                                  style={{
+                                    fontSize: '0.67rem',
+                                    fontWeight: 800,
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    background: 'rgba(16, 185, 129, 0.16)',
+                                    color: '#059669',
+                                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  ⚡ Check-In Due
+                                </span>
+                              );
+                            }
+                            if (!isM && onShift) {
+                              return (
+                                <span
+                                  style={{
+                                    fontSize: '0.67rem',
+                                    fontWeight: 800,
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    background: 'rgba(139, 92, 246, 0.16)',
+                                    color: '#7c3aed',
+                                    border: '1px solid rgba(139, 92, 246, 0.35)',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  🚪 Check-Out Due
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
 
                         {/* Shift Swapped Notice Badge */}
