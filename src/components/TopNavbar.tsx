@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { useTheme } from '@/components/ThemeProvider';
@@ -14,6 +14,80 @@ export default function TopNavbar() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [deployState, setDeployState] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle');
   const [deployMsg, setDeployMsg] = useState('');
+
+  // Delhi Weather + Time Widget State
+  const [delhiTime, setDelhiTime] = useState('');
+  const [weather, setWeather] = useState<{ temp: number; code: number; desc: string } | null>(null);
+  const [weatherError, setWeatherError] = useState(false);
+
+  const getWeatherIcon = (code: number): string => {
+    if (code === 0) return '☀️';
+    if (code <= 2) return '⛅';
+    if (code === 3) return '☁️';
+    if (code <= 49) return '🌫️';
+    if (code <= 59) return '🌦️';
+    if (code <= 69) return '🌧️';
+    if (code <= 79) return '❄️';
+    if (code <= 84) return '🌧️';
+    if (code <= 94) return '⛈️';
+    return '🌩️';
+  };
+
+  const getWeatherDesc = (code: number): string => {
+    if (code === 0) return 'Clear';
+    if (code <= 2) return 'Partly Cloudy';
+    if (code === 3) return 'Overcast';
+    if (code <= 49) return 'Foggy';
+    if (code <= 59) return 'Drizzle';
+    if (code <= 69) return 'Rain';
+    if (code <= 79) return 'Snow';
+    if (code <= 84) return 'Showers';
+    if (code <= 94) return 'Thunderstorm';
+    return 'Lightning';
+  };
+
+  const fetchWeather = useCallback(async () => {
+    try {
+      const res = await fetch(
+        'https://api.open-meteo.com/v1/forecast?latitude=28.6139&longitude=77.2090&current_weather=true&timezone=Asia%2FKolkata'
+      );
+      const data = await res.json();
+      const cw = data.current_weather;
+      setWeather({
+        temp: Math.round(cw.temperature),
+        code: cw.weathercode,
+        desc: getWeatherDesc(cw.weathercode),
+      });
+      setWeatherError(false);
+    } catch {
+      setWeatherError(true);
+    }
+  }, []);
+
+  // Update Delhi time every second
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      const ist = now.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+      setDelhiTime(ist);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Fetch weather on mount, refresh every 10 minutes
+  useEffect(() => {
+    fetchWeather();
+    const id = setInterval(fetchWeather, 10 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [fetchWeather]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -182,6 +256,81 @@ export default function TopNavbar() {
           </div>
         </div>
 
+      </div>
+
+      {/* Center: Delhi Weather + Time Widget */}
+      <div
+        className="hide-on-mobile"
+        title="New Delhi — Weather & Local Time (IST)"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.6rem',
+          padding: '0.38rem 0.9rem',
+          borderRadius: '10px',
+          border: isLight ? '1px solid #e2e8f0' : '1px solid #1e3a5f',
+          background: isLight
+            ? 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)'
+            : 'linear-gradient(135deg, rgba(30,58,138,0.35) 0%, rgba(6,78,59,0.25) 100%)',
+          boxShadow: isLight
+            ? '0 1px 4px rgba(59,130,246,0.10)'
+            : '0 1px 6px rgba(0,0,0,0.3)',
+          flexShrink: 0,
+          minWidth: 0,
+          cursor: 'default',
+          userSelect: 'none',
+        }}
+      >
+        {/* Weather Block */}
+        {!weatherError && weather ? (
+          <>
+            <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>{getWeatherIcon(weather.code)}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+              <span style={{
+                fontSize: '0.8rem',
+                fontWeight: 800,
+                color: isLight ? '#1d4ed8' : '#93c5fd',
+                letterSpacing: '-0.01em',
+              }}>
+                {weather.temp}°C
+              </span>
+              <span style={{
+                fontSize: '0.58rem',
+                fontWeight: 600,
+                color: isLight ? '#475569' : '#94a3b8',
+                textTransform: 'uppercase',
+                letterSpacing: '0.03em',
+              }}>
+                {weather.desc}
+              </span>
+            </div>
+            <div style={{ width: '1px', height: '22px', background: isLight ? '#cbd5e1' : '#334155' }} />
+          </>
+        ) : (
+          <span style={{ fontSize: '0.7rem', color: isLight ? '#94a3b8' : '#64748b', padding: '0 0.2rem' }}>🌡️ N/A</span>
+        )}
+
+        {/* Location + Time Block */}
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+          <span style={{
+            fontSize: '0.62rem',
+            fontWeight: 800,
+            color: isLight ? '#059669' : '#34d399',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>
+            📍 New Delhi
+          </span>
+          <span style={{
+            fontSize: '0.8rem',
+            fontWeight: 900,
+            color: isLight ? '#0f172a' : '#f1f5f9',
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '-0.01em',
+          }}>
+            {delhiTime || '—'}
+          </span>
+        </div>
       </div>
 
       {/* Right side: Controls (Theme Toggle, Fullscreen, User, Logout) */}
